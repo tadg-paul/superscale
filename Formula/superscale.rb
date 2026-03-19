@@ -1,12 +1,13 @@
 class Superscale < Formula
   desc "AI image upscaling for Apple Silicon"
   homepage "https://github.com/tigger04/superscale"
-  url "https://github.com/tigger04/superscale/archive/refs/tags/v0.2.0.tar.gz"
-  sha256 "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5"
+  url "https://github.com/tigger04/superscale/archive/refs/tags/v0.2.1.tar.gz"
+  sha256 "733410f44c8ec284dbe9a5056cae4b72ea338e5ad4c38fca45035b3e6eaf6589"
   license "MIT"
 
   depends_on :macos
   depends_on arch: :arm64
+
 
   resource "RealESRGAN_x4plus" do
     url "https://github.com/tigger04/superscale/releases/download/models-v1/RealESRGAN_x4plus.mlpackage.zip"
@@ -70,7 +71,7 @@ class Superscale < Formula
   end
 
   test do
-    assert_match "0.2.0", shell_output("#{bin}/superscale --version")
+    assert_match "0.2.1", shell_output("#{bin}/superscale --version")
     assert_match "realesrgan-x4plus", shell_output("#{bin}/superscale --list-models")
   end
 end
