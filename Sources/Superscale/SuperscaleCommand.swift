@@ -187,12 +187,79 @@ struct Superscale: ParsableCommand {
             return
         }
 
-        // Download the CoreML model from our release
+        // Download the CoreML model zip from our release
         let downloadURL = FaceModelRegistry.downloadURL
         fputs("Downloading from \(downloadURL)...\n", stderr)
 
-        let data = try Data(contentsOf: downloadURL)
-        try data.write(to: destPath)
+        let tempZip = destDir.appendingPathComponent(
+            "\(FaceModelRegistry.modelFilename).zip")
+
+        // Clean up temp file on exit
+        defer { try? FileManager.default.removeItem(at: tempZip) }
+
+        // Use URLSession for proper HTTP error reporting
+        let semaphore = DispatchSemaphore(value: 0)
+        var downloadError: Error?
+        var httpStatusCode: Int?
+
+        let task = URLSession.shared.downloadTask(with: downloadURL) { url, response, error in
+            defer { semaphore.signal() }
+
+            if let error = error {
+                downloadError = error
+                return
+            }
+
+            if let httpResponse = response as? HTTPURLResponse {
+                httpStatusCode = httpResponse.statusCode
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    return
+                }
+            }
+
+            guard let tempURL = url else { return }
+
+            do {
+                try FileManager.default.moveItem(at: tempURL, to: tempZip)
+            } catch {
+                downloadError = error
+            }
+        }
+        task.resume()
+        semaphore.wait()
+
+        if let error = downloadError {
+            fputs("Download failed: \(error.localizedDescription)\n", stderr)
+            throw ExitCode.failure
+        }
+
+        if let status = httpStatusCode, !(200...299).contains(status) {
+            fputs("Download failed (HTTP \(status)). The model may not be available yet.\n", stderr)
+            throw ExitCode.failure
+        }
+
+        // Unzip the downloaded archive
+        fputs("Extracting model...\n", stderr)
+        let unzip = Process()
+        unzip.executableURL = URL(fileURLWithPath: "/usr/bin/unzip")
+        unzip.arguments = ["-o", "-q", tempZip.path, "-d", destDir.path]
+        unzip.standardOutput = FileHandle.nullDevice
+        unzip.standardError = FileHandle.nullDevice
+
+        try unzip.run()
+        unzip.waitUntilExit()
+
+        if unzip.terminationStatus != 0 {
+            // Clean up any partial extraction
+            try? FileManager.default.removeItem(at: destPath)
+            fputs("Download failed: could not extract model archive.\n", stderr)
+            throw ExitCode.failure
+        }
+
+        if !FileManager.default.fileExists(atPath: destPath.path) {
+            fputs("Download failed: extracted archive did not contain \(FaceModelRegistry.modelFilename).\n", stderr)
+            throw ExitCode.failure
+        }
 
         fputs("Face model installed at \(destPath.path)\n", stderr)
     }

@@ -116,6 +116,46 @@ final class FaceEnhancerTests: XCTestCase {
         }
     }
 
+    // RT-050: Download failure reports clear error message
+    func test_download_face_model_failure_reports_clear_error_RT050() throws {
+        // Skip if face model already installed — can't test download path
+        try XCTSkipIf(FaceModelRegistry.isInstalled,
+                      "GFPGAN model already installed")
+
+        let result = try runCLI([
+            "--download-face-model",
+            "--accept-licence"
+        ])
+
+        // Should fail (model not uploaded yet) but with a clear message
+        XCTAssertNotEqual(result.exitCode, 0,
+                          "Download should fail when model is not available")
+        XCTAssertTrue(result.stderr.contains("Download failed"),
+                      "Should report 'Download failed' — stderr: \(result.stderr)")
+        XCTAssertFalse(result.stderr.contains("couldn't be opened"),
+                       "Should not show cryptic Foundation error — stderr: \(result.stderr)")
+    }
+
+    // RT-051: Failed download leaves no partial files behind
+    func test_download_face_model_failure_leaves_no_partial_files_RT051() throws {
+        try XCTSkipIf(FaceModelRegistry.isInstalled,
+                      "GFPGAN model already installed")
+
+        _ = try runCLI([
+            "--download-face-model",
+            "--accept-licence"
+        ])
+
+        // After a failed download, no .zip or .mlpackage should be left
+        let destDir = ModelRegistry.userModelsDirectory
+        if FileManager.default.fileExists(atPath: destDir.path) {
+            let contents = try FileManager.default.contentsOfDirectory(atPath: destDir.path)
+            let gfpganFiles = contents.filter { $0.lowercased().contains("gfpgan") }
+            XCTAssertTrue(gfpganFiles.isEmpty,
+                          "No partial GFPGAN files should remain after failed download: \(gfpganFiles)")
+        }
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {
