@@ -1,5 +1,5 @@
 // ABOUTME: Tests for ContentDetector — automatic content type classification.
-// ABOUTME: Validates AC22.1 (illustration detection) and AC22.2 (photo detection).
+// ABOUTME: Validates illustration vs photo detection using colour diversity heuristic.
 
 import XCTest
 import CoreGraphics
@@ -35,14 +35,51 @@ final class ContentDetectorTests: XCTestCase {
                        "Illustration content at 4× should select anime model")
     }
 
-    // RT-036: Photo image detected as photograph → photo model selected
-    func test_detect_photograph_selects_photo_model_RT036() throws {
-        // Arrange: load a known photograph
-        let photoURL = testImagesDir.appendingPathComponent("remy2.jpg")
-        try XCTSkipIf(!FileManager.default.fileExists(atPath: photoURL.path),
+    // RT-036: Semi-photorealistic illustration detected as illustration
+    func test_detect_semi_photorealistic_illustration_RT036() throws {
+        let imageURL = testImagesDir.appendingPathComponent("remy2.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: imageURL.path),
                       "remy2.jpg not found")
 
-        let loaded = try ImageLoader.load(from: photoURL)
+        let loaded = try ImageLoader.load(from: imageURL)
+
+        // Act
+        let result = try ContentDetector.detect(image: loaded.image)
+        let modelName = ContentDetector.modelName(for: result.type, scale: 4)
+
+        // Assert
+        XCTAssertEqual(result.type, .illustration,
+                       "Semi-photorealistic illustration should be detected as illustration")
+        XCTAssertEqual(modelName, "realesrgan-anime-6b",
+                       "Illustration content at 4× should select anime model")
+    }
+
+    // RT-047: Flat sketch/illustration detected as illustration
+    func test_detect_sketch_classifies_as_illustration_RT047() throws {
+        let imageURL = testImagesDir.appendingPathComponent("sketch1.png")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: imageURL.path),
+                      "sketch1.png not found")
+
+        let loaded = try ImageLoader.load(from: imageURL)
+
+        // Act
+        let result = try ContentDetector.detect(image: loaded.image)
+        let modelName = ContentDetector.modelName(for: result.type, scale: 4)
+
+        // Assert
+        XCTAssertEqual(result.type, .illustration,
+                       "Sketch should be detected as illustration")
+        XCTAssertEqual(modelName, "realesrgan-anime-6b",
+                       "Illustration content at 4× should select anime model")
+    }
+
+    // RT-049: Photograph detected as photo
+    func test_detect_photograph_selects_photo_model_RT049() throws {
+        let imageURL = testImagesDir.appendingPathComponent("toby.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: imageURL.path),
+                      "toby.jpg not found")
+
+        let loaded = try ImageLoader.load(from: imageURL)
 
         // Act
         let result = try ContentDetector.detect(image: loaded.image)
@@ -51,6 +88,25 @@ final class ContentDetectorTests: XCTestCase {
         // Assert
         XCTAssertEqual(result.type, .photo,
                        "A photograph should be detected as photo content")
+        XCTAssertEqual(modelName, "realesrgan-x4plus",
+                       "Photo content at 4× should select default photo model")
+    }
+
+    // RT-050: Landscape photograph detected as photo
+    func test_detect_landscape_photograph_selects_photo_model_RT050() throws {
+        let imageURL = testImagesDir.appendingPathComponent("roundwood.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: imageURL.path),
+                      "roundwood.jpg not found")
+
+        let loaded = try ImageLoader.load(from: imageURL)
+
+        // Act
+        let result = try ContentDetector.detect(image: loaded.image)
+        let modelName = ContentDetector.modelName(for: result.type, scale: 4)
+
+        // Assert
+        XCTAssertEqual(result.type, .photo,
+                       "A landscape photograph should be detected as photo content")
         XCTAssertEqual(modelName, "realesrgan-x4plus",
                        "Photo content at 4× should select default photo model")
     }

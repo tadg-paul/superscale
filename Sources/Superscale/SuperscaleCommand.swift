@@ -30,10 +30,10 @@ struct Superscale: ParsableCommand {
     @Flag(name: .long, help: "List available models.")
     var listModels: Bool = false
 
-    @Flag(name: .long, help: "Skip face enhancement even when the face model is installed.")
+    @Flag(name: .long, help: "Skip face enhancement even when the face model is installed (see --download-face-model).")
     var noFaceEnhance: Bool = false
 
-    @Flag(name: .long, help: "Download the GFPGAN face enhancement model.")
+    @Flag(name: .long, help: "Download the GFPGAN face enhancement model. Once installed, runs automatically on every upscale.")
     var downloadFaceModel: Bool = false
 
     @Flag(name: .long, help: "Accept the GFPGAN licence (non-commercial use only).")
