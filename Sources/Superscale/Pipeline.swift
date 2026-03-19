@@ -13,6 +13,7 @@ class Pipeline {
     let modelInfo: ModelInfo
     let tileSize: Int
     let overlap: Int
+    let faceEnhance: Bool
     let inference: CoreMLInference
 
     /// Callback for progress reporting. Called with human-readable messages.
@@ -24,7 +25,9 @@ class Pipeline {
     ///   - modelName: CLI model name (e.g. "realesrgan-x4plus").
     ///   - tileSize: Override tile size. Pass nil to use the model's default.
     ///   - overlap: Tile overlap in pixels.
-    init(modelName: String, tileSize: Int? = nil, overlap: Int = 16) throws {
+    ///   - faceEnhance: Whether to run face enhancement (requires GFPGAN model).
+    init(modelName: String, tileSize: Int? = nil, overlap: Int = 16,
+         faceEnhance: Bool = true) throws {
         guard let info = ModelRegistry.model(named: modelName) else {
             throw SuperscaleError.modelNotFound(modelName)
         }
@@ -36,6 +39,7 @@ class Pipeline {
         self.modelInfo = info
         self.tileSize = tileSize ?? info.tileSize
         self.overlap = overlap
+        self.faceEnhance = faceEnhance
         self.inference = try CoreMLInference(modelURL: modelURL)
     }
 
@@ -91,7 +95,17 @@ class Pipeline {
             overlap: scaledOverlap
         )
 
-        // 5. Handle alpha channel
+        // 5. Face enhancement (when enabled and model is present)
+        if faceEnhance && FaceModelRegistry.isInstalled {
+            let faces = try FaceDetector.detect(in: stitched)
+            if !faces.isEmpty {
+                report("Enhancing \(faces.count) face\(faces.count == 1 ? "" : "s")...")
+                let enhancer = try FaceEnhancer()
+                stitched = try enhancer.enhance(image: stitched, faceRects: faces)
+            }
+        }
+
+        // 6. Handle alpha channel
         if let alphaChannel = loaded.alphaChannel {
             report("Upscaling alpha channel...")
             let upscaledAlpha = try upscaleAlpha(
@@ -99,7 +113,7 @@ class Pipeline {
             stitched = try ImageLoader.recombineAlpha(rgb: stitched, alpha: upscaledAlpha)
         }
 
-        // 6. Write output
+        // 7. Write output
         let format = OutputFormat.from(extension: output.pathExtension) ?? .png
         report("Writing \(output.lastPathComponent)...")
         try ImageWriter.write(stitched, to: output, format: format,

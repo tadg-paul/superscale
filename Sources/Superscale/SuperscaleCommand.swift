@@ -105,7 +105,8 @@ struct Superscale: ParsableCommand {
 
         // Create pipeline
         let pipeline = try Pipeline(
-            modelName: resolvedModelName, tileSize: tileSize)
+            modelName: resolvedModelName, tileSize: tileSize,
+            faceEnhance: useFaceEnhance)
         pipeline.onProgress = { message in
             fputs("\(message)\n", stderr)
         }

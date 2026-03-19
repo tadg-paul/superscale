@@ -156,6 +156,85 @@ final class FaceEnhancerTests: XCTestCase {
         }
     }
 
+    // RT-052: Face enhancement modifies face regions when model is present
+    func test_face_enhancement_modifies_face_regions_RT052() throws {
+        try XCTSkipIf(!FaceModelRegistry.isInstalled,
+                      "GFPGAN model not installed — cannot test face enhancement")
+
+        let photoURL = testImagesDir.appendingPathComponent("remy2.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: photoURL.path),
+                      "remy2.jpg not found")
+
+        let loaded = try ImageLoader.load(from: photoURL)
+
+        // Detect faces in the original image
+        let faces = try FaceDetector.detect(in: loaded.image)
+        try XCTSkipIf(faces.isEmpty, "No faces detected in remy2.jpg")
+
+        // Run face enhancement
+        let enhancer = try FaceEnhancer()
+        let enhanced = try enhancer.enhance(
+            image: loaded.image, faceRects: faces)
+
+        // The enhanced image should have the same dimensions
+        XCTAssertEqual(enhanced.width, loaded.image.width,
+                       "Enhanced image width should match input")
+        XCTAssertEqual(enhanced.height, loaded.image.height,
+                       "Enhanced image height should match input")
+
+        // Extract pixels from the face region in both images — they should differ
+        let faceRect = FaceDetector.expandRect(
+            faces[0], by: 1.5,
+            imageWidth: loaded.image.width,
+            imageHeight: loaded.image.height)
+
+        let originalPixels = extractPixels(from: loaded.image, in: faceRect)
+        let enhancedPixels = extractPixels(from: enhanced, in: faceRect)
+
+        // At least some pixels should differ (face was enhanced)
+        var diffCount = 0
+        let pixelCount = min(originalPixels.count, enhancedPixels.count)
+        for i in 0..<pixelCount {
+            if originalPixels[i] != enhancedPixels[i] {
+                diffCount += 1
+            }
+        }
+
+        XCTAssertGreaterThan(diffCount, pixelCount / 10,
+                             "Face region should be visibly modified by enhancement " +
+                             "(only \(diffCount)/\(pixelCount) pixels differ)")
+    }
+
+    /// Extract raw pixel bytes from a region of an image.
+    private func extractPixels(from image: CGImage, in rect: CGRect) -> [UInt8] {
+        let x = Int(rect.origin.x)
+        let y = Int(rect.origin.y)
+        let w = min(Int(rect.width), image.width - x)
+        let h = min(Int(rect.height), image.height - y)
+
+        guard w > 0, h > 0,
+              let cropped = image.cropping(to: CGRect(x: x, y: y, width: w, height: h)) else {
+            return []
+        }
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bytesPerRow = w * 4
+        var data = [UInt8](repeating: 0, count: h * bytesPerRow)
+
+        guard let ctx = CGContext(
+            data: &data,
+            width: w, height: h,
+            bitsPerComponent: 8, bytesPerRow: bytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return []
+        }
+        ctx.draw(cropped, in: CGRect(x: 0, y: 0, width: w, height: h))
+
+        return data
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {

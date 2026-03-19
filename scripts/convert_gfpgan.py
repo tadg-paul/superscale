@@ -19,6 +19,13 @@ import logging
 import sys
 from pathlib import Path
 
+# Compatibility shim: basicsr imports torchvision.transforms.functional_tensor
+# which was removed in torchvision 0.18. Alias it to the current module.
+import torchvision.transforms.functional
+sys.modules["torchvision.transforms.functional_tensor"] = (
+    torchvision.transforms.functional
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
@@ -83,8 +90,9 @@ class GFPGANWrapper:
                 self.gfpgan = gfpgan
 
             def forward(self, x):
-                # Run GFPGAN inference
-                output = self.gfpgan(x, return_rgb=False)
+                # Run GFPGAN inference with fixed noise (randomize_noise=False
+                # uses pre-registered buffers; CoreML cannot convert normal_())
+                output = self.gfpgan(x, return_rgb=False, randomize_noise=False)
                 # output is a tuple; take the first element (the enhanced face)
                 if isinstance(output, (tuple, list)):
                     output = output[0]
