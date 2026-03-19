@@ -22,13 +22,13 @@ final class ImageIOTests: XCTestCase {
     // RT-012: ImageLoader reads PNG and JPEG with correct dimensions
     func test_image_loader_reads_formats_with_correct_dimensions_RT012() throws {
         // PNG
-        let pngURL = testImagesDir.appendingPathComponent("remy.png")
+        let pngURL = testImagesDir.appendingPathComponent("sketch1.png")
         try XCTSkipIf(!FileManager.default.fileExists(atPath: pngURL.path),
-                      "Test image remy.png not found")
+                      "Test image sketch1.png not found")
 
         let pngResult = try ImageLoader.load(from: pngURL)
-        XCTAssertEqual(pngResult.image.width, 1024, "PNG width")
-        XCTAssertEqual(pngResult.image.height, 1024, "PNG height")
+        XCTAssertEqual(pngResult.image.width, 4085, "PNG width")
+        XCTAssertEqual(pngResult.image.height, 4085, "PNG height")
 
         // JPEG
         let jpgURL = testImagesDir.appendingPathComponent("remy2.jpg")
@@ -42,9 +42,9 @@ final class ImageIOTests: XCTestCase {
 
     // RT-013: ImageWriter preserves colour profile from input
     func test_image_writer_preserves_colour_profile_RT013() throws {
-        let pngURL = testImagesDir.appendingPathComponent("remy.png")
+        let pngURL = testImagesDir.appendingPathComponent("sketch1.png")
         try XCTSkipIf(!FileManager.default.fileExists(atPath: pngURL.path),
-                      "Test image remy.png not found")
+                      "Test image sketch1.png not found")
 
         let loaded = try ImageLoader.load(from: pngURL)
 

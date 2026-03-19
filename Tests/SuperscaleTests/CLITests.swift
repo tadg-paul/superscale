@@ -40,9 +40,9 @@ final class CLITests: XCTestCase {
         try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
                       "x2plus model not found")
 
-        let input1 = testImagesDir.appendingPathComponent("remy.png")
+        let input1 = testImagesDir.appendingPathComponent("toby.jpg")
         let input2 = testImagesDir.appendingPathComponent("remy2.jpg")
-        try XCTSkipIf(!FileManager.default.fileExists(atPath: input1.path), "remy.png not found")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: input1.path), "toby.jpg not found")
         try XCTSkipIf(!FileManager.default.fileExists(atPath: input2.path), "remy2.jpg not found")
 
         let outputDir = FileManager.default.temporaryDirectory
@@ -57,7 +57,7 @@ final class CLITests: XCTestCase {
 
         XCTAssertEqual(result.exitCode, 0, "Batch processing should succeed. stderr: \(result.stderr)")
 
-        let output1 = outputDir.appendingPathComponent("remy_2x.png")
+        let output1 = outputDir.appendingPathComponent("toby_2x.jpg")
         let output2 = outputDir.appendingPathComponent("remy2_2x.jpg")
         XCTAssertTrue(FileManager.default.fileExists(atPath: output1.path),
                       "First output file should exist at \(output1.path)")
