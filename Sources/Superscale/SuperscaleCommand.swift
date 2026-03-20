@@ -147,8 +147,10 @@ struct Superscale: ParsableCommand {
         GFPGAN Face Enhancement Model — Licence Notice
 
         The GFPGAN model contains components with non-commercial licences:
-          - StyleGAN2 (NVIDIA): non-commercial use only
-          - DFDNet: CC BY-NC-SA 4.0 (non-commercial, share-alike)
+          - StyleGAN2 (NVIDIA Source Code Licence — non-commercial use only)
+            https://github.com/NVlabs/stylegan2/blob/master/LICENSE.txt
+          - DFDNet (CC BY-NC-SA 4.0 — non-commercial, share-alike)
+            https://creativecommons.org/licenses/by-nc-sa/4.0/
 
         By downloading this model, you acknowledge that it may only be used
         for non-commercial purposes.
