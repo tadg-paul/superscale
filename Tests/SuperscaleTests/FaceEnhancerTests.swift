@@ -116,35 +116,32 @@ final class FaceEnhancerTests: XCTestCase {
         }
     }
 
-    // RT-050: Download failure reports clear error message
+    // RT-050: Non-TTY download attempt reports clear error message
     func test_download_face_model_failure_reports_clear_error_RT050() throws {
-        // Skip if face model already installed — can't test download path
-        try XCTSkipIf(FaceModelRegistry.isInstalled,
-                      "GFPGAN model already installed")
+        // Arrange: redirect stdin from /dev/null to simulate non-TTY
+        let result = try runCLI(
+            ["--download-face-model"],
+            stdin: FileHandle.nullDevice
+        )
 
-        let result = try runCLI([
-            "--download-face-model",
-            "--accept-licence"
-        ])
-
-        // Should fail (model not uploaded yet) but with a clear message
+        // Assert: non-zero exit with clear, actionable error
         XCTAssertNotEqual(result.exitCode, 0,
-                          "Download should fail when model is not available")
-        XCTAssertTrue(result.stderr.contains("Download failed"),
-                      "Should report 'Download failed' — stderr: \(result.stderr)")
+                          "Non-TTY --download-face-model should fail")
+        XCTAssertTrue(result.stderr.contains("interactive terminal"),
+                      "Should mention interactive terminal — stderr: \(result.stderr)")
         XCTAssertFalse(result.stderr.contains("couldn't be opened"),
                        "Should not show cryptic Foundation error — stderr: \(result.stderr)")
     }
 
-    // RT-051: Failed download leaves no partial files behind
+    // RT-051: Non-TTY download attempt leaves no partial files behind
     func test_download_face_model_failure_leaves_no_partial_files_RT051() throws {
         try XCTSkipIf(FaceModelRegistry.isInstalled,
-                      "GFPGAN model already installed")
+                      "GFPGAN model already installed — cannot test partial file cleanup")
 
-        _ = try runCLI([
-            "--download-face-model",
-            "--accept-licence"
-        ])
+        _ = try runCLI(
+            ["--download-face-model"],
+            stdin: FileHandle.nullDevice
+        )
 
         // After a failed download, no .zip or .mlpackage should be left
         let destDir = ModelRegistry.userModelsDirectory
@@ -235,6 +232,35 @@ final class FaceEnhancerTests: XCTestCase {
         return data
     }
 
+    // RT-053: Non-TTY invocation of --download-face-model fails with interactive terminal error
+    func test_download_face_model_non_tty_fails_with_terminal_error_RT053() throws {
+        // Arrange: redirect stdin from /dev/null to simulate non-TTY
+        let result = try runCLI(
+            ["--download-face-model"],
+            stdin: FileHandle.nullDevice
+        )
+
+        // Assert: non-zero exit and clear error about interactive terminal
+        XCTAssertNotEqual(result.exitCode, 0,
+                          "Non-TTY --download-face-model should fail")
+        XCTAssertTrue(result.stderr.contains("interactive terminal"),
+                      "Error should mention interactive terminal — stderr: \(result.stderr)")
+    }
+
+    // RT-054: --accept-licence flag is removed (unknown flag error)
+    func test_accept_licence_flag_removed_RT054() throws {
+        let result = try runCLI(["--accept-licence"])
+
+        // Assert: ArgumentParser rejects unknown flag
+        XCTAssertNotEqual(result.exitCode, 0,
+                          "--accept-licence should be rejected as unknown flag")
+        // ArgumentParser reports unknown options in stderr
+        let combined = result.stderr + result.stdout
+        XCTAssertTrue(combined.lowercased().contains("unknown option") ||
+                      combined.lowercased().contains("unexpected argument"),
+                      "--accept-licence should be reported as unknown — output: \(combined)")
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {
@@ -243,7 +269,10 @@ final class FaceEnhancerTests: XCTestCase {
         let stderr: String
     }
 
-    func runCLI(_ arguments: [String]) throws -> CLIResult {
+    func runCLI(
+        _ arguments: [String],
+        stdin: FileHandle? = nil
+    ) throws -> CLIResult {
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -255,6 +284,9 @@ final class FaceEnhancerTests: XCTestCase {
         process.arguments = arguments
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
+        if let stdin = stdin {
+            process.standardInput = stdin
+        }
 
         try process.run()
         process.waitUntilExit()

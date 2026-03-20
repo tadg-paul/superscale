@@ -36,9 +36,6 @@ struct Superscale: ParsableCommand {
     @Flag(name: .long, help: "Download the GFPGAN face enhancement model. Once installed, runs automatically on every upscale.")
     var downloadFaceModel: Bool = false
 
-    @Flag(name: .long, help: "Accept the GFPGAN licence (non-commercial use only).")
-    var acceptLicence: Bool = false
-
     mutating func run() throws {
         if downloadFaceModel {
             try handleDownloadFaceModel()
@@ -157,21 +154,19 @@ struct Superscale: ParsableCommand {
         for non-commercial purposes.
         """
 
-        if !acceptLicence {
-            // Check if we have a terminal for interactive prompt
-            if isatty(fileno(stdin)) != 0 {
-                fputs("\(licenceNotice)\n", stderr)
-                fputs("Do you accept these terms? [y/N] ", stderr)
-                guard let response = readLine(),
-                      response.lowercased().hasPrefix("y") else {
-                    fputs("Download cancelled.\n", stderr)
-                    throw ExitCode.failure
-                }
-            } else {
-                fputs("Error: Licence acceptance required.\n", stderr)
-                fputs("Run with --accept-licence to accept non-commercial terms.\n", stderr)
-                throw ExitCode.failure
-            }
+        // Licence acceptance requires an interactive terminal
+        guard isatty(fileno(stdin)) != 0 else {
+            fputs("Error: --download-face-model requires an interactive terminal.\n", stderr)
+            fputs("Run this command in a terminal to view and accept the licence terms.\n", stderr)
+            throw ExitCode.failure
+        }
+
+        fputs("\(licenceNotice)\n", stderr)
+        fputs("Do you accept these terms? [y/N] ", stderr)
+        guard let response = readLine(),
+              response.lowercased().hasPrefix("y") else {
+            fputs("Download cancelled.\n", stderr)
+            throw ExitCode.failure
         }
 
         fputs("Downloading GFPGAN model...\n", stderr)
