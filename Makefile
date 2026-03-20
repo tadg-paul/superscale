@@ -83,6 +83,8 @@ convert-models: ## Convert PyTorch models to CoreML (requires Python venv)
 release: ## Tag a release and update Homebrew formula (usage: make release [VERSION=x.y.z])
 ifndef SKIP_TESTS
 	@$(MAKE) test
+else
+	@echo "SKIP_TESTS=1: skipping regression tests (caller asserts they already pass)"
 endif
 	@./scripts/release.sh $(RELEASE_VERSION)
 
