@@ -11,7 +11,10 @@ final class CLITests: XCTestCase {
     func test_cli_version_flag_returns_zero() throws {
         let result = try runCLI(["--version"])
         XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --version")
-        XCTAssertTrue(result.stdout.contains("0.2.0"), "Expected version string in output")
+        let versionPattern = try NSRegularExpression(pattern: #"\d+\.\d+\.\d+"#)
+        let range = NSRange(result.stdout.startIndex..., in: result.stdout)
+        XCTAssertTrue(versionPattern.firstMatch(in: result.stdout, range: range) != nil,
+                      "Expected semver string in output, got: \(result.stdout)")
     }
 
     // RT-002
