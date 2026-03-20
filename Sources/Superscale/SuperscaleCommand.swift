@@ -146,13 +146,21 @@ struct Superscale: ParsableCommand {
         let licenceNotice = """
         GFPGAN Face Enhancement Model — Licence Notice
 
-        The GFPGAN model contains components with non-commercial licences:
+        This downloads CoreML-converted weights derived from GFPGAN, for use
+        on Apple Silicon. The weights contain components with non-commercial
+        licences:
+
           - StyleGAN2 (NVIDIA Source Code Licence — non-commercial use only)
             https://github.com/NVlabs/stylegan2/blob/master/LICENSE.txt
+
           - DFDNet (CC BY-NC-SA 4.0 — non-commercial, share-alike)
             https://creativecommons.org/licenses/by-nc-sa/4.0/
 
-        By downloading this model, you accept the terms of both licences above.
+        By downloading, you confirm that:
+          - You will use this model for non-commercial purposes only
+          - Any redistribution of these weights must carry the same licence terms
+
+        Full licence details: docs/model-licensing.md
         """
 
         // Licence acceptance requires an interactive terminal
