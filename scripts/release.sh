@@ -215,7 +215,7 @@ ${RESOURCE_BLOCKS}
 ${INSTALL_NAMES}
     ].each do |model|
       resource(model).stage do
-        (prefix/"models").install "#{model}.mlpackage"
+        (prefix/"models"/"#{model}.mlpackage").install Dir["*"]
       end
     end
   end
