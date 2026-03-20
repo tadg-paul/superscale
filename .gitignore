@@ -10,3 +10,4 @@ DerivedData/
 *.pth
 checkpoints/
 .env
+Tests/visual_output/

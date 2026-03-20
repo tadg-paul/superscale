@@ -96,9 +96,11 @@ class GFPGANWrapper:
                 # output is a tuple; take the first element (the enhanced face)
                 if isinstance(output, (tuple, list)):
                     output = output[0]
-                # Post-process: [-1, 1] → [0, 1]
+                # Post-process: [-1, 1] → [0, 255] (matching Real-ESRGAN pattern)
+                # CoreML ImageType with scale=1.0 expects pixel-range values.
                 output = (output + 1.0) / 2.0
                 output = output.clamp(0.0, 1.0)
+                output = output * 255.0
                 return output
 
         return TraceableGFPGAN(model)
@@ -141,7 +143,7 @@ def convert(input_path: str, output_dir: str) -> Path:
                 bias=[-1.0, -1.0, -1.0],
             )
         ],
-        outputs=[ct.ImageType(name="output")],
+        outputs=[ct.ImageType(name="output", scale=1.0)],
         minimum_deployment_target=ct.target.macOS14,
     )
 

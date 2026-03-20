@@ -261,6 +261,139 @@ final class FaceEnhancerTests: XCTestCase {
                       "--accept-licence should be reported as unknown — output: \(combined)")
     }
 
+    // RT-055: GFPGAN inference output has non-trivial brightness (not all black)
+    func test_gfpgan_inference_output_not_black_RT055() throws {
+        try XCTSkipIf(!FaceModelRegistry.isInstalled,
+                      "GFPGAN model not installed — cannot test GFPGAN output")
+
+        guard let modelURL = FaceModelRegistry.modelURL else {
+            XCTFail("FaceModelRegistry.modelURL returned nil despite isInstalled=true")
+            return
+        }
+
+        // Load test face image and resize to 512×512 (GFPGAN's expected input)
+        let photoURL = testImagesDir.appendingPathComponent("vance-wilson.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: photoURL.path),
+                      "vance-wilson.jpg not found")
+
+        let loaded = try ImageLoader.load(from: photoURL)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let resizeCtx = CGContext(
+            data: nil, width: 512, height: 512,
+            bitsPerComponent: 8, bytesPerRow: 512 * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else {
+            XCTFail("Cannot create resize context")
+            return
+        }
+        resizeCtx.interpolationQuality = .high
+        resizeCtx.draw(loaded.image, in: CGRect(x: 0, y: 0, width: 512, height: 512))
+        guard let faceInput = resizeCtx.makeImage() else {
+            XCTFail("Cannot make resized image")
+            return
+        }
+
+        // Run GFPGAN inference directly via CoreMLInference (same path as production)
+        let inference = try CoreMLInference(modelURL: modelURL)
+        let enhanced = try inference.upscale(faceInput)
+
+        XCTAssertEqual(enhanced.width, 512, "GFPGAN output should be 512×512")
+        XCTAssertEqual(enhanced.height, 512, "GFPGAN output should be 512×512")
+
+        // Extract pixels and check brightness
+        var pixels = [UInt8](repeating: 0, count: 512 * 512 * 4)
+        guard let outCtx = CGContext(
+            data: &pixels, width: 512, height: 512,
+            bitsPerComponent: 8, bytesPerRow: 512 * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else {
+            XCTFail("Cannot create output context")
+            return
+        }
+        outCtx.draw(enhanced, in: CGRect(x: 0, y: 0, width: 512, height: 512))
+
+        // Compute mean brightness of RGB channels
+        var sum: UInt64 = 0
+        var count: UInt64 = 0
+        var maxVal: UInt8 = 0
+        for i in stride(from: 0, to: pixels.count, by: 4) {
+            for c in 0..<3 {
+                let v = pixels[i + c]
+                sum += UInt64(v)
+                count += 1
+                if v > maxVal { maxVal = v }
+            }
+        }
+        let meanBrightness = count > 0 ? Double(sum) / Double(count) : 0
+
+        // A restored face should have reasonable brightness (> 20).
+        // The bug: GFPGAN outputs [0,1] floats truncated to UInt8 → mean ≈ 0.
+        XCTAssertGreaterThan(meanBrightness, 20.0,
+                             "GFPGAN output should not be black " +
+                             "(mean=\(String(format: "%.2f", meanBrightness)), max=\(maxVal)). " +
+                             "Model output likely needs [0,1]→[0,255] scaling.")
+    }
+
+    // RT-056: Non-face images upscale correctly with no black regions introduced
+    func test_non_face_images_no_black_regions_RT056() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x2plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x2plus model not found")
+
+        // Test with a landscape photo (no faces)
+        let inputURL = testImagesDir.appendingPathComponent("roundwood.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: inputURL.path),
+                      "roundwood.jpg not found")
+
+        let outputDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt056_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: outputDir) }
+
+        let outputURL = outputDir.appendingPathComponent("roundwood_2x.jpg")
+
+        // Run pipeline with face enhancement enabled
+        let pipeline = try Pipeline(modelName: "realesrgan-x2plus", faceEnhance: true)
+        try pipeline.process(input: inputURL, output: outputURL)
+
+        // Load output and verify dimensions
+        let output = try ImageLoader.load(from: outputURL)
+        let input = try ImageLoader.load(from: inputURL)
+        XCTAssertEqual(output.image.width, input.image.width * 2,
+                       "Output width should be 2× input")
+        XCTAssertEqual(output.image.height, input.image.height * 2,
+                       "Output height should be 2× input")
+
+        // Verify no large black regions exist in the output
+        let pixels = extractPixels(
+            from: output.image,
+            in: CGRect(x: 0, y: 0,
+                       width: output.image.width,
+                       height: output.image.height))
+
+        guard !pixels.isEmpty else {
+            XCTFail("Could not extract output pixels")
+            return
+        }
+
+        // Compute mean brightness
+        var sum: UInt64 = 0
+        var count: UInt64 = 0
+        for (i, pixel) in pixels.enumerated() {
+            if i % 4 != 3 {
+                sum += UInt64(pixel)
+                count += 1
+            }
+        }
+        let meanBrightness = count > 0 ? Double(sum) / Double(count) : 0
+
+        XCTAssertGreaterThan(meanBrightness, 20.0,
+                             "Upscaled landscape should not be dark " +
+                             "(mean brightness \(String(format: "%.1f", meanBrightness)))")
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {

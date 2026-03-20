@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug test test-one-off clean install uninstall release release-models sync convert-models download-models
+.PHONY: help build build-debug test test-one-off test-visual clean install uninstall release release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -34,6 +34,26 @@ ifdef ISSUE
 else
 	swift test --filter "OT"
 endif
+
+test-visual: build-debug ## Upscale test images for visual inspection (UT-002)
+	@if [ -d Tests/visual_output ] && ls Tests/visual_output/* >/dev/null 2>&1; then \
+		echo "Cleaning stale visual output..."; \
+		if command -v trash >/dev/null 2>&1; then \
+			trash Tests/visual_output/*; \
+		else \
+			rm -f -- Tests/visual_output/*; \
+		fi; \
+	fi
+	@mkdir -p Tests/visual_output
+	@for img in Tests/images/*; do \
+		base=$$(basename "$$img"); \
+		cp -- "$$img" Tests/visual_output/original_$$base; \
+		echo "Upscaling $$img..."; \
+		.build/debug/$(BINARY_NAME) "$$img" -o Tests/visual_output/; \
+	done
+	@echo ""
+	@echo "Visual output saved to Tests/visual_output/"
+	@echo "Inspect before/after images there."
 
 clean: ## Remove build artefacts
 	rm -rf .build
