@@ -75,13 +75,14 @@ brew install tigger04/tap/superscale
 
 ### From source
 
+Install/build from source requires Xcode Command Line Tools (`xcode-select --install`).
+
 ```bash
 git clone https://github.com/tigger04/superscale.git
 cd superscale
 make install
 ```
 
-Requires Xcode Command Line Tools (`xcode-select --install`).
 
 ## Requirements
 
