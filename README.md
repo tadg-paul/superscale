@@ -1,9 +1,12 @@
 # Superscale
 
-AI image upscaling that runs entirely on your Mac. No cloud. No API keys. No uploads. Your images stay on your machine.
+AI image upscaling that runs locally on your Mac.
 
-Superscale uses Apple's Neural Engine — dedicated ML hardware built into every M-series chip — to upscale images in seconds. The CPU and GPU stay free for other work.
+Superscale uses Apple's Neural Engine — dedicated ML hardware built into every M-series chip — to upscale images in seconds. CPU and GPU stay free for other work.
 
+Using it on my own projects, I have been personally blown away by the preformance of the M-series chips running these models - I'd love to hear how you find it!
+
+## Quickstart
 ```bash
 brew install tigger04/tap/superscale
 superscale photo.png
@@ -39,7 +42,7 @@ superscale --list-models
 
 ## Models
 
-Six models are included, each optimized for different content. Auto-detection picks the right one, or you can override with `-m`:
+Six models are installed with the main _Superscale_ package, each optimized for different content. Auto-detection is pretty good at picking the right one, but you can always override with `-m`:
 
 | CLI name (`-m`) | Scale | Best for |
 |-----------------|-------|----------|
@@ -52,13 +55,15 @@ Six models are included, each optimized for different content. Auto-detection pi
 
 ## Face enhancement (optional)
 
-Superscale can enhance faces in upscaled photos using GFPGAN. This model is not bundled due to its non-commercial licence — you download it separately:
+Superscale can enhance faces in upscaled photos using GFPGAN. This model is not bundled due to its non-commercial licence — but you download it with the subcommand:
 
 ```bash
-superscale --download-face-model --accept-licence
+superscale --download-face-model
 ```
 
 Once installed, face enhancement runs automatically on every upscale. Use `--no-face-enhance` to skip it.
+
+**Note**: The face model includes components under the [NVIDIA Source Code License](https://github.com/NVlabs/stylegan2/blob/master/LICENSE.txt) (non-commercial) and [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). You must download it interactively and accept the non-commercial terms first.
 
 ## Install
 
@@ -95,32 +100,6 @@ No other dependencies. Everything runs on built-in system frameworks.
 | [Implementation plan](docs/implementation-plan.md) | Phased delivery plan |
 | [Model licensing](docs/model-licensing.md) | Licence status of bundled model weights |
 
-## Project structure
-
-```
-superscale/
-├── Sources/Superscale/          # Swift source
-│   ├── SuperscaleCommand.swift  # CLI entry point (ArgumentParser)
-│   ├── Pipeline.swift           # End-to-end upscaling orchestration
-│   ├── CoreMLInference.swift    # CoreML model loading and inference
-│   ├── ContentDetector.swift    # Auto-detect content type (photo/illustration)
-│   ├── ModelRegistry.swift      # Model catalogue and path resolution
-│   ├── Tiler.swift              # Tile splitting, overlap blending, stitching
-│   ├── ImageLoader.swift        # Image reading (PNG, JPEG, TIFF, HEIC)
-│   └── ImageWriter.swift        # Image writing with colour profile preservation
-├── Tests/SuperscaleTests/       # XCTest suite
-├── models/                      # Model manifest (manifest.json tracked; .mlpackage gitignored)
-├── Formula/                     # Homebrew formula
-├── scripts/                     # Release and conversion tooling
-│   ├── convert_model.py         # PyTorch → CoreML conversion
-│   ├── download-models.sh       # Download missing models from GitHub release
-│   ├── release.sh               # Version bump, tag, GitHub release, tap update
-│   └── release-models.sh        # Upload model artefacts to GitHub release
-├── docs/                        # Project documentation
-├── Package.swift                # Swift package manifest
-├── Makefile                     # Build, test, install, release targets
-└── LICENSE                      # MIT licence
-```
 
 ## Makefile targets
 
