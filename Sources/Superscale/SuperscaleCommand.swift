@@ -152,8 +152,7 @@ struct Superscale: ParsableCommand {
           - DFDNet (CC BY-NC-SA 4.0 — non-commercial, share-alike)
             https://creativecommons.org/licenses/by-nc-sa/4.0/
 
-        By downloading this model, you acknowledge that it may only be used
-        for non-commercial purposes.
+        By downloading this model, you accept the terms of both licences above.
         """
 
         // Licence acceptance requires an interactive terminal
