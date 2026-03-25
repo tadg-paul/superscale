@@ -52,6 +52,19 @@ struct Superscale: ParsableCommand {
                     .padding(toLength: 38, withPad: " ", startingAt: 0)
                 print("  \(nameCol) \(descCol) [\(status)]")
             }
+            print("")
+            print("Face enhancement:")
+            let faceNameCol = "gfpgan-v1.4".padding(toLength: 24, withPad: " ", startingAt: 0)
+            if FaceModelRegistry.isInstalled {
+                let faceDescCol = "Face enhancement (optional)"
+                    .padding(toLength: 38, withPad: " ", startingAt: 0)
+                print("  \(faceNameCol) \(faceDescCol) [installed]")
+            } else {
+                let faceDescCol = "Face enhancement (optional)"
+                    .padding(toLength: 38, withPad: " ", startingAt: 0)
+                print("  \(faceNameCol) \(faceDescCol) [not installed]")
+                print("  Install with: superscale --download-face-model")
+            }
             return
         }
 

@@ -4,6 +4,7 @@
 import XCTest
 import CoreGraphics
 import ImageIO
+@testable import Superscale
 
 final class CLITests: XCTestCase {
 
@@ -200,6 +201,40 @@ final class CLITests: XCTestCase {
                       "Auto-detection should report 'Detected:' — stderr: \(result.stderr)")
         XCTAssertTrue(result.stderr.contains("realesrgan-"),
                       "Auto-detection should include model name — stderr: \(result.stderr)")
+    }
+
+    // RT-065: --list-models includes face model with [installed] when present
+    func test_cli_list_models_shows_face_model_installed_RT065() throws {
+        try XCTSkipIf(!FaceModelRegistry.isInstalled, "Face model not installed")
+
+        let result = try runCLI(["--list-models"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("gfpgan"),
+                      "Face model should appear in --list-models output: \(result.stdout)")
+        XCTAssertTrue(result.stdout.contains("[installed]"),
+                      "Face model should show [installed] status")
+    }
+
+    // RT-066: --list-models includes face model with [not installed] and download hint when absent
+    func test_cli_list_models_shows_face_model_not_installed_RT066() throws {
+        try XCTSkipIf(FaceModelRegistry.isInstalled, "Face model is installed — cannot test 'not installed' path")
+
+        let result = try runCLI(["--list-models"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("gfpgan"),
+                      "Face model should appear in --list-models even when not installed: \(result.stdout)")
+        XCTAssertTrue(result.stdout.contains("not installed"),
+                      "Face model should show 'not installed' status")
+        XCTAssertTrue(result.stdout.contains("--download-face-model"),
+                      "Should hint at --download-face-model")
+    }
+
+    // RT-067: --list-models separates upscaling and face enhancement models
+    func test_cli_list_models_separates_face_section_RT067() throws {
+        let result = try runCLI(["--list-models"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("Face enhancement:"),
+                      "Should have a 'Face enhancement:' section heading: \(result.stdout)")
     }
 
     // MARK: - Helpers
