@@ -237,6 +237,39 @@ final class CLITests: XCTestCase {
                       "Should have a 'Face enhancement:' section heading: \(result.stdout)")
     }
 
+    // RT-059: --clear-cache empties the compiled model cache directory
+    func test_cli_clear_cache_removes_compiled_models_RT059() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "Model not found — needed to populate cache first")
+
+        // Populate the cache by running an upscale
+        let input = testImagesDir.appendingPathComponent("remy2.jpg")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: input.path), "remy2.jpg not found")
+
+        let outputDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_cache_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: outputDir) }
+
+        _ = try runCLI([input.path, "-o", outputDir.path, "-m", "realesrgan-x4plus"])
+
+        // Verify cache directory has content
+        let cacheDir = ModelCache.cacheDirectory
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cacheDir.path),
+                      "Cache directory should exist after a model load")
+
+        // Run --clear-cache
+        let result = try runCLI(["--clear-cache"])
+        XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --clear-cache. stderr: \(result.stderr)")
+
+        // Cache directory should be gone or empty
+        let exists = FileManager.default.fileExists(atPath: cacheDir.path)
+        if exists {
+            let contents = try FileManager.default.contentsOfDirectory(atPath: cacheDir.path)
+            XCTAssertTrue(contents.isEmpty, "Cache directory should be empty after --clear-cache")
+        }
+    }
+
     // MARK: - Helpers
 
     private var projectRoot: URL {

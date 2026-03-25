@@ -66,6 +66,96 @@ final class CoreMLTests: XCTestCase {
         print("CoreML inference: \(String(format: "%.2f", elapsed))s for 1024×1024 input")
     }
 
+    // RT-057: Subsequent model loads use cache and complete in under 1 second
+    func test_coreml_cached_load_is_fast_RT057() throws {
+        try XCTSkipIf(!modelAvailable,
+                      "Model not available at \(defaultModelURL.path). Run 'make convert-models' first.")
+
+        // Ensure clean state
+        try? ModelCache.clearCache()
+
+        // First load: compiles and caches
+        _ = try CoreMLInference(modelURL: defaultModelURL)
+
+        // Second load: should use cache and be fast
+        let start = CFAbsoluteTimeGetCurrent()
+        _ = try CoreMLInference(modelURL: defaultModelURL)
+        let elapsed = CFAbsoluteTimeGetCurrent() - start
+
+        XCTAssertLessThan(elapsed, 1.0,
+                          "Cached model load took \(String(format: "%.2f", elapsed))s — should be under 1s")
+    }
+
+    // RT-058: Stale cache key triggers recompilation
+    func test_coreml_stale_cache_key_triggers_recompile_RT058() throws {
+        try XCTSkipIf(!modelAvailable,
+                      "Model not available at \(defaultModelURL.path). Run 'make convert-models' first.")
+
+        // Ensure clean state and populate cache
+        try? ModelCache.clearCache()
+        _ = try CoreMLInference(modelURL: defaultModelURL)
+
+        // Tamper with the cache key
+        let modelName = defaultModelURL.deletingPathExtension().lastPathComponent
+        let cacheKeyFile = ModelCache.cacheDirectory
+            .appendingPathComponent("\(modelName).cachekey")
+        try "tampered".write(to: cacheKeyFile, atomically: true, encoding: .utf8)
+
+        // Reload — should recompile and update the key
+        _ = try CoreMLInference(modelURL: defaultModelURL)
+
+        let updatedKey = try String(contentsOf: cacheKeyFile, encoding: .utf8)
+        XCTAssertNotEqual(updatedKey, "tampered",
+                          "Cache key should have been updated after recompilation")
+    }
+
+    // RT-060: Compiled model is stored at expected cache path
+    func test_coreml_cache_stores_at_expected_path_RT060() throws {
+        try XCTSkipIf(!modelAvailable,
+                      "Model not available at \(defaultModelURL.path). Run 'make convert-models' first.")
+
+        try? ModelCache.clearCache()
+        _ = try CoreMLInference(modelURL: defaultModelURL)
+
+        let modelName = defaultModelURL.deletingPathExtension().lastPathComponent
+        let cachedModelPath = ModelCache.cacheDirectory
+            .appendingPathComponent("\(modelName).mlmodelc")
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: cachedModelPath.path),
+                      "Compiled model should exist at \(cachedModelPath.path)")
+    }
+
+    // RT-061: Cached inference output is pixel-identical to fresh compile
+    func test_coreml_cached_output_matches_fresh_RT061() throws {
+        try XCTSkipIf(!modelAvailable,
+                      "Model not available at \(defaultModelURL.path). Run 'make convert-models' first.")
+
+        let inputImage = try makeTestImage(width: 64, height: 64)
+
+        // Fresh compile
+        try? ModelCache.clearCache()
+        let fresh = try CoreMLInference(modelURL: defaultModelURL)
+        let freshOutput = try fresh.upscale(inputImage)
+
+        // Cached load
+        let cached = try CoreMLInference(modelURL: defaultModelURL)
+        let cachedOutput = try cached.upscale(inputImage)
+
+        XCTAssertEqual(freshOutput.width, cachedOutput.width,
+                       "Output width should match")
+        XCTAssertEqual(freshOutput.height, cachedOutput.height,
+                       "Output height should match")
+
+        // Compare pixel data
+        guard let freshData = freshOutput.dataProvider?.data as Data?,
+              let cachedData = cachedOutput.dataProvider?.data as Data? else {
+            XCTFail("Could not extract pixel data from output images")
+            return
+        }
+        XCTAssertEqual(freshData, cachedData,
+                       "Cached model output should be pixel-identical to fresh compile")
+    }
+
     // MARK: - Helpers
 
     /// Create a synthetic test image with a simple colour pattern.

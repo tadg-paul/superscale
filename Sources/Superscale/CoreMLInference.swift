@@ -13,10 +13,10 @@ struct CoreMLInference {
 
     /// Load a CoreML model from an `.mlpackage` directory URL.
     ///
-    /// The model is compiled to a temporary location on first load.
+    /// Uses the compiled model cache to avoid recompilation on subsequent loads.
     /// - Parameter modelURL: Path to the `.mlpackage` directory.
     init(modelURL: URL) throws {
-        let compiledURL = try MLModel.compileModel(at: modelURL)
+        let compiledURL = try ModelCache.loadCompiledModel(at: modelURL)
         mlModel = try MLModel(contentsOf: compiledURL)
         vnModel = try VNCoreMLModel(for: mlModel)
     }

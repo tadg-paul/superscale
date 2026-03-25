@@ -36,7 +36,16 @@ struct Superscale: ParsableCommand {
     @Flag(name: .long, help: "Download the GFPGAN face enhancement model. Once installed, runs automatically on every upscale.")
     var downloadFaceModel: Bool = false
 
+    @Flag(name: .long, help: "Clear the compiled model cache. Models will be recompiled on next use.")
+    var clearCache: Bool = false
+
     mutating func run() throws {
+        if clearCache {
+            try ModelCache.clearCache()
+            fputs("Compiled model cache cleared.\n", stderr)
+            return
+        }
+
         if downloadFaceModel {
             try handleDownloadFaceModel()
             return
