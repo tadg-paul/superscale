@@ -53,6 +53,12 @@ enum ModelRegistry {
             filename: "realesr-general-x4v3.mlpackage",
             scale: 4, tileSize: 512, isDefault: false
         ),
+        ModelInfo(
+            name: "realesr-general-wdn-x4v3",
+            displayName: "General scenes with denoise (4×)",
+            filename: "realesr-general-wdn-x4v3.mlpackage",
+            scale: 4, tileSize: 512, isDefault: false
+        ),
     ]
 
     /// User-side model storage directory (macOS convention, sandbox-compatible).

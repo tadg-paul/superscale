@@ -124,6 +124,19 @@ MODELS = {
             "act_type": "prelu",
         },
     },
+    "realesr-general-wdn-x4v3": {
+        "arch": "SRVGGNetCompact",
+        "checkpoint": "realesr-general-wdn-x4v3.pth",
+        "output": "realesr-general-wdn-x4v3.mlpackage",
+        "params": {
+            "num_in_ch": 3,
+            "num_out_ch": 3,
+            "num_feat": 64,
+            "num_conv": 32,
+            "upscale": 4,
+            "act_type": "prelu",
+        },
+    },
 }
 
 # ---------------------------------------------------------------------------

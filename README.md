@@ -33,7 +33,7 @@ superscale --clear-cache
 
 ## Models
 
-Six models are bundled, auto-selected by content type (photo, illustration, anime) using Apple's Vision framework. Override with `-m`:
+Seven models are bundled, auto-selected by content type (photo, illustration, anime) using Apple's Vision framework. Override with `-m`:
 
 | CLI name (`-m`) | Scale | Best for |
 |---|---|---|
@@ -43,8 +43,9 @@ Six models are bundled, auto-selected by content type (photo, illustration, anim
 | `realesrgan-anime-6b` | 4× | Anime/illustration |
 | `realesr-animevideov3` | 4× | Anime video frames |
 | `realesr-general-x4v3` | 4× | General scenes, compact model |
+| `realesr-general-wdn-x4v3` | 4× | General scenes with denoise — effective for old photos, grainy images, or heavily compressed sources |
 
-All six bundled models are Real-ESRGAN weights, licensed under BSD-3-Clause (Copyright Xintao Wang, 2021). See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) and [model licensing](docs/model-licensing.md).
+All seven bundled models are Real-ESRGAN weights, licensed under BSD-3-Clause (Copyright Xintao Wang, 2021). See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) and [model licensing](docs/model-licensing.md).
 
 ## Face Enhancement (optional)
 

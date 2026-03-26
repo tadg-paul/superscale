@@ -27,7 +27,7 @@ final class ManifestTests: XCTestCase {
         // Must have a models array
         let models = json?["models"] as? [[String: Any]]
         XCTAssertNotNil(models, "manifest.json must contain 'models' array")
-        XCTAssertEqual(models?.count, 6, "Expected 6 model entries")
+        XCTAssertEqual(models?.count, 7, "Expected 7 model entries")
 
         let expectedNames = Set([
             "realesrgan-x4plus",
@@ -36,10 +36,11 @@ final class ManifestTests: XCTestCase {
             "realesrgan-anime-6b",
             "realesr-animevideov3",
             "realesr-general-x4v3",
+            "realesr-general-wdn-x4v3",
         ])
 
         let actualNames = Set(models?.compactMap { $0["name"] as? String } ?? [])
-        XCTAssertEqual(actualNames, expectedNames, "Manifest must list all six models")
+        XCTAssertEqual(actualNames, expectedNames, "Manifest must list all seven models")
 
         // Each model must have required fields
         for model in models ?? [] {

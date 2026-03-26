@@ -40,10 +40,10 @@ final class ModelRegistryTests: XCTestCase {
         }
     }
 
-    // RT-019: ModelRegistry contains correct metadata for all six models
+    // RT-019: ModelRegistry contains correct metadata for all models
     func test_model_registry_contains_all_models_with_metadata_RT019() {
         let models = ModelRegistry.models
-        XCTAssertEqual(models.count, 6, "Expected exactly 6 models in registry")
+        XCTAssertEqual(models.count, 7, "Expected exactly 7 models in registry")
 
         // Every model must have non-empty name, displayName, filename
         for model in models {
