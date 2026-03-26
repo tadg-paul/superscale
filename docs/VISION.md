@@ -1,4 +1,4 @@
-<!-- Version: 0.1 | Last updated: 2026-03-18 -->
+<!-- Version: 0.2 | Last updated: 2026-03-26 -->
 
 # Vision
 
@@ -46,7 +46,7 @@ superscale -m anime -o out/ *.png       # Anime model, batch processing
 
 - **Training models.** We convert and run existing weights. Training is a separate concern with different tools.
 - **Cross-platform.** This is macOS-only by design. Linux/Windows users should use the Python or ncnn-vulkan versions.
-- **Face enhancement.** GFPGAN (the face-fixing model) has non-commercial licence encumbrances (StyleGAN2, DFDNet). We will not bundle or redistribute it.
+- **Bundling GFPGAN.** GFPGAN (face enhancement) has non-commercial licence encumbrances (StyleGAN2, DFDNet). We do not bundle or redistribute it. It is available as an optional user-initiated download (`--download-face-model`) with explicit licence acceptance.
 - **Video processing.** Out of scope for v1. May be added later as frame-by-frame processing.
 - **Real-time preview.** Not a goal for the CLI. May be a goal for the GUI.
 

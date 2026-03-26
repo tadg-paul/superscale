@@ -17,54 +17,77 @@ Superscale is a Swift CLI application that uses CoreML to run Real-ESRGAN image 
                        ▼
 ┌─────────────────────────────────────────────────┐
 │  Pipeline                                       │
-│  ┌─────────┐  ┌──────────┐  ┌────────────────┐ │
-│  │  Image   │  │  Tiler   │  │   CoreML       │ │
-│  │  Loader  │──▶ (split)  │──▶  Inference    │ │
-│  └─────────┘  └──────────┘  └───────┬────────┘ │
-│                                      │          │
-│  ┌─────────┐  ┌──────────┐          │          │
-│  │  Image   │  │  Tiler   │◀─────────┘          │
-│  │  Writer  │◀──(stitch)  │                     │
-│  └─────────┘  └──────────┘                      │
+│  ┌─────────┐  ┌──────────────┐                  │
+│  │  Image   │  │  Content     │                  │
+│  │  Loader  │  │  Detector    │                  │
+│  └────┬─────┘  └──────┬───────┘                  │
+│       │               │                          │
+│       ▼               ▼                          │
+│  ┌──────────┐  ┌────────────────┐                │
+│  │  Tiler   │  │  CoreML        │                │
+│  │  (split) │──▶  Inference    │                │
+│  └──────────┘  └───────┬────────┘                │
+│                         │                        │
+│  ┌──────────┐          │                         │
+│  │  Tiler   │◀─────────┘                         │
+│  │  (stitch)│                                    │
+│  └────┬─────┘                                    │
+│       │                                          │
+│       ▼                                          │
+│  ┌──────────────┐  ┌─────────┐                   │
+│  │  Face         │  │  Image  │                   │
+│  │  Enhancer     │──▶ Writer │                   │
+│  └──────────────┘  └─────────┘                   │
 └─────────────────────────────────────────────────┘
                        │
                        ▼
 ┌─────────────────────────────────────────────────┐
-│  Model Manager                                  │
-│  - Registry of available .mlpackage files       │
-│  - Model metadata (scale, architecture, size)   │
-│  - Download on first use (if not bundled)       │
+│  Model Management                               │
+│  ┌────────────────┐  ┌────────────────────────┐ │
+│  │ ModelRegistry   │  │ FaceModelRegistry      │ │
+│  │ (6 bundled)     │  │ (optional GFPGAN)      │ │
+│  └────────┬───────┘  └────────────────────────┘ │
+│           │                                      │
+│  ┌────────▼───────┐                              │
+│  │ ModelCache      │                              │
+│  │ (compiled       │                              │
+│  │  .mlmodelc)     │                              │
+│  └────────────────┘                              │
 └─────────────────────────────────────────────────┘
 ```
 
 ## Components
 
-### CLI layer (`Commands/`)
+### CLI layer
 
-Uses Swift ArgumentParser. The root command is `Superscale` with default upscale behaviour and future subcommands for model management.
+`SuperscaleCommand.swift` — uses Swift ArgumentParser. The root command is `Superscale` with flags for model selection, scale factor, output directory, face model download, cache management, and model listing.
 
 **Responsibilities:**
 - Parse and validate CLI arguments
 - Resolve input/output paths
-- Select model by name or alias
+- Select model by name (`-m`) or auto-detect via `ContentDetector`
 - Report progress to stderr
 - Exit codes: 0 success, 1 error, 2 misuse
 
-### Pipeline (`Pipeline/`)
+### Pipeline
 
-The core processing sequence:
+All source files are in `Sources/Superscale/`. The core processing sequence:
 
-1. **ImageLoader** — reads input image via `CGImage` / `NSImage`. Supports PNG, JPEG, TIFF, HEIC. Extracts dimensions and colour profile.
+1. **ImageLoader** — reads input image via `CGImageSource`. Supports PNG, JPEG, TIFF, HEIC. Extracts dimensions, colour profile, and alpha channel.
 
-2. **Tiler** — splits the input image into overlapping tiles of configurable size. Large images cannot be processed in one pass due to memory constraints. Tiles overlap to avoid seam artefacts; the overlap region is blended during reassembly.
+2. **ContentDetector** — auto-detects whether an image is a photograph or illustration using colour diversity analysis and Vision framework classification. Selects the optimal model for the content type.
 
-3. **CoreMLInference** — loads the `.mlpackage` model via `ModelCache`, creates a `VNCoreMLRequest`, runs each tile through the model. The model outputs a tile at `scale×` the input resolution. CoreML automatically dispatches to the Neural Engine, GPU, or CPU depending on hardware and model compatibility.
+3. **Tiler** — splits the input image into overlapping tiles of configurable size (default 512px, 16px overlap). Large images cannot be processed in one pass due to memory constraints. Uses distance-weighted blending during reassembly to eliminate seam artefacts.
 
-4. **Tiler (stitch)** — reassembles upscaled tiles into the final output image, blending overlap regions.
+4. **CoreMLInference** — loads the `.mlpackage` model via `ModelCache`, creates a `VNCoreMLRequest`, runs each tile through the model. The model outputs a tile at `scale×` the input resolution. CoreML automatically dispatches to the Neural Engine, GPU, or CPU depending on hardware and model compatibility.
 
-5. **ImageWriter** — writes the output as PNG or JPEG, preserving the colour profile from the input where possible.
+5. **Tiler (stitch)** — reassembles upscaled tiles into the final output image, blending overlap regions with distance-based weights.
 
-### Model manager (`Models/`)
+6. **FaceEnhancer** — optional post-processing step. Uses `FaceDetector` (Vision framework) to locate faces, crops each with 1.5× padding, runs through the GFPGAN CoreML model at 512×512, and blends back with feathered edges. Runs automatically when the GFPGAN model is installed, skipped with `--no-face-enhance`.
+
+7. **ImageWriter** — writes the output as PNG or JPEG, preserving the colour profile from the input.
+
+### Model management
 
 **ModelRegistry** — a static catalogue of supported models with metadata:
 
@@ -78,15 +101,17 @@ struct ModelInfo {
 }
 ```
 
-**Model resolution order:**
-1. `--model-path` flag (explicit path to `.mlpackage`)
-2. Bundled models in the application support directory
-3. Download from GitHub release (if first-use download is enabled)
+**FaceModelRegistry** — manages the optional GFPGAN face enhancement model, which is not bundled due to non-commercial licence terms. Handles download URL, installation status, and path resolution.
+
+**Model resolution order** (searched in priority):
+1. Models directory next to the executable (direct install)
+2. Homebrew Cellar layout (`<prefix>/models/`)
+3. User application support: `~/Library/Application Support/superscale/models/`
+4. Working directory `./models/` (development)
 
 **Model storage:**
-- Bundled: installed to the Cellar with the binary (Homebrew), or `~/Library/Application Support/superscale/models/`
-- Downloaded: `~/Library/Application Support/superscale/models/`
-- See [issue #2](https://github.com/tigger04/superscale/issues/2) for the full storage strategy decision
+- Bundled: all 6 Real-ESRGAN models are installed with the binary (Homebrew or `make install`)
+- GFPGAN: downloaded to `~/Library/Application Support/superscale/models/` via `--download-face-model`
 
 ### Compiled model cache (`ModelCache`)
 
@@ -131,19 +156,27 @@ This script requires a Python venv with `torch`, `coremltools`, and `basicsr`. I
 input.png
     │
     ▼
-[CGImage: 1024×1024 RGB]
+[ImageLoader: CGImageSource → CGImage 1024×1024 RGB + alpha]
+    │
+    ├──▶ [ContentDetector: photo or illustration → select model]
     │
     ▼
-[Tiler: split into 512×512 tiles with 32px overlap]
+[Tiler: split into 512×512 tiles with 16px overlap]
     │
     ▼
 [CoreML: each tile → model → 2048×2048 tile]
     │
     ▼
-[Tiler: stitch tiles, blend overlaps → 4096×4096]
+[Tiler: stitch tiles, distance-weighted blend → 4096×4096]
     │
     ▼
-[ImageWriter: save as PNG/JPEG]
+[FaceEnhancer: detect faces → GFPGAN → feathered blend (optional)]
+    │
+    ▼
+[Alpha: upscale via bicubic, recombine (if present)]
+    │
+    ▼
+[ImageWriter: save as PNG/JPEG, preserve colour profile]
     │
     ▼
 output_4x.png
@@ -158,8 +191,6 @@ If the input image has an alpha channel (transparency):
 3. Upscale the alpha channel via bicubic interpolation (fast, usually sufficient)
 4. Recombine RGB + alpha into the output image
 
-An optional `--alpha-model` flag can run the alpha channel through the AI model too, at the cost of additional processing time.
-
 ## Error handling
 
 - Invalid input paths: fail immediately with descriptive message
@@ -167,8 +198,9 @@ An optional `--alpha-model` flag can run the alpha channel through the AI model 
 - Model not found: fail with instructions to install or download
 - CoreML inference failure: fail with the MLModel error, suggest `--tile-size` reduction
 - Output write failure: fail with filesystem error
+- Face enhancement failure: log warning and preserve original face region
 
-All errors go to stderr. The binary produces no stdout output except when `--quiet` is not set (progress reporting).
+All errors go to stderr. Only `--list-models` and `--version` produce stdout output; progress reporting goes to stderr.
 
 ## Future: GUI layer
 

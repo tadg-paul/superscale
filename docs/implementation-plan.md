@@ -1,4 +1,4 @@
-<!-- Version: 1.0 | Last updated: 2026-03-19 -->
+<!-- Version: 1.1 | Last updated: 2026-03-26 -->
 
 # Implementation plan
 
@@ -15,16 +15,19 @@ Issues should be tackled in this order. Where multiple issues share a step numbe
 | 1 | [#2](https://github.com/tigger04/superscale/issues/2) | Model storage strategy (decision) | — | **closed** |
 | 1 | [#3](https://github.com/tigger04/superscale/issues/3) | Phase 1: CoreML model conversion | — | **closed** |
 | 2 | [#18](https://github.com/tigger04/superscale/issues/18) | Model artefact management (sync, release) | #2, #3 | **closed** |
-| 2 | [#4](https://github.com/tigger04/superscale/issues/4) | Phase 2: Proof of concept | #3 | **implemented** (tests skip until models converted) |
+| 2 | [#4](https://github.com/tigger04/superscale/issues/4) | Phase 2: Proof of concept | #3 | **closed** |
 | 3 | [#6](https://github.com/tigger04/superscale/issues/6) | Phase 3a: Image I/O | #4 | **closed** |
 | 3 | [#7](https://github.com/tigger04/superscale/issues/7) | Phase 3b: Tiling engine | #4 | **closed** |
 | 3 | [#8](https://github.com/tigger04/superscale/issues/8) | Phase 3c: CoreML inference + model registry | #4 | **closed** |
 | 4 | [#9](https://github.com/tigger04/superscale/issues/9) | Phase 3d: Pipeline integration | #6, #7, #8 | **closed** |
 | 5 | [#10](https://github.com/tigger04/superscale/issues/10) | Phase 3e: CLI polish | #9 | **closed** |
-| 6 | [#5](https://github.com/tigger04/superscale/issues/5) | Phase 4: Licensing review | — (gate before #12) | **implemented** (all ACs passing) |
-| 7 | [#12](https://github.com/tigger04/superscale/issues/12) | Phase 5: Distribution (Homebrew) | #5, #10, #18 | **implemented** (awaiting public repo for Homebrew test) |
+| 6 | [#5](https://github.com/tigger04/superscale/issues/5) | Phase 4: Licensing review | — (gate before #12) | **closed** |
+| 7 | [#12](https://github.com/tigger04/superscale/issues/12) | Phase 5: Distribution (Homebrew) | #5, #10, #18 | **closed** |
 | 8 | [#13](https://github.com/tigger04/superscale/issues/13) | Phase 6: Model download (on-demand) | #12 | **closed** (folded into #12) |
-| 9 | [#1](https://github.com/tigger04/superscale/issues/1) | Phase 7: Face enhancement (GFPGAN) | #11 | **in progress** (scaffolding done, awaiting CoreML conversion) |
+| 9 | [#1](https://github.com/tigger04/superscale/issues/1) | Phase 7: Face enhancement (GFPGAN) | #11 | **closed** |
+| — | [#33](https://github.com/tigger04/superscale/issues/33) | Compiled model caching | — | **closed** |
+| — | [#35](https://github.com/tigger04/superscale/issues/35) | --list-models shows face model | — | **closed** |
+| — | [#34](https://github.com/tigger04/superscale/issues/34) | SSIM quality regression testing | — | open (future enhancement) |
 | 10 | [#14](https://github.com/tigger04/superscale/issues/14) | Phase 8: macOS SwiftUI GUI | #11 | open |
 | 11 | [#15](https://github.com/tigger04/superscale/issues/15) | Phase 9: macOS App Store | #14 | open |
 | 11 | [#16](https://github.com/tigger04/superscale/issues/16) | Phase 10: iOS app | #14 | open |
@@ -39,7 +42,7 @@ Issues should be tackled in this order. Where multiple issues share a step numbe
                              │
 #3 Phase 1: Model conversion─┤                   ✓ closed
     │                        │
-    ├──▶ #4  Phase 2: PoC   │                    ✓ implemented
+    ├──▶ #4  Phase 2: PoC   │                    ✓ closed
     │        │               │
     │        ├──▶ #6  3a: Image I/O  ──┐         ✓ closed
     │        ├──▶ #7  3b: Tiling  ─────┤         ✓ closed
@@ -51,13 +54,16 @@ Issues should be tackled in this order. Where multiple issues share a step numbe
     │                                  │
     └──▶ #18 Model artefact mgmt ─────┤          ✓ closed
                                        │
-              #5  Phase 4: Licensing ──┤          ✓ implemented
+              #5  Phase 4: Licensing ──┤          ✓ closed
                                        │
-                         #12 Phase 5: Distribution
+                         #12 Phase 5: Distribution  ✓ closed
                                        │
-                         #13 Phase 6: Model download
+                         #13 Phase 6: Model download ✓ closed (folded into #12)
                                        │
-                         #1  Phase 7: Face enhancement
+                         #1  Phase 7: Face enhancement ✓ closed
+                                       │
+                         #33 Model caching ──────── ✓ closed
+                         #35 --list-models face ──── ✓ closed
                                        │
                          #14 Phase 8: macOS GUI
                                │       │
@@ -322,6 +328,7 @@ Licensing is a gate — it must be resolved before distribution (Phase 5). The p
 | 0.8 | 2026-03-19 | Phase 3 complete — closed #6, #7, #8, #9, #10. CLI fully functional. |
 | 0.9 | 2026-03-19 | Phase 5 implemented — release script, Homebrew formula, first release v0.2.0. |
 | 1.0 | 2026-03-19 | Auto-detect content type (#22). All models bundled (#12). README/docs updated (#23). Face enhancement scaffolding (#1). Closed #13 (folded into #12). |
+| 1.1 | 2026-03-26 | Closed #4 (PoC), #5 (licensing), #12 (distribution), #1 (face enhancement). Added #33 (model caching), #35 (--list-models face model), #34 (SSIM — future). Updated statuses and roadmap. |
 
 ## See also
 

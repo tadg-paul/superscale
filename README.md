@@ -24,8 +24,11 @@ superscale -o output/ *.png
 # Override model selection
 superscale -m realesrgan-anime-6b illustration.png
 
-# List available models
+# List available models (including face enhancement status)
 superscale --list-models
+
+# Clear compiled model cache (forces recompilation on next use)
+superscale --clear-cache
 ```
 
 ## Models

@@ -1,4 +1,4 @@
-<!-- Version: 0.5 | Last updated: 2026-03-20 -->
+<!-- Version: 0.6 | Last updated: 2026-03-26 -->
 
 # Testing
 
@@ -20,18 +20,15 @@ Testing follows TDD per project standards. All tests use XCTest and run via `mak
 ```
 Tests/SuperscaleTests/
 ├── CLITests.swift                # End-to-end CLI subprocess tests
-├── CoreMLTests.swift             # CoreML inference tests (skip when model not available)
+├── ContentDetectorTests.swift    # Content type detection heuristics
+├── CoreMLTests.swift             # CoreML inference and model caching tests
+├── FaceEnhancerTests.swift       # Face detection and enhancement
+├── ImageIOTests.swift            # Image loading, format detection, alpha handling
 ├── LicensingTests.swift          # Licence and attribution validation
 ├── ManifestTests.swift           # Model manifest schema validation
 ├── ModelRegistryTests.swift      # Model lookup, metadata, --list-models status
-├── TilerTests.swift              # Tile splitting and stitching (planned)
-├── ImageLoaderTests.swift        # Image reading, format detection (planned)
-├── ImageWriterTests.swift        # Output writing, format options (planned)
-├── QualityTests.swift            # Output vs reference comparison (planned)
-├── Resources/
-│   ├── test_input_64x64.png      # Minimal test image (planned)
-│   ├── test_input_alpha.png      # Image with alpha channel (planned)
-│   └── reference_output_4x.png   # Known-good reference output (planned)
+├── PipelineTests.swift           # Full pipeline integration tests
+├── TilerTests.swift              # Tile splitting and stitching
 └── NEXT_IDS.txt                  # Test ID allocation
 ```
 
@@ -43,7 +40,7 @@ Output quality is validated by inspection and automated checks:
 2. Visual inspection — sharp detail, no tiling artefacts, no colour shifts
 3. Automated regression: a known input image produces output that is pixel-identical (or within tolerance) across builds
 
-Formal PSNR metrics may be added later if needed. The primary quality gate is visual correctness.
+SSIM (Structural Similarity Index) comparison against PyTorch reference outputs is planned as a future enhancement ([#34](https://github.com/tigger04/superscale/issues/34)). The primary quality gate is visual correctness.
 
 ## Test images
 
