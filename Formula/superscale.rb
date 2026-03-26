@@ -1,8 +1,8 @@
 class Superscale < Formula
   desc "AI image upscaling for Apple Silicon"
   homepage "https://github.com/tigger04/superscale"
-  url "https://github.com/tigger04/superscale/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "2306e4899b439e0b85c72523085f0736e35f9cd86c29ad7bdc6eab3aac55162a"
+  url "https://github.com/tigger04/superscale/archive/refs/tags/v1.0.1.tar.gz"
+  sha256 "4007d29ed92d303720c4a9d9c001e864d04e3673b2a9389c862234351283af51"
   license "MIT"
 
   depends_on :macos
@@ -71,7 +71,7 @@ class Superscale < Formula
   end
 
   test do
-    assert_match "1.0.0", shell_output("#{bin}/superscale --version")
+    assert_match "1.0.1", shell_output("#{bin}/superscale --version")
     assert_match "realesrgan-x4plus", shell_output("#{bin}/superscale --list-models")
   end
 end
