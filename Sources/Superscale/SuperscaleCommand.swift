@@ -9,7 +9,8 @@ struct Superscale: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "superscale",
         abstract: "AI image upscaling for Apple Silicon.",
-        version: "v1.0.1 Superscale by Taḋg Paul"
+        version: "v1.0.1 Superscale by Taḋg Paul",
+        helpNames: []
     )
 
     @Argument(help: "Input image file(s).")
@@ -48,7 +49,17 @@ struct Superscale: ParsableCommand {
     @Flag(name: .long, help: "Clear the compiled model cache. Models will be recompiled on next use.")
     var clearCache: Bool = false
 
+    @Flag(name: [.customShort("h"), .customLong("help")], help: "Show help information.")
+    var showHelp: Bool = false
+
     mutating func run() throws {
+        if showHelp {
+            let useColour = HelpFormatter.shouldUseColour()
+            let text = HelpFormatter.format(useColour: useColour)
+            Pager.display(text)
+            return
+        }
+
         if clearCache {
             try ModelCache.clearCache()
             fputs("Compiled model cache cleared.\n", stderr)

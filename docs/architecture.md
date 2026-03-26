@@ -1,4 +1,4 @@
-<!-- Version: 0.4 | Last updated: 2026-03-26 -->
+<!-- Version: 0.5 | Last updated: 2026-03-26 -->
 
 # Architecture
 
@@ -45,7 +45,7 @@ Superscale is a Swift CLI application that uses CoreML to run Real-ESRGAN image 
 │  Model Management                               │
 │  ┌────────────────┐  ┌────────────────────────┐ │
 │  │ ModelRegistry   │  │ FaceModelRegistry      │ │
-│  │ (6 bundled)     │  │ (optional GFPGAN)      │ │
+│  │ (7 bundled)     │  │ (optional GFPGAN)      │ │
 │  └────────┬───────┘  └────────────────────────┘ │
 │           │                                      │
 │  ┌────────▼───────┐                              │
@@ -68,6 +68,8 @@ Superscale is a Swift CLI application that uses CoreML to run Real-ESRGAN image 
 - Select model by name (`-m`) or auto-detect via `ContentDetector`
 - Report progress to stderr
 - Exit codes: 0 success, 1 error, 2 misuse
+
+**Help system** (`HelpFormatter.swift`, `Pager.swift`) — ArgumentParser's built-in help is disabled (`helpNames: []`). A custom `-h`/`--help` flag generates a man-page-style manual with sections for usage, options, examples, model details, and licensing. `HelpFormatter` generates the text with optional ANSI colour (bold headers, underlined placeholders) based on terminal detection, `NO_COLOR`, and `TERM`. `Pager` resolves the pager from `MANPAGER` → `PAGER` → `less` → direct output, and only invokes it when stdout is a terminal and stdin is interactive.
 
 ### Pipeline
 
@@ -110,7 +112,7 @@ struct ModelInfo {
 4. Working directory `./models/` (development)
 
 **Model storage:**
-- Bundled: all 6 Real-ESRGAN models are installed with the binary (Homebrew or `make install`)
+- Bundled: all 7 Real-ESRGAN models are installed with the binary (Homebrew or `make install`)
 - GFPGAN: downloaded to `~/Library/Application Support/superscale/models/` via `--download-face-model`
 
 ### Compiled model cache (`ModelCache`)

@@ -588,6 +588,94 @@ final class CLITests: XCTestCase {
         }
     }
 
+    // MARK: - Help text expansion tests (#39)
+
+    // RT-079: Help text has all required sections in the specified order; -h == --help
+    func test_cli_help_has_sections_in_order_RT079() throws {
+        let result = try runCLI(["--help"])
+        XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --help")
+
+        let sections = [
+            "NAME", "USAGE", "DESCRIPTION", "ARGUMENTS", "OPTIONS",
+            "EXAMPLES", "INSTALLED MODELS", "MODEL DETAILS",
+            "FACE ENHANCEMENT", "REQUIREMENTS", "LICENSE", "SEE ALSO"
+        ]
+
+        var searchStart = result.stdout.startIndex
+        for section in sections {
+            if let range = result.stdout.range(of: section, range: searchStart..<result.stdout.endIndex) {
+                searchStart = range.upperBound
+            } else {
+                XCTFail("Section '\(section)' not found after previous sections in help output.\nOutput:\n\(result.stdout)")
+                return
+            }
+        }
+
+        // AC39.6: -h produces same output as --help
+        let shortResult = try runCLI(["-h"])
+        XCTAssertEqual(shortResult.exitCode, 0, "Expected exit code 0 for -h")
+        XCTAssertEqual(result.stdout, shortResult.stdout,
+                       "-h and --help should produce identical output")
+    }
+
+    // RT-080: Piped help output contains no ANSI escape sequences
+    func test_cli_help_piped_has_no_ansi_RT080() throws {
+        let result = try runCLI(["--help"])
+        XCTAssertEqual(result.exitCode, 0)
+        // ESC character is \u{1B}; ANSI sequences start with ESC[
+        XCTAssertFalse(result.stdout.contains("\u{1B}["),
+                       "Piped help should not contain ANSI escape sequences")
+    }
+
+    // RT-081: Pager env vars are respected without breaking output
+    func test_cli_help_respects_pager_env_vars_RT081() throws {
+        // When piped (as in tests), pager is not invoked — but env vars must not
+        // break the output. Verify help works with MANPAGER and PAGER set.
+        let result1 = try runCLI(["--help"], environment: ["MANPAGER": "cat"])
+        XCTAssertEqual(result1.exitCode, 0)
+        XCTAssertTrue(result1.stdout.contains("NAME"),
+                      "Help should work with MANPAGER set")
+
+        let result2 = try runCLI(["--help"], environment: ["PAGER": "cat", "MANPAGER": ""])
+        XCTAssertEqual(result2.exitCode, 0)
+        XCTAssertTrue(result2.stdout.contains("NAME"),
+                      "Help should work with PAGER set")
+
+        // Both should produce identical content
+        XCTAssertEqual(result1.stdout, result2.stdout,
+                       "MANPAGER and PAGER should produce the same help content when piped")
+    }
+
+    // RT-082: Help output lists all registered model names with status
+    func test_cli_help_lists_all_models_RT082() throws {
+        let result = try runCLI(["--help"])
+        XCTAssertEqual(result.exitCode, 0)
+
+        let models = [
+            "realesrgan-x4plus", "realesrgan-x2plus", "realesrnet-x4plus",
+            "realesrgan-anime-6b", "realesr-animevideov3",
+            "realesr-general-x4v3", "realesr-general-wdn-x4v3"
+        ]
+
+        for model in models {
+            XCTAssertTrue(result.stdout.contains(model),
+                          "Help should list model: \(model)")
+        }
+
+        // Installation status should be shown
+        XCTAssertTrue(result.stdout.contains("installed"),
+                      "Help should show installation status for models")
+    }
+
+    // RT-083: Piped help completes within timeout (pager not invoked)
+    func test_cli_help_piped_does_not_block_RT083() throws {
+        let result = try runCLI(["--help"], timeout: 5.0)
+        XCTAssertEqual(result.exitCode, 0,
+                       "Help should complete within 5s timeout when piped")
+        XCTAssertFalse(result.stdout.isEmpty,
+                       "Help output should not be empty")
+    }
+
     // MARK: - Helpers
 
     private var projectRoot: URL {
@@ -605,9 +693,14 @@ final class CLITests: XCTestCase {
         let exitCode: Int32
         let stdout: String
         let stderr: String
+        let timedOut: Bool
     }
 
-    func runCLI(_ arguments: [String]) throws -> CLIResult {
+    func runCLI(
+        _ arguments: [String],
+        environment: [String: String]? = nil,
+        timeout: TimeInterval? = nil
+    ) throws -> CLIResult {
         let process = Process()
         let stdoutPipe = Pipe()
         let stderrPipe = Pipe()
@@ -624,16 +717,42 @@ final class CLITests: XCTestCase {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        if let env = environment {
+            var processEnv = ProcessInfo.processInfo.environment
+            for (key, value) in env {
+                if value.isEmpty {
+                    processEnv.removeValue(forKey: key)
+                } else {
+                    processEnv[key] = value
+                }
+            }
+            process.environment = processEnv
+        }
+
         try process.run()
-        process.waitUntilExit()
+
+        var didTimeout = false
+        if let timeout = timeout {
+            let deadline = Date().addingTimeInterval(timeout)
+            while process.isRunning && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            if process.isRunning {
+                process.terminate()
+                didTimeout = true
+            }
+        } else {
+            process.waitUntilExit()
+        }
 
         let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
         let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
 
         return CLIResult(
-            exitCode: process.terminationStatus,
+            exitCode: didTimeout ? -1 : process.terminationStatus,
             stdout: String(data: stdoutData, encoding: .utf8) ?? "",
-            stderr: String(data: stderrData, encoding: .utf8) ?? ""
+            stderr: String(data: stderrData, encoding: .utf8) ?? "",
+            timedOut: didTimeout
         )
     }
 }
