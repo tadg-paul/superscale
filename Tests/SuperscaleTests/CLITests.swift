@@ -676,6 +676,50 @@ final class CLITests: XCTestCase {
                        "Help output should not be empty")
     }
 
+    // RT-086: Help via PTY with MANPAGER=cat exercises the pager code path
+    func test_cli_help_pager_via_pty_RT086() throws {
+        // Arrange: paths for script(1) output capture
+        let binary = projectRoot.appendingPathComponent(".build/debug/superscale")
+        let outputFile = NSTemporaryDirectory()
+            + "superscale-pty-test-\(ProcessInfo.processInfo.processIdentifier)"
+        defer { try? FileManager.default.removeItem(atPath: outputFile) }
+
+        // Act: use script(1) to allocate a PTY so superscale sees a terminal
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/script")
+        process.arguments = ["-q", outputFile, binary.path, "--help"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+
+        var env = ProcessInfo.processInfo.environment
+        env["MANPAGER"] = "cat"
+        process.environment = env
+
+        try process.run()
+
+        let deadline = Date().addingTimeInterval(5.0)
+        while process.isRunning && Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        if process.isRunning {
+            process.terminate()
+            XCTFail("Help timed out after 5s — pager likely hung")
+            return
+        }
+
+        // Assert: script captured help text through the pager path
+        XCTAssertEqual(process.terminationStatus, 0,
+                       "script/superscale should exit cleanly")
+
+        let output = try String(contentsOfFile: outputFile, encoding: .utf8)
+        XCTAssertTrue(output.contains("NAME"),
+                      "Pager output should contain NAME section")
+        XCTAssertTrue(output.contains("USAGE"),
+                      "Pager output should contain USAGE section")
+        XCTAssertTrue(output.contains("OPTIONS"),
+                      "Pager output should contain OPTIONS section")
+    }
+
     // MARK: - Helpers
 
     private var projectRoot: URL {

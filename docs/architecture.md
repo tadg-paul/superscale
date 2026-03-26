@@ -1,4 +1,4 @@
-<!-- Version: 0.5 | Last updated: 2026-03-26 -->
+<!-- Version: 0.6 | Last updated: 2026-03-26 -->
 
 # Architecture
 
@@ -69,7 +69,7 @@ Superscale is a Swift CLI application that uses CoreML to run Real-ESRGAN image 
 - Report progress to stderr
 - Exit codes: 0 success, 1 error, 2 misuse
 
-**Help system** (`HelpFormatter.swift`, `Pager.swift`) — ArgumentParser's built-in help is disabled (`helpNames: []`). A custom `-h`/`--help` flag generates a man-page-style manual with sections for usage, options, examples, model details, and licensing. `HelpFormatter` generates the text with optional ANSI colour (bold headers, underlined placeholders) based on terminal detection, `NO_COLOR`, and `TERM`. `Pager` resolves the pager from `MANPAGER` → `PAGER` → `less` → direct output, and only invokes it when stdout is a terminal and stdin is interactive.
+**Help system** (`HelpFormatter.swift`, `Pager.swift`, `CSystemShim`) — ArgumentParser's built-in help is disabled (`helpNames: []`). A custom `-h`/`--help` flag generates a man-page-style manual with sections for usage, options, examples, model details, and licensing. `HelpFormatter` generates the text with optional ANSI colour (bold headers, underlined placeholders) based on terminal detection, `NO_COLOR`, and `TERM`. `Pager` writes help text to a temp file and delegates all pager logic to an inline shell script via C `system()` (exposed through `CSystemShim` since Swift marks `system()` unavailable). The shell script handles terminal detection (`[ -t 1 ]`), pager resolution (`MANPAGER` → `PAGER` → `less`), and ANSI passthrough (`-R` for less). This approach is necessary because Swift's `Process` API cannot properly connect child processes to the controlling terminal.
 
 ### Pipeline
 
