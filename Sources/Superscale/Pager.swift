@@ -17,12 +17,7 @@ enum Pager {
             return
         }
 
-        do {
-            try pipeThroughPager(text, command: pagerCommand)
-        } catch {
-            // Fallback to direct output if pager fails
-            print(text)
-        }
+        pipeThroughPager(text, command: pagerCommand)
     }
 
     /// Whether the pager should be invoked: stdout is a terminal, stdin is
@@ -44,58 +39,58 @@ enum Pager {
             return pager
         }
 
-        // Check if less is available in PATH
-        let which = Process()
-        which.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        which.arguments = ["which", "less"]
-        which.standardOutput = FileHandle.nullDevice
-        which.standardError = FileHandle.nullDevice
+        // Check if less is available in PATH via shell
+        let check = Process()
+        check.executableURL = URL(fileURLWithPath: "/bin/sh")
+        check.arguments = ["-c", "command -v less >/dev/null 2>&1"]
+        check.standardOutput = FileHandle.nullDevice
+        check.standardError = FileHandle.nullDevice
         do {
-            try which.run()
-            which.waitUntilExit()
-            if which.terminationStatus == 0 {
-                return "less"
-            }
+            try check.run()
+            check.waitUntilExit()
+            if check.terminationStatus == 0 { return "less" }
         } catch {
-            // which failed; no less available
+            // shell failed; no less available
         }
 
         return nil
     }
 
-    /// Pipe text through the resolved pager command.
-    private static func pipeThroughPager(_ text: String, command: String) throws {
-        // Split command into executable and arguments
-        let components = command.components(separatedBy: " ").filter { !$0.isEmpty }
-        guard let executable = components.first else {
-            print(text)
-            return
-        }
-
-        var arguments = Array(components.dropFirst())
-
-        // When using less, ensure -R is present for ANSI colour passthrough
-        if executable == "less" || executable.hasSuffix("/less") {
+    /// Pipe text through the pager using a temp file and shell redirect.
+    /// This avoids Process pipe fd inheritance issues — the shell handles
+    /// all plumbing, and the pager inherits the terminal directly.
+    private static func pipeThroughPager(_ text: String, command: String) {
+        // When using less, ensure -R for ANSI colour passthrough
+        var pagerCommand = command
+        let isLess = command == "less" || command.hasSuffix("/less") || command.hasPrefix("less ")
+        if isLess {
             let lessEnv = ProcessInfo.processInfo.environment["LESS"] ?? ""
-            if !lessEnv.contains("-R") && !lessEnv.contains("R") && !arguments.contains("-R") {
-                arguments.insert("-R", at: 0)
+            if !lessEnv.contains("R") && !command.contains("-R") {
+                pagerCommand += " -R"
             }
         }
 
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = [executable] + arguments
-
-        let inputPipe = Pipe()
-        process.standardInput = inputPipe
-
-        try process.run()
-
-        if let data = text.data(using: .utf8) {
-            inputPipe.fileHandleForWriting.write(data)
+        // Write text to a temp file to avoid pipe buffer issues
+        let tmpPath = NSTemporaryDirectory()
+            + "superscale-help-\(ProcessInfo.processInfo.processIdentifier)"
+        guard FileManager.default.createFile(
+            atPath: tmpPath, contents: text.data(using: .utf8)
+        ) else {
+            print(text)
+            return
         }
-        inputPipe.fileHandleForWriting.closeFile()
+        defer { try? FileManager.default.removeItem(atPath: tmpPath) }
 
-        process.waitUntilExit()
+        // Shell redirect feeds the file into the pager's stdin
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", "\(pagerCommand) < '\(tmpPath)'"]
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+        } catch {
+            print(text)
+        }
     }
 }
