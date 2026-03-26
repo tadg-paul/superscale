@@ -237,6 +237,40 @@ final class CLITests: XCTestCase {
                       "Should have a 'Face enhancement:' section heading: \(result.stdout)")
     }
 
+    // RT-068: --version output matches branded format
+    func test_cli_version_output_matches_branded_format_RT068() throws {
+        let result = try runCLI(["--version"])
+        XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --version")
+        let pattern = try NSRegularExpression(
+            pattern: #"^v\d+\.\d+\.\d+ Superscale by Taḋg Paul\s*$"#)
+        let range = NSRange(result.stdout.startIndex..., in: result.stdout)
+        XCTAssertTrue(pattern.firstMatch(in: result.stdout, range: range) != nil,
+                      "Expected 'v{semver} Superscale by Taḋg Paul', got: \(result.stdout)")
+    }
+
+    // RT-069: wdn model file exists in models directory
+    func test_wdn_model_file_exists_RT069() throws {
+        let modelPath = projectRoot.appendingPathComponent(
+            "models/realesr-general-wdn-x4v3.mlpackage")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: modelPath.path),
+                      "realesr-general-wdn-x4v3.mlpackage should exist in models/")
+    }
+
+    // RT-070: --list-models includes wdn model with installed status
+    func test_cli_list_models_includes_wdn_model_RT070() throws {
+        let modelPath = projectRoot.appendingPathComponent(
+            "models/realesr-general-wdn-x4v3.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "wdn model not installed")
+
+        let result = try runCLI(["--list-models"])
+        XCTAssertEqual(result.exitCode, 0)
+        XCTAssertTrue(result.stdout.contains("realesr-general-wdn-x4v3"),
+                      "wdn model should appear in --list-models: \(result.stdout)")
+        XCTAssertTrue(result.stdout.contains("denoise"),
+                      "wdn model description should mention denoise: \(result.stdout)")
+    }
+
     // RT-059: --clear-cache empties the compiled model cache directory
     func test_cli_clear_cache_removes_compiled_models_RT059() throws {
         let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")

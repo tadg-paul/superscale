@@ -17,7 +17,7 @@ MANIFEST="${PROJECT_ROOT}/models/manifest.json"
 die() { echo "ERROR: $*" >&2; exit 1; }
 
 get_current_version() {
-    grep -oE 'version: "[0-9]+\.[0-9]+\.[0-9]+"' "${SOURCE_FILE}" \
+    grep -oE 'version: "v[0-9]+\.[0-9]+\.[0-9]+' "${SOURCE_FILE}" \
         | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
 }
 
@@ -64,7 +64,7 @@ fi
 
 echo "Updating version in source..."
 TMPFILE=$(mktemp)
-sed "s/version: \"${CURRENT_VERSION}\"/version: \"${NEW_VERSION}\"/" "${SOURCE_FILE}" > "${TMPFILE}"
+sed "s/v${CURRENT_VERSION} Superscale by Taḋg Paul/v${NEW_VERSION} Superscale by Taḋg Paul/" "${SOURCE_FILE}" > "${TMPFILE}"
 mv "${TMPFILE}" "${SOURCE_FILE}"
 
 # Verify the change took effect
@@ -222,7 +222,7 @@ ${INSTALL_NAMES}
 
   def caveats
     <<~EOS
-      All six upscaling models are bundled and ready to use.
+      All seven upscaling models are bundled and ready to use.
 
       List available models:
         superscale --list-models
