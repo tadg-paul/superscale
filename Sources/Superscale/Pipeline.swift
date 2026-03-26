@@ -48,7 +48,16 @@ class Pipeline {
     /// - Parameters:
     ///   - input: URL of the input image file.
     ///   - output: URL for the output image file.
-    func process(input: URL, output: URL) throws {
+    ///   - requestedScale: User-requested scale factor (e.g. 2.4). Nil means native model scale.
+    ///   - targetWidth: Target width in pixels. Nil means no dimension target.
+    ///   - targetHeight: Target height in pixels. Nil means no dimension target.
+    ///   - stretch: If true, stretch to exact width×height ignoring aspect ratio.
+    func process(
+        input: URL, output: URL,
+        requestedScale: Double? = nil,
+        targetWidth: Int? = nil, targetHeight: Int? = nil,
+        stretch: Bool = false
+    ) throws {
         // 1. Load image
         report("Loading \(input.lastPathComponent)...")
         let loaded = try ImageLoader.load(from: input)
@@ -83,15 +92,15 @@ class Pipeline {
         }
 
         // 4. Stitch tiles
-        let outputWidth = loaded.image.width * scale
-        let outputHeight = loaded.image.height * scale
+        let nativeWidth = loaded.image.width * scale
+        let nativeHeight = loaded.image.height * scale
         let scaledOverlap = overlap * scale
 
-        report("Stitching output (\(outputWidth)×\(outputHeight))...")
+        report("Stitching output (\(nativeWidth)×\(nativeHeight))...")
         var stitched = try Tiler.stitch(
             tiles: upscaledTiles,
-            outputWidth: outputWidth,
-            outputHeight: outputHeight,
+            outputWidth: nativeWidth,
+            outputHeight: nativeHeight,
             overlap: scaledOverlap
         )
 
@@ -109,23 +118,117 @@ class Pipeline {
         if let alphaChannel = loaded.alphaChannel {
             report("Upscaling alpha channel...")
             let upscaledAlpha = try upscaleAlpha(
-                alphaChannel, toWidth: outputWidth, height: outputHeight)
+                alphaChannel, toWidth: nativeWidth, height: nativeHeight)
             stitched = try ImageLoader.recombineAlpha(rgb: stitched, alpha: upscaledAlpha)
         }
 
-        // 7. Write output
+        // 7. Resize to target (if different from native output)
+        let (finalWidth, finalHeight) = resolveTargetDimensions(
+            inputWidth: loaded.image.width,
+            inputHeight: loaded.image.height,
+            nativeScale: scale,
+            requestedScale: requestedScale,
+            targetWidth: targetWidth,
+            targetHeight: targetHeight,
+            stretch: stretch)
+
+        if finalWidth != nativeWidth || finalHeight != nativeHeight {
+            let effectiveScale = Double(finalWidth) / Double(loaded.image.width)
+            if effectiveScale > Double(scale) {
+                report("Warning: Target scale \(String(format: "%.1f", effectiveScale))× " +
+                       "exceeds model's native \(scale)× — standard interpolation " +
+                       "will be used for the remaining " +
+                       "\(String(format: "%.1f", effectiveScale / Double(scale)))×. " +
+                       "Some pixellation may be visible.")
+            }
+            report("Resizing to \(finalWidth)×\(finalHeight)...")
+            stitched = try resizeImage(
+                stitched, toWidth: finalWidth, height: finalHeight)
+        }
+
+        // 8. Write output
         let format = OutputFormat.from(extension: output.pathExtension) ?? .png
         report("Writing \(output.lastPathComponent)...")
         try ImageWriter.write(stitched, to: output, format: format,
                               colorSpace: loaded.colorSpace)
 
-        report("Done: \(outputWidth)×\(outputHeight) → \(output.lastPathComponent)")
+        report("Done: \(finalWidth)×\(finalHeight) → \(output.lastPathComponent)")
     }
 
     // MARK: - Private
 
     private func report(_ message: String) {
         onProgress?(message)
+    }
+
+    /// Compute final target dimensions from user-requested scale or dimensions.
+    ///
+    /// Returns (width, height) for the final output after any post-pipeline resize.
+    /// If no custom target is requested, returns the native upscaled dimensions.
+    private func resolveTargetDimensions(
+        inputWidth: Int, inputHeight: Int,
+        nativeScale: Int,
+        requestedScale: Double?,
+        targetWidth: Int?, targetHeight: Int?,
+        stretch: Bool
+    ) -> (width: Int, height: Int) {
+        // Case 1: explicit --scale
+        if let s = requestedScale {
+            let w = Int(round(Double(inputWidth) * s))
+            let h = Int(round(Double(inputHeight) * s))
+            return (max(w, 1), max(h, 1))
+        }
+
+        // Case 2: --width and/or --height
+        if let tw = targetWidth, let th = targetHeight {
+            if stretch {
+                return (tw, th)
+            }
+            // Fit within bounding box preserving aspect ratio
+            let scaleW = Double(tw) / Double(inputWidth)
+            let scaleH = Double(th) / Double(inputHeight)
+            let fitScale = min(scaleW, scaleH)
+            return (max(Int(round(Double(inputWidth) * fitScale)), 1),
+                    max(Int(round(Double(inputHeight) * fitScale)), 1))
+        }
+        if let tw = targetWidth {
+            // Width only: scale proportionally
+            let fitScale = Double(tw) / Double(inputWidth)
+            return (tw, max(Int(round(Double(inputHeight) * fitScale)), 1))
+        }
+        if let th = targetHeight {
+            // Height only: scale proportionally
+            let fitScale = Double(th) / Double(inputHeight)
+            return (max(Int(round(Double(inputWidth) * fitScale)), 1), th)
+        }
+
+        // Case 3: no custom target — native model scale
+        return (inputWidth * nativeScale, inputHeight * nativeScale)
+    }
+
+    /// Resize an image using high-quality interpolation.
+    private func resizeImage(
+        _ image: CGImage, toWidth width: Int, height: Int
+    ) throws -> CGImage {
+        guard let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) else {
+            throw ImageIOError.contextCreationFailed
+        }
+        guard let ctx = CGContext(
+            data: nil,
+            width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            throw ImageIOError.contextCreationFailed
+        }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        guard let result = ctx.makeImage() else {
+            throw ImageIOError.contextCreationFailed
+        }
+        return result
     }
 
     /// Upscale a greyscale alpha channel using bicubic interpolation.

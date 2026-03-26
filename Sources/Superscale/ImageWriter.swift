@@ -82,12 +82,18 @@ enum ImageWriter {
 
     /// Generate an output filename from an input filename.
     ///
-    /// Appends `_upscaled` before the extension, preserving the original extension
-    /// unless overridden.
-    static func outputFilename(for inputPath: String, scale: Int) -> String {
+    /// Appends `_{scale}x` before the extension. Integer scales produce `_4x`,
+    /// fractional scales produce `_2.4x`.
+    static func outputFilename(for inputPath: String, scale: Double) -> String {
         let url = URL(fileURLWithPath: inputPath)
         let stem = url.deletingPathExtension().lastPathComponent
         let ext = url.pathExtension.isEmpty ? "png" : url.pathExtension
-        return "\(stem)_\(scale)x.\(ext)"
+        let scaleStr: String
+        if scale == scale.rounded(.towardZero) && scale >= 1 {
+            scaleStr = "\(Int(scale))x"
+        } else {
+            scaleStr = String(format: "%.1fx", scale)
+        }
+        return "\(stem)_\(scaleStr).\(ext)"
     }
 }

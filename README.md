@@ -18,11 +18,23 @@ superscale photo.png
 # Specify scale factor and output directory
 superscale -s 2 -o upscaled/ photo.png
 
+# Fractional scale (e.g. make image 2.4× larger)
+superscale -s 2.4 photo.png
+
+# Target resolution — fit within 4096×4096 preserving aspect ratio
+superscale --width 4096 --height 4096 photo.png
+
+# Target resolution — stretch to exact dimensions
+superscale --width 1920 --height 1080 --stretch photo.png
+
 # Process multiple images at once
 superscale -o output/ *.png
 
 # Override model selection
 superscale -m realesrgan-anime-6b illustration.png
+
+# Use denoising model for old/grainy photos
+superscale -m realesr-general-wdn-x4v3 old_photo.jpg
 
 # List available models (including face enhancement status)
 superscale --list-models

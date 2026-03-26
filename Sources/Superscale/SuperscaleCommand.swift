@@ -15,14 +15,23 @@ struct Superscale: ParsableCommand {
     @Argument(help: "Input image file(s).")
     var inputs: [String] = []
 
-    @Option(name: .shortAndLong, help: "Scale factor (2 or 4).")
-    var scale: Int = 4
+    @Option(name: .shortAndLong, help: "Scale factor (e.g. 2, 4, 2.4). Default: 4.")
+    var scale: Double?
 
     @Option(name: .shortAndLong, help: "Output directory.")
     var output: String?
 
     @Option(name: .shortAndLong, help: "Model name (auto-detected if omitted; see --list-models).")
     var model: String?
+
+    @Option(name: .long, help: "Target output width in pixels.")
+    var width: Int?
+
+    @Option(name: .long, help: "Target output height in pixels.")
+    var height: Int?
+
+    @Flag(name: .long, help: "Stretch to exact --width and --height, ignoring aspect ratio.")
+    var stretch: Bool = false
 
     @Option(name: .long, help: "Tile size in pixels (smaller = less memory, more passes).")
     var tileSize: Int?
@@ -81,6 +90,27 @@ struct Superscale: ParsableCommand {
             throw ValidationError("No input files specified.")
         }
 
+        // Validate target resolution options
+        if scale != nil && (width != nil || height != nil) {
+            throw ValidationError(
+                "Cannot specify both --scale and --width/--height.")
+        }
+        if stretch && (width == nil || height == nil) {
+            throw ValidationError(
+                "--stretch requires both --width and --height.")
+        }
+        if let s = scale, s <= 0 {
+            throw ValidationError("--scale must be a positive number.")
+        }
+
+        // Determine the model scale (2 or 4) for auto-detection
+        let modelScale: Int
+        if let s = scale, s > 0, s <= 2.0 {
+            modelScale = 2
+        } else {
+            modelScale = 4
+        }
+
         // Create output directory if needed
         let outputDir: URL?
         if let outputPath = output {
@@ -105,16 +135,20 @@ struct Superscale: ParsableCommand {
             let firstInputURL = URL(fileURLWithPath: inputs[0])
             let loaded = try ImageLoader.load(from: firstInputURL)
             let (contentType, _) = try ContentDetector.detect(image: loaded.image)
-            resolvedModelName = ContentDetector.modelName(for: contentType, scale: scale)
+            resolvedModelName = ContentDetector.modelName(
+                for: contentType, scale: modelScale)
             fputs("Detected: \(contentType) \u{2192} using \(resolvedModelName)\n", stderr)
         }
 
         // Validate model exists
-        guard let modelInfo = ModelRegistry.model(named: resolvedModelName) else {
+        guard let resolvedModelInfo = ModelRegistry.model(named: resolvedModelName) else {
             let available = ModelRegistry.models.map { $0.name }.joined(separator: ", ")
             throw ValidationError(
                 "Unknown model '\(resolvedModelName)'. Available: \(available)")
         }
+
+        // Effective scale for output filename (model native when using --width/--height)
+        let filenameScale: Double = scale ?? Double(resolvedModelInfo.scale)
 
         // Face enhancement: automatic when model is present, unless --no-face-enhance
         let useFaceEnhance = !noFaceEnhance && FaceModelRegistry.isInstalled
@@ -136,7 +170,7 @@ struct Superscale: ParsableCommand {
         for inputPath in inputs {
             let inputURL = URL(fileURLWithPath: inputPath)
             let outputFilename = ImageWriter.outputFilename(
-                for: inputPath, scale: modelInfo.scale)
+                for: inputPath, scale: filenameScale)
             let outputURL: URL
             if let dir = outputDir {
                 outputURL = dir.appendingPathComponent(outputFilename)
@@ -146,7 +180,11 @@ struct Superscale: ParsableCommand {
             }
 
             do {
-                try pipeline.process(input: inputURL, output: outputURL)
+                try pipeline.process(
+                    input: inputURL, output: outputURL,
+                    requestedScale: scale,
+                    targetWidth: width, targetHeight: height,
+                    stretch: stretch)
             } catch {
                 errors.append((inputPath, error))
                 fputs("Error processing \(inputPath): \(error)\n", stderr)

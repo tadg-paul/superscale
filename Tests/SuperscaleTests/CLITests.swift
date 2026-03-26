@@ -271,6 +271,290 @@ final class CLITests: XCTestCase {
                       "wdn model description should mention denoise: \(result.stdout)")
     }
 
+    // MARK: - Target resolution tests (#38)
+
+    // RT-071: --scale accepts float and produces output at specified scale
+    func test_cli_float_scale_produces_correct_dimensions_RT071() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt071_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        let inputURL = tmpDir.appendingPathComponent("test_100x100.png")
+        try createTestImage(width: 100, height: 100, at: inputURL)
+
+        let result = try runCLI([
+            inputURL.path, "-o", tmpDir.path,
+            "-s", "2.4", "-m", "realesrgan-x4plus"
+        ])
+
+        XCTAssertEqual(result.exitCode, 0, "Should succeed. stderr: \(result.stderr)")
+
+        let outputPath = tmpDir.appendingPathComponent("test_100x100_2.4x.png")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputPath.path),
+                      "Output should exist at \(outputPath.path)")
+
+        if let source = CGImageSourceCreateWithURL(outputPath as CFURL, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            XCTAssertEqual(image.width, 240, "Output width should be 100 × 2.4 = 240")
+            XCTAssertEqual(image.height, 240, "Output height should be 100 × 2.4 = 240")
+        } else {
+            XCTFail("Could not read output image")
+        }
+    }
+
+    // RT-072: --width alone scales proportionally
+    func test_cli_width_scales_proportionally_RT072() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt072_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        let inputURL = tmpDir.appendingPathComponent("test_100x200.png")
+        try createTestImage(width: 100, height: 200, at: inputURL)
+
+        let result = try runCLI([
+            inputURL.path, "-o", tmpDir.path,
+            "--width", "800", "-m", "realesrgan-x4plus"
+        ])
+
+        XCTAssertEqual(result.exitCode, 0, "Should succeed. stderr: \(result.stderr)")
+
+        // Find output file (filename uses model native scale since --width not --scale)
+        let outputs = try FileManager.default.contentsOfDirectory(
+            at: tmpDir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("test_100x200_") }
+        XCTAssertEqual(outputs.count, 1, "Should produce one output file")
+
+        if let outputURL = outputs.first,
+           let source = CGImageSourceCreateWithURL(outputURL as CFURL, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            XCTAssertEqual(image.width, 800, "Output width should match --width 800")
+            XCTAssertEqual(image.height, 1600,
+                           "Output height should scale proportionally: 200 × (800/100) = 1600")
+        } else {
+            XCTFail("Could not read output image")
+        }
+    }
+
+    // RT-073: --height alone scales proportionally
+    func test_cli_height_scales_proportionally_RT073() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt073_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        let inputURL = tmpDir.appendingPathComponent("test_100x200.png")
+        try createTestImage(width: 100, height: 200, at: inputURL)
+
+        let result = try runCLI([
+            inputURL.path, "-o", tmpDir.path,
+            "--height", "800", "-m", "realesrgan-x4plus"
+        ])
+
+        XCTAssertEqual(result.exitCode, 0, "Should succeed. stderr: \(result.stderr)")
+
+        let outputs = try FileManager.default.contentsOfDirectory(
+            at: tmpDir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("test_100x200_") }
+        XCTAssertEqual(outputs.count, 1, "Should produce one output file")
+
+        if let outputURL = outputs.first,
+           let source = CGImageSourceCreateWithURL(outputURL as CFURL, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            XCTAssertEqual(image.width, 400,
+                           "Output width should scale proportionally: 100 × (800/200) = 400")
+            XCTAssertEqual(image.height, 800, "Output height should match --height 800")
+        } else {
+            XCTFail("Could not read output image")
+        }
+    }
+
+    // RT-074: --width and --height together preserves aspect ratio (fit bounding box)
+    func test_cli_width_height_preserves_aspect_ratio_RT074() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt074_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        // 100×200 image with --width 2000 --height 2000 → fit = min(20, 10) = 10× → 1000×2000
+        let inputURL = tmpDir.appendingPathComponent("test_100x200.png")
+        try createTestImage(width: 100, height: 200, at: inputURL)
+
+        let result = try runCLI([
+            inputURL.path, "-o", tmpDir.path,
+            "--width", "2000", "--height", "2000", "-m", "realesrgan-x4plus"
+        ])
+
+        XCTAssertEqual(result.exitCode, 0, "Should succeed. stderr: \(result.stderr)")
+
+        let outputs = try FileManager.default.contentsOfDirectory(
+            at: tmpDir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("test_100x200_") }
+        XCTAssertEqual(outputs.count, 1, "Should produce one output file")
+
+        if let outputURL = outputs.first,
+           let source = CGImageSourceCreateWithURL(outputURL as CFURL, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            XCTAssertEqual(image.width, 1000,
+                           "Width should fit bounding box: min(2000/100, 2000/200)=10 → 100×10=1000")
+            XCTAssertEqual(image.height, 2000,
+                           "Height should fit bounding box: 200×10=2000")
+        } else {
+            XCTFail("Could not read output image")
+        }
+    }
+
+    // RT-075: --stretch produces exact dimensions ignoring aspect ratio
+    func test_cli_stretch_produces_exact_dimensions_RT075() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt075_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        let inputURL = tmpDir.appendingPathComponent("test_100x200.png")
+        try createTestImage(width: 100, height: 200, at: inputURL)
+
+        let result = try runCLI([
+            inputURL.path, "-o", tmpDir.path,
+            "--width", "2000", "--height", "2000", "--stretch",
+            "-m", "realesrgan-x4plus"
+        ])
+
+        XCTAssertEqual(result.exitCode, 0, "Should succeed. stderr: \(result.stderr)")
+
+        let outputs = try FileManager.default.contentsOfDirectory(
+            at: tmpDir, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("test_100x200_") }
+        XCTAssertEqual(outputs.count, 1, "Should produce one output file")
+
+        if let outputURL = outputs.first,
+           let source = CGImageSourceCreateWithURL(outputURL as CFURL, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            XCTAssertEqual(image.width, 2000,
+                           "Width should be exactly 2000 with --stretch")
+            XCTAssertEqual(image.height, 2000,
+                           "Height should be exactly 2000 with --stretch")
+        } else {
+            XCTFail("Could not read output image")
+        }
+    }
+
+    // RT-076: --scale and --width together produces validation error
+    func test_cli_scale_and_width_mutual_exclusion_RT076() throws {
+        let result = try runCLI(["test.png", "-s", "2", "--width", "800"])
+        XCTAssertNotEqual(result.exitCode, 0,
+                          "Should fail when both --scale and --width specified")
+        let combined = result.stdout + result.stderr
+        XCTAssertTrue(combined.lowercased().contains("cannot") ||
+                      combined.lowercased().contains("error"),
+                      "Should emit an error message: \(combined)")
+    }
+
+    // RT-077: Warning emitted when target exceeds model's native scale
+    func test_cli_beyond_native_scale_emits_warning_RT077() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt077_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+
+        let inputURL = tmpDir.appendingPathComponent("test_100x100.png")
+        try createTestImage(width: 100, height: 100, at: inputURL)
+
+        let result = try runCLI([
+            inputURL.path, "-o", tmpDir.path,
+            "-s", "6", "-m", "realesrgan-x4plus"
+        ])
+
+        XCTAssertEqual(result.exitCode, 0, "Should still succeed. stderr: \(result.stderr)")
+        XCTAssertTrue(result.stderr.contains("exceeds"),
+                      "Should warn about exceeding native scale: \(result.stderr)")
+
+        // Output should still be produced at 600×600
+        let outputPath = tmpDir.appendingPathComponent("test_100x100_6x.png")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputPath.path),
+                      "Output should still be produced")
+        if let source = CGImageSourceCreateWithURL(outputPath as CFURL, nil),
+           let image = CGImageSourceCreateImageAtIndex(source, 0, nil) {
+            XCTAssertEqual(image.width, 600, "Output should be 100 × 6 = 600")
+            XCTAssertEqual(image.height, 600, "Output should be 100 × 6 = 600")
+        }
+    }
+
+    // RT-078: --stretch without both --width and --height produces validation error
+    func test_cli_stretch_without_both_dimensions_RT078() throws {
+        let result = try runCLI(["test.png", "--stretch", "--width", "800"])
+        XCTAssertNotEqual(result.exitCode, 0,
+                          "Should fail when --stretch used without both dimensions")
+        let combined = result.stdout + result.stderr
+        XCTAssertTrue(combined.lowercased().contains("stretch") ||
+                      combined.lowercased().contains("error"),
+                      "Should mention --stretch in error: \(combined)")
+    }
+
+    // MARK: - Test image helper
+
+    private func createTestImage(width: Int, height: Int, at url: URL) throws {
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else {
+            throw NSError(domain: "test", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Cannot create CGContext"])
+        }
+        // Draw a gradient pattern so the image has some content
+        for y in 0..<height {
+            for x in 0..<width {
+                let r = CGFloat(x) / CGFloat(width)
+                let g = CGFloat(y) / CGFloat(height)
+                ctx.setFillColor(red: r, green: g, blue: 0.5, alpha: 1.0)
+                ctx.fill(CGRect(x: x, y: y, width: 1, height: 1))
+            }
+        }
+        guard let image = ctx.makeImage() else {
+            throw NSError(domain: "test", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Cannot make CGImage"])
+        }
+        guard let dest = CGImageDestinationCreateWithURL(
+            url as CFURL, "public.png" as CFString, 1, nil
+        ) else {
+            throw NSError(domain: "test", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Cannot create image destination"])
+        }
+        CGImageDestinationAddImage(dest, image, nil)
+        guard CGImageDestinationFinalize(dest) else {
+            throw NSError(domain: "test", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Cannot write image"])
+        }
+    }
+
     // RT-059: --clear-cache empties the compiled model cache directory
     func test_cli_clear_cache_removes_compiled_models_RT059() throws {
         let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x4plus.mlpackage")

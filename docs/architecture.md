@@ -1,4 +1,4 @@
-<!-- Version: 0.3 | Last updated: 2026-03-26 -->
+<!-- Version: 0.4 | Last updated: 2026-03-26 -->
 
 # Architecture
 
@@ -176,11 +176,20 @@ input.png
 [Alpha: upscale via bicubic, recombine (if present)]
     │
     ▼
+[Resize: to target dims if --scale/--width/--height specified (CGContext .high)]
+    │
+    ▼
 [ImageWriter: save as PNG/JPEG, preserve colour profile]
     │
     ▼
 output_4x.png
 ```
+
+## Target resolution
+
+When `--scale` (float), `--width`, or `--height` is specified, a post-pipeline resize step adjusts the output to the requested dimensions. This happens after all AI processing (upscale, stitch, face enhance, alpha) so the model always operates at its native resolution.
+
+The resize uses `CGContext` with `.high` interpolation quality (Lanczos). If the target exceeds the model's native scale, a warning is emitted but processing continues — AI upscale + interpolation is still better than pure interpolation.
 
 ## Alpha channel handling
 
