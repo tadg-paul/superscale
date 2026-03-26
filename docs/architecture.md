@@ -1,4 +1,4 @@
-<!-- Version: 0.2 | Last updated: 2026-03-18 -->
+<!-- Version: 0.3 | Last updated: 2026-03-26 -->
 
 # Architecture
 
@@ -58,7 +58,7 @@ The core processing sequence:
 
 2. **Tiler** — splits the input image into overlapping tiles of configurable size. Large images cannot be processed in one pass due to memory constraints. Tiles overlap to avoid seam artefacts; the overlap region is blended during reassembly.
 
-3. **CoreMLInference** — loads the `.mlpackage` model, creates a `VNCoreMLRequest`, runs each tile through the model. The model outputs a tile at `scale×` the input resolution. CoreML automatically dispatches to the Neural Engine, GPU, or CPU depending on hardware and model compatibility.
+3. **CoreMLInference** — loads the `.mlpackage` model via `ModelCache`, creates a `VNCoreMLRequest`, runs each tile through the model. The model outputs a tile at `scale×` the input resolution. CoreML automatically dispatches to the Neural Engine, GPU, or CPU depending on hardware and model compatibility.
 
 4. **Tiler (stitch)** — reassembles upscaled tiles into the final output image, blending overlap regions.
 
@@ -87,6 +87,31 @@ struct ModelInfo {
 - Bundled: installed to the Cellar with the binary (Homebrew), or `~/Library/Application Support/superscale/models/`
 - Downloaded: `~/Library/Application Support/superscale/models/`
 - See [issue #2](https://github.com/tigger04/superscale/issues/2) for the full storage strategy decision
+
+### Compiled model cache (`ModelCache`)
+
+CoreML `.mlpackage` files are a source format. At load time, `MLModel.compileModel(at:)` translates them into a device-optimized `.mlmodelc` bundle. `ModelCache` persists these compiled bundles so the compilation step is not repeated on every run.
+
+**Cache location:** `~/Library/Application Support/superscale/compiled/`
+
+**Cache invalidation:** The modification date of the source `.mlpackage` directory is stored as a cache key alongside each `.mlmodelc`. When the source changes (e.g. via `brew upgrade`), the key mismatches and the model is recompiled. The `--clear-cache` CLI flag forces recompilation of all models.
+
+**Performance context (benchmarked on M3 Air, March 2026):**
+
+| Operation | Time |
+|-----------|------|
+| `MLModel.compileModel(at:)` — compile `.mlpackage` → `.mlmodelc` | 0.18s |
+| `MLModel(contentsOf:)` — load compiled model into memory | 3.2s |
+| Total cold load (compile + load) | 3.4s |
+| Total cached load (load only) | 3.2s |
+
+For the current Real-ESRGAN models (RRDBNet / SRVGGNetCompact), the compilation step is only ~5% of total load time. The dominant cost is loading and initializing the model weights, which happens regardless of caching. The net saving is approximately **180ms per model load**.
+
+The caching infrastructure is retained because:
+
+1. Heavier model architectures (e.g. if larger or more complex models are added in future) may have a more expensive compilation step where the saving becomes significant.
+2. The overhead of caching is negligible — a single `copyItem` on first load, a single `fileExists` + string comparison on subsequent loads.
+3. The architecture is in place for the GUI phases (8–11), where any reduction in launch time matters more than in a CLI.
 
 ### Conversion tooling (`scripts/`)
 
