@@ -77,16 +77,43 @@ class Pipeline {
         for (index, tile) in tiles.enumerated() {
             report("Processing tile \(index + 1) of \(totalTiles)...")
 
-            let upscaledImage = try inference.upscale(tile.image)
+            // Pad undersized tiles to tileSize before inference.
+            // VNCoreMLRequest.scaleFill stretches undersized tiles to the model's
+            // expected input, distorting content. Reflection padding preserves
+            // content integrity; the padded region is cropped from the output.
+            let needsPadding = tile.image.width < tileSize || tile.image.height < tileSize
+            let inferenceInput: CGImage
+            if needsPadding {
+                inferenceInput = try padToSize(
+                    tile.image, width: tileSize, height: tileSize)
+            } else {
+                inferenceInput = tile.image
+            }
+
+            let upscaledImage = try inference.upscale(inferenceInput)
+
+            // Crop away the upscaled padding region to get the correct output tile.
+            let croppedImage: CGImage
+            if needsPadding {
+                let cropW = tile.image.width * scale
+                let cropH = tile.image.height * scale
+                let cropRect = CGRect(x: 0, y: 0, width: cropW, height: cropH)
+                guard let cropped = upscaledImage.cropping(to: cropRect) else {
+                    throw ImageIOError.contextCreationFailed
+                }
+                croppedImage = cropped
+            } else {
+                croppedImage = upscaledImage
+            }
 
             let upscaledTile = Tile(
-                image: upscaledImage,
+                image: croppedImage,
                 origin: CGPoint(
                     x: tile.origin.x * CGFloat(scale),
                     y: tile.origin.y * CGFloat(scale)),
                 size: CGSize(
-                    width: CGFloat(upscaledImage.width),
-                    height: CGFloat(upscaledImage.height))
+                    width: CGFloat(croppedImage.width),
+                    height: CGFloat(croppedImage.height))
             )
             upscaledTiles.append(upscaledTile)
         }
@@ -224,6 +251,79 @@ class Pipeline {
         }
         ctx.interpolationQuality = .high
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        guard let result = ctx.makeImage() else {
+            throw ImageIOError.contextCreationFailed
+        }
+        return result
+    }
+
+    /// Pad an image to the given dimensions using reflection padding.
+    ///
+    /// Draws the original image at origin (0, 0), then fills the remaining
+    /// space by mirroring content at the edges. This is the standard approach
+    /// for Real-ESRGAN and avoids boundary artefacts from zero-padding.
+    private func padToSize(
+        _ image: CGImage, width targetW: Int, height targetH: Int
+    ) throws -> CGImage {
+        guard let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) else {
+            throw ImageIOError.contextCreationFailed
+        }
+        guard let ctx = CGContext(
+            data: nil,
+            width: targetW, height: targetH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else {
+            throw ImageIOError.contextCreationFailed
+        }
+
+        let srcW = image.width
+        let srcH = image.height
+
+        // Draw original image at bottom-left (CGContext origin is bottom-left,
+        // but the tile origin convention is top-left). We place at y offset so
+        // the original content occupies the top-left of the output when read
+        // back as a CGImage (which flips y).
+        let yOffset = targetH - srcH
+        ctx.draw(image, in: CGRect(x: 0, y: yOffset, width: srcW, height: srcH))
+
+        // Reflect-pad the right edge: mirror the rightmost column strip
+        if srcW < targetW {
+            let padW = targetW - srcW
+            let reflectW = min(padW, srcW)
+            if let rightStrip = image.cropping(to: CGRect(
+                x: srcW - reflectW, y: 0, width: reflectW, height: srcH
+            )) {
+                ctx.saveGState()
+                // Flip horizontally around the right edge of the original
+                ctx.translateBy(x: CGFloat(srcW + reflectW), y: 0)
+                ctx.scaleBy(x: -1, y: 1)
+                ctx.draw(rightStrip, in: CGRect(
+                    x: 0, y: yOffset, width: reflectW, height: srcH))
+                ctx.restoreGState()
+            }
+        }
+
+        // Reflect-pad the bottom edge: mirror the bottommost row strip
+        if srcH < targetH {
+            let padH = targetH - srcH
+            let reflectH = min(padH, srcH)
+            if let bottomStrip = image.cropping(to: CGRect(
+                x: 0, y: srcH - reflectH, width: srcW, height: reflectH
+            )) {
+                ctx.saveGState()
+                // Flip vertically below the original (in CGContext coords, this
+                // means above yOffset, reflected downward)
+                ctx.translateBy(x: 0, y: CGFloat(yOffset))
+                ctx.scaleBy(x: 1, y: -1)
+                ctx.translateBy(x: 0, y: CGFloat(-reflectH))
+                ctx.draw(bottomStrip, in: CGRect(
+                    x: 0, y: 0, width: srcW, height: reflectH))
+                ctx.restoreGState()
+            }
+        }
 
         guard let result = ctx.makeImage() else {
             throw ImageIOError.contextCreationFailed
