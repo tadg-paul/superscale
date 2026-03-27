@@ -260,78 +260,93 @@ class Pipeline {
 
     /// Pad an image to the given dimensions using reflection padding.
     ///
-    /// Draws the original image at the origin, then fills the remaining
-    /// space by mirroring content at the edges. This is the standard approach
-    /// for Real-ESRGAN and avoids boundary artefacts from zero-padding.
-    ///
-    /// CGBitmapContext uses bottom-left origin for drawing but makeImage()
-    /// reads the buffer top-to-bottom. Drawing at CGContext y=0 places
-    /// content at the top of the resulting CGImage, matching CGImage's
-    /// top-left origin and the crop at (0, 0) after inference.
+    /// Operates at the pixel-buffer level to avoid CGContext coordinate
+    /// system confusion (bottom-left origin vs top-left CGImage convention).
+    /// Renders the source to a pixel buffer, copies rows into a larger
+    /// target buffer with reflected edges, and creates a CGImage from it.
     private func padToSize(
         _ image: CGImage, width targetW: Int, height targetH: Int
     ) throws -> CGImage {
         guard let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) else {
             throw ImageIOError.contextCreationFailed
         }
-        guard let ctx = CGContext(
-            data: nil,
+
+        let srcW = image.width
+        let srcH = image.height
+        let bytesPerPixel = 4
+        let srcBytesPerRow = srcW * bytesPerPixel
+        let dstBytesPerRow = targetW * bytesPerPixel
+
+        // Render source image to a pixel buffer (top-down raster order).
+        var srcPixels = [UInt8](repeating: 0, count: srcH * srcBytesPerRow)
+        guard let srcCtx = CGContext(
+            data: &srcPixels,
+            width: srcW, height: srcH,
+            bitsPerComponent: 8, bytesPerRow: srcBytesPerRow,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else {
+            throw ImageIOError.contextCreationFailed
+        }
+        srcCtx.draw(image, in: CGRect(x: 0, y: 0, width: srcW, height: srcH))
+
+        // Create target buffer, initialised to zero (black padding).
+        var dstPixels = [UInt8](repeating: 0, count: targetH * dstBytesPerRow)
+
+        // Copy source rows into the top-left of the target buffer.
+        for row in 0..<srcH {
+            let srcOffset = row * srcBytesPerRow
+            let dstOffset = row * dstBytesPerRow
+            dstPixels.replaceSubrange(
+                dstOffset..<(dstOffset + srcBytesPerRow),
+                with: srcPixels[srcOffset..<(srcOffset + srcBytesPerRow)])
+        }
+
+        // Reflect-pad the right edge: mirror the rightmost columns.
+        if srcW < targetW {
+            let padW = targetW - srcW
+            let reflectW = min(padW, srcW)
+            for row in 0..<srcH {
+                for col in 0..<reflectW {
+                    let srcCol = srcW - 1 - col  // mirror from right edge
+                    let srcIdx = row * srcBytesPerRow + srcCol * bytesPerPixel
+                    let dstIdx = row * dstBytesPerRow + (srcW + col) * bytesPerPixel
+                    for b in 0..<bytesPerPixel {
+                        dstPixels[dstIdx + b] = srcPixels[srcIdx + b]
+                    }
+                }
+            }
+        }
+
+        // Reflect-pad the bottom edge: mirror the bottommost rows.
+        if srcH < targetH {
+            let padH = targetH - srcH
+            let reflectH = min(padH, srcH)
+            for padRow in 0..<reflectH {
+                let srcRow = srcH - 1 - padRow  // mirror from bottom edge
+                let dstRow = srcH + padRow
+                // Copy the full target width (includes right-padded pixels).
+                let srcRowStart = srcRow * dstBytesPerRow
+                let dstRowStart = dstRow * dstBytesPerRow
+                let copyLen = min(srcW + min(targetW - srcW, srcW), targetW) * bytesPerPixel
+                dstPixels.replaceSubrange(
+                    dstRowStart..<(dstRowStart + copyLen),
+                    with: dstPixels[srcRowStart..<(srcRowStart + copyLen)])
+            }
+        }
+
+        // Create CGImage from the padded pixel buffer.
+        guard let dstCtx = CGContext(
+            data: &dstPixels,
             width: targetW, height: targetH,
-            bitsPerComponent: 8, bytesPerRow: 0,
+            bitsPerComponent: 8, bytesPerRow: dstBytesPerRow,
             space: colorSpace,
             bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
         ) else {
             throw ImageIOError.contextCreationFailed
         }
 
-        let srcW = image.width
-        let srcH = image.height
-
-        // Flip context to top-left origin. CGBitmapContext defaults to
-        // bottom-left, which inverts CGImages drawn into it relative to
-        // their natural orientation. Flipping first ensures content is
-        // written to the bitmap in the same orientation as the source CGImage.
-        ctx.translateBy(x: 0, y: CGFloat(targetH))
-        ctx.scaleBy(x: 1, y: -1)
-
-        // Now (0, 0) is the top-left corner. Draw content at top-left.
-        ctx.draw(image, in: CGRect(x: 0, y: 0, width: srcW, height: srcH))
-
-        // Reflect-pad the right edge: mirror the rightmost column strip
-        if srcW < targetW {
-            let padW = targetW - srcW
-            let reflectW = min(padW, srcW)
-            if let rightStrip = image.cropping(to: CGRect(
-                x: srcW - reflectW, y: 0, width: reflectW, height: srcH
-            )) {
-                ctx.saveGState()
-                ctx.translateBy(x: CGFloat(srcW + reflectW), y: 0)
-                ctx.scaleBy(x: -1, y: 1)
-                ctx.draw(rightStrip, in: CGRect(
-                    x: 0, y: 0, width: reflectW, height: srcH))
-                ctx.restoreGState()
-            }
-        }
-
-        // Reflect-pad the bottom edge: mirror the bottom row strip.
-        // In our flipped context, y increases downward, so "below" the
-        // content starts at y=srcH.
-        if srcH < targetH {
-            let padH = targetH - srcH
-            let reflectH = min(padH, srcH)
-            if let bottomStrip = image.cropping(to: CGRect(
-                x: 0, y: srcH - reflectH, width: srcW, height: reflectH
-            )) {
-                ctx.saveGState()
-                ctx.translateBy(x: 0, y: CGFloat(srcH + reflectH))
-                ctx.scaleBy(x: 1, y: -1)
-                ctx.draw(bottomStrip, in: CGRect(
-                    x: 0, y: srcH, width: srcW, height: reflectH))
-                ctx.restoreGState()
-            }
-        }
-
-        guard let result = ctx.makeImage() else {
+        guard let result = dstCtx.makeImage() else {
             throw ImageIOError.contextCreationFailed
         }
         return result
