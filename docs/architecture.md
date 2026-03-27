@@ -1,4 +1,4 @@
-<!-- Version: 0.6 | Last updated: 2026-03-26 -->
+<!-- Version: 0.7 | Last updated: 2026-03-27 -->
 
 # Architecture
 
@@ -69,7 +69,7 @@ Superscale is a Swift CLI application that uses CoreML to run Real-ESRGAN image 
 - Report progress to stderr
 - Exit codes: 0 success, 1 error, 2 misuse
 
-**Help system** (`HelpFormatter.swift`, `Pager.swift`, `CSystemShim`) — ArgumentParser's built-in help is disabled (`helpNames: []`). A custom `-h`/`--help` flag generates a man-page-style manual with sections for usage, options, examples, model details, and licensing. `HelpFormatter` generates the text with optional ANSI colour (bold headers, underlined placeholders) based on terminal detection, `NO_COLOR`, and `TERM`. `Pager` writes help text to a temp file and delegates all pager logic to an inline shell script via C `system()` (exposed through `CSystemShim` since Swift marks `system()` unavailable). The shell script handles terminal detection (`[ -t 1 ]`), pager resolution (`MANPAGER` → `PAGER` → `less`), and ANSI passthrough (`-R` for less). This approach is necessary because Swift's `Process` API cannot properly connect child processes to the controlling terminal.
+**Help system** (`HelpText.swift`, `Pager.swift`, `CSystemShim`) — ArgumentParser's built-in help is disabled (`helpNames: []`). A custom `-h`/`--help` flag displays a man-page-style manual with sections for usage, options, examples, model details, and licensing. `HelpText` provides two static string constants — `coloured` (with ANSI bold/underline) and `plain` (no escape codes). `Pager.display(coloured:plain:)` writes both to temp files and delegates all display logic to an inline shell script via C `system()` (exposed through `CSystemShim` since Swift marks `system()` unavailable). The shell script handles terminal detection (`[ -t 1 ]`), `NO_COLOR` support, pager resolution (`MANPAGER` → `PAGER` → `less`), and ANSI passthrough (`-R` for less). Interactive terminals get coloured text through the pager; piped output or `NO_COLOR` gets plain text via `cat`. No terminal detection or colour logic runs in Swift. This approach is necessary because Swift's `Process` API cannot properly connect child processes to the controlling terminal.
 
 ### Pipeline
 

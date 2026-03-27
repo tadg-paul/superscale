@@ -597,7 +597,7 @@ final class CLITests: XCTestCase {
 
         let sections = [
             "NAME", "USAGE", "DESCRIPTION", "ARGUMENTS", "OPTIONS",
-            "EXAMPLES", "INSTALLED MODELS", "MODEL DETAILS",
+            "EXAMPLES", "MODELS", "MODEL DETAILS",
             "FACE ENHANCEMENT", "REQUIREMENTS", "LICENSE", "SEE ALSO"
         ]
 
@@ -610,6 +610,10 @@ final class CLITests: XCTestCase {
                 return
             }
         }
+
+        // AC41.5: Section heading is "MODELS", not "INSTALLED MODELS"
+        XCTAssertFalse(result.stdout.contains("INSTALLED MODELS"),
+                       "Section should be 'MODELS' not 'INSTALLED MODELS'")
 
         // AC39.6: -h produces same output as --help
         let shortResult = try runCLI(["-h"])
@@ -646,7 +650,7 @@ final class CLITests: XCTestCase {
                        "MANPAGER and PAGER should produce the same help content when piped")
     }
 
-    // RT-082: Help output lists all registered model names with status
+    // RT-082: Help output lists all registered model names (static, no install status)
     func test_cli_help_lists_all_models_RT082() throws {
         let result = try runCLI(["--help"])
         XCTAssertEqual(result.exitCode, 0)
@@ -662,18 +666,23 @@ final class CLITests: XCTestCase {
                           "Help should list model: \(model)")
         }
 
-        // Installation status should be shown
-        XCTAssertTrue(result.stdout.contains("installed"),
-                      "Help should show installation status for models")
+        // AC41.5: Static help text — no runtime installation status
+        XCTAssertFalse(result.stdout.contains("[installed]"),
+                       "Static help should not contain '[installed]' status")
+        XCTAssertFalse(result.stdout.contains("[not installed]"),
+                       "Static help should not contain '[not installed]' status")
     }
 
-    // RT-083: Piped help completes within timeout (pager not invoked)
+    // RT-083: Piped help completes within timeout, no pager, no ANSI
     func test_cli_help_piped_does_not_block_RT083() throws {
         let result = try runCLI(["--help"], timeout: 5.0)
         XCTAssertEqual(result.exitCode, 0,
                        "Help should complete within 5s timeout when piped")
         XCTAssertFalse(result.stdout.isEmpty,
                        "Help output should not be empty")
+        // AC41.3: Piped output must contain no ANSI escape sequences
+        XCTAssertFalse(result.stdout.contains("\u{1B}["),
+                       "Piped help should contain no ANSI escape sequences")
     }
 
     // RT-086: Help via PTY with MANPAGER=cat exercises the pager code path
@@ -718,6 +727,17 @@ final class CLITests: XCTestCase {
                       "Pager output should contain USAGE section")
         XCTAssertTrue(output.contains("OPTIONS"),
                       "Pager output should contain OPTIONS section")
+    }
+
+    // RT-090: NO_COLOR suppresses ANSI escape codes in help output
+    func test_cli_help_no_color_suppresses_ansi_RT090() throws {
+        let result = try runCLI(["--help"], environment: ["NO_COLOR": "1"])
+        XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --help with NO_COLOR")
+        XCTAssertFalse(result.stdout.isEmpty, "Help output should not be empty")
+        XCTAssertFalse(result.stdout.contains("\u{1B}["),
+                       "Help with NO_COLOR should contain no ANSI escape sequences")
+        XCTAssertTrue(result.stdout.contains("NAME"),
+                      "Help with NO_COLOR should still contain content")
     }
 
     // MARK: - Helpers

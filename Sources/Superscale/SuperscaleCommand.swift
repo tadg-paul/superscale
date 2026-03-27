@@ -54,9 +54,7 @@ struct Superscale: ParsableCommand {
 
     mutating func run() throws {
         if showHelp {
-            let useColour = HelpFormatter.shouldUseColour()
-            let text = HelpFormatter.format(useColour: useColour)
-            Pager.display(text)
+            Pager.display(coloured: HelpText.coloured, plain: HelpText.plain)
             return
         }
 
