@@ -260,9 +260,14 @@ class Pipeline {
 
     /// Pad an image to the given dimensions using reflection padding.
     ///
-    /// Draws the original image at origin (0, 0), then fills the remaining
+    /// Draws the original image at the origin, then fills the remaining
     /// space by mirroring content at the edges. This is the standard approach
     /// for Real-ESRGAN and avoids boundary artefacts from zero-padding.
+    ///
+    /// CGBitmapContext uses bottom-left origin for drawing but makeImage()
+    /// reads the buffer top-to-bottom. Drawing at CGContext y=0 places
+    /// content at the top of the resulting CGImage, matching CGImage's
+    /// top-left origin and the crop at (0, 0) after inference.
     private func padToSize(
         _ image: CGImage, width targetW: Int, height targetH: Int
     ) throws -> CGImage {
@@ -282,12 +287,15 @@ class Pipeline {
         let srcW = image.width
         let srcH = image.height
 
-        // Draw original image at bottom-left (CGContext origin is bottom-left,
-        // but the tile origin convention is top-left). We place at y offset so
-        // the original content occupies the top-left of the output when read
-        // back as a CGImage (which flips y).
-        let yOffset = targetH - srcH
-        ctx.draw(image, in: CGRect(x: 0, y: yOffset, width: srcW, height: srcH))
+        // Flip context to top-left origin. CGBitmapContext defaults to
+        // bottom-left, which inverts CGImages drawn into it relative to
+        // their natural orientation. Flipping first ensures content is
+        // written to the bitmap in the same orientation as the source CGImage.
+        ctx.translateBy(x: 0, y: CGFloat(targetH))
+        ctx.scaleBy(x: 1, y: -1)
+
+        // Now (0, 0) is the top-left corner. Draw content at top-left.
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: srcW, height: srcH))
 
         // Reflect-pad the right edge: mirror the rightmost column strip
         if srcW < targetW {
@@ -297,16 +305,17 @@ class Pipeline {
                 x: srcW - reflectW, y: 0, width: reflectW, height: srcH
             )) {
                 ctx.saveGState()
-                // Flip horizontally around the right edge of the original
                 ctx.translateBy(x: CGFloat(srcW + reflectW), y: 0)
                 ctx.scaleBy(x: -1, y: 1)
                 ctx.draw(rightStrip, in: CGRect(
-                    x: 0, y: yOffset, width: reflectW, height: srcH))
+                    x: 0, y: 0, width: reflectW, height: srcH))
                 ctx.restoreGState()
             }
         }
 
-        // Reflect-pad the bottom edge: mirror the bottommost row strip
+        // Reflect-pad the bottom edge: mirror the bottom row strip.
+        // In our flipped context, y increases downward, so "below" the
+        // content starts at y=srcH.
         if srcH < targetH {
             let padH = targetH - srcH
             let reflectH = min(padH, srcH)
@@ -314,13 +323,10 @@ class Pipeline {
                 x: 0, y: srcH - reflectH, width: srcW, height: reflectH
             )) {
                 ctx.saveGState()
-                // Flip vertically below the original (in CGContext coords, this
-                // means above yOffset, reflected downward)
-                ctx.translateBy(x: 0, y: CGFloat(yOffset))
+                ctx.translateBy(x: 0, y: CGFloat(srcH + reflectH))
                 ctx.scaleBy(x: 1, y: -1)
-                ctx.translateBy(x: 0, y: CGFloat(-reflectH))
                 ctx.draw(bottomStrip, in: CGRect(
-                    x: 0, y: 0, width: srcW, height: reflectH))
+                    x: 0, y: srcH, width: srcW, height: reflectH))
                 ctx.restoreGState()
             }
         }
