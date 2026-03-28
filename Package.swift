@@ -1,6 +1,6 @@
 // swift-tools-version: 5.9
 // ABOUTME: Swift package manifest for Superscale.
-// ABOUTME: Defines the SuperscaleKit library, CLI executable, and test targets.
+// ABOUTME: Defines the SuperscaleKit library, CLI executable, GUI app, and test targets.
 
 import PackageDescription
 
@@ -33,6 +33,11 @@ let package = Package(
                 "SuperscaleKit",
             ],
             path: "Sources/Superscale"
+        ),
+        .executableTarget(
+            name: "SuperscaleApp",
+            dependencies: ["SuperscaleKit"],
+            path: "Sources/SuperscaleApp"
         ),
         .testTarget(
             name: "SuperscaleTests",

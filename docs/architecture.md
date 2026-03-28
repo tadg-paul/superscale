@@ -223,7 +223,7 @@ The `SuperscaleKit` library contains all pipeline and model management code. The
 Package.swift
 ├── SuperscaleKit (library)    ← Pipeline + Models (Sources/SuperscaleKit/)
 ├── superscale (executable)    ← CLI (Sources/Superscale/) — depends on SuperscaleKit
-└── SuperscaleApp (executable) ← GUI (planned) — depends on SuperscaleKit
+└── SuperscaleApp (executable) ← GUI (Sources/SuperscaleApp/) — depends on SuperscaleKit
 ```
 
 ## External dependencies
