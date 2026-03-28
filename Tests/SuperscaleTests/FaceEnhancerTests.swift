@@ -3,7 +3,7 @@
 
 import XCTest
 import CoreGraphics
-@testable import Superscale
+@testable import SuperscaleKit
 
 final class FaceEnhancerTests: XCTestCase {
 

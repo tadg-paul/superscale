@@ -6,21 +6,28 @@ import Foundation
 import ImageIO
 
 /// Result of loading an image — includes the RGB image, optional alpha, and metadata.
-struct LoadedImage {
-    let image: CGImage
-    let alphaChannel: CGImage?
-    let colorSpace: CGColorSpace?
-    let hasAlpha: Bool
+public struct LoadedImage {
+    public let image: CGImage
+    public let alphaChannel: CGImage?
+    public let colorSpace: CGColorSpace?
+    public let hasAlpha: Bool
+
+    public init(image: CGImage, alphaChannel: CGImage?, colorSpace: CGColorSpace?, hasAlpha: Bool) {
+        self.image = image
+        self.alphaChannel = alphaChannel
+        self.colorSpace = colorSpace
+        self.hasAlpha = hasAlpha
+    }
 }
 
 /// Loads images from disk in common formats using CGImageSource.
-enum ImageLoader {
+public enum ImageLoader {
 
     /// Load an image from a file URL.
     ///
     /// Detects alpha channels and separates them as a greyscale image
     /// for independent processing. The returned `image` is the RGB data.
-    static func load(from url: URL) throws -> LoadedImage {
+    public static func load(from url: URL) throws -> LoadedImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
             throw ImageIOError.cannotReadFile(url.path)
         }
@@ -47,7 +54,7 @@ enum ImageLoader {
     }
 
     /// Extract the alpha channel from an image as a greyscale CGImage.
-    static func extractAlpha(from image: CGImage) -> CGImage? {
+    public static func extractAlpha(from image: CGImage) -> CGImage? {
         let width = image.width
         let height = image.height
 
@@ -91,7 +98,7 @@ enum ImageLoader {
     /// Recombine an RGB image with a greyscale alpha channel.
     ///
     /// Both images must have the same dimensions.
-    static func recombineAlpha(rgb: CGImage, alpha: CGImage) throws -> CGImage {
+    public static func recombineAlpha(rgb: CGImage, alpha: CGImage) throws -> CGImage {
         let width = rgb.width
         let height = rgb.height
 
@@ -155,7 +162,7 @@ enum ImageLoader {
 }
 
 /// Errors from image loading and writing operations.
-enum ImageIOError: Error, CustomStringConvertible {
+public enum ImageIOError: Error, CustomStringConvertible {
     case cannotReadFile(String)
     case cannotDecodeImage(String)
     case cannotWriteFile(String)
@@ -163,7 +170,7 @@ enum ImageIOError: Error, CustomStringConvertible {
     case dimensionMismatch(String)
     case contextCreationFailed
 
-    var description: String {
+    public var description: String {
         switch self {
         case .cannotReadFile(let path):
             return "Cannot read file: \(path)"

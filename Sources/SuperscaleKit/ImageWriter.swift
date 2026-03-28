@@ -7,7 +7,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 /// Supported output image formats.
-enum OutputFormat {
+public enum OutputFormat {
     case png
     case jpeg
 
@@ -19,7 +19,7 @@ enum OutputFormat {
     }
 
     /// Infer output format from a file extension.
-    static func from(extension ext: String) -> OutputFormat? {
+    public static func from(extension ext: String) -> OutputFormat? {
         switch ext.lowercased() {
         case "png": return .png
         case "jpg", "jpeg": return .jpeg
@@ -29,7 +29,7 @@ enum OutputFormat {
 }
 
 /// Writes CGImage instances to disk with format and colour profile options.
-enum ImageWriter {
+public enum ImageWriter {
 
     /// Write an image to a file URL.
     ///
@@ -38,7 +38,7 @@ enum ImageWriter {
     ///   - url: Destination file URL.
     ///   - format: Output format (PNG or JPEG).
     ///   - colorSpace: Colour space to embed. Pass nil to use the image's own colour space.
-    static func write(
+    public static func write(
         _ image: CGImage,
         to url: URL,
         format: OutputFormat,
@@ -84,7 +84,7 @@ enum ImageWriter {
     ///
     /// Appends `_{scale}x` before the extension. Integer scales produce `_4x`,
     /// fractional scales produce `_2.4x`.
-    static func outputFilename(for inputPath: String, scale: Double) -> String {
+    public static func outputFilename(for inputPath: String, scale: Double) -> String {
         let url = URL(fileURLWithPath: inputPath)
         let stem = url.deletingPathExtension().lastPathComponent
         let ext = url.pathExtension.isEmpty ? "png" : url.pathExtension

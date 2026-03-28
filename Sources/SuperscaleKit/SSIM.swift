@@ -12,7 +12,7 @@ import Foundation
 ///
 /// For images with alpha channels, transparent regions are excluded from the
 /// comparison — only opaque pixels contribute to the score.
-enum SSIM {
+public enum SSIM {
 
     /// Default constants for SSIM (from the original Wang et al. 2004 paper).
     /// L = 255 (8-bit dynamic range), k1 = 0.01, k2 = 0.03.
@@ -34,7 +34,7 @@ enum SSIM {
     ///   - imageB: Second image (typically the reference). Must have same dimensions.
     /// - Returns: SSIM score in range [-1, 1]. Typically 0.0–1.0 for natural images.
     /// - Throws: `ImageIOError.dimensionMismatch` if images differ in size.
-    static func compute(between imageA: CGImage, and imageB: CGImage) throws -> Float {
+    public static func compute(between imageA: CGImage, and imageB: CGImage) throws -> Float {
         guard imageA.width == imageB.width, imageA.height == imageB.height else {
             throw ImageIOError.dimensionMismatch(
                 "SSIM requires identical dimensions: " +

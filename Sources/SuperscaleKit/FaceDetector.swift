@@ -8,13 +8,13 @@ import Vision
 ///
 /// This uses the built-in macOS face detector (available since macOS 10.13),
 /// providing fast, native face detection with no external dependencies.
-enum FaceDetector {
+public enum FaceDetector {
 
     /// Detect face bounding boxes in an image.
     ///
     /// - Parameter image: The image to scan for faces.
     /// - Returns: Array of face rectangles in pixel coordinates (origin at top-left).
-    static func detect(in image: CGImage) throws -> [CGRect] {
+    public static func detect(in image: CGImage) throws -> [CGRect] {
         let request = VNDetectFaceRectanglesRequest()
         let handler = VNImageRequestHandler(cgImage: image, options: [:])
         try handler.perform([request])
@@ -50,7 +50,7 @@ enum FaceDetector {
     ///   - imageWidth: Image width for clamping.
     ///   - imageHeight: Image height for clamping.
     /// - Returns: Expanded and clamped rectangle.
-    static func expandRect(
+    public static func expandRect(
         _ rect: CGRect,
         by factor: CGFloat = 1.5,
         imageWidth: Int,

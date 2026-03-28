@@ -7,15 +7,15 @@ import CoreGraphics
 import CoreImage
 
 /// Runs super-resolution inference on a single image using a CoreML model.
-struct CoreMLInference {
-    let mlModel: MLModel
-    let vnModel: VNCoreMLModel
+public struct CoreMLInference {
+    public let mlModel: MLModel
+    public let vnModel: VNCoreMLModel
 
     /// Load a CoreML model from an `.mlpackage` directory URL.
     ///
     /// Uses the compiled model cache to avoid recompilation on subsequent loads.
     /// - Parameter modelURL: Path to the `.mlpackage` directory.
-    init(modelURL: URL) throws {
+    public init(modelURL: URL) throws {
         let compiledURL = try ModelCache.loadCompiledModel(at: modelURL)
         mlModel = try MLModel(contentsOf: compiledURL)
         vnModel = try VNCoreMLModel(for: mlModel)
@@ -28,7 +28,7 @@ struct CoreMLInference {
     ///
     /// - Parameter image: Input image (any size — Vision resizes to model's expected input).
     /// - Returns: Upscaled output image.
-    func upscale(_ image: CGImage) throws -> CGImage {
+    public func upscale(_ image: CGImage) throws -> CGImage {
         var outputImage: CGImage?
         var inferenceError: Error?
 
@@ -63,11 +63,11 @@ struct CoreMLInference {
 }
 
 /// Errors specific to the Superscale inference pipeline.
-enum SuperscaleError: Error, CustomStringConvertible {
+public enum SuperscaleError: Error, CustomStringConvertible {
     case noModelOutput
     case modelNotFound(String)
 
-    var description: String {
+    public var description: String {
         switch self {
         case .noModelOutput:
             return "Model produced no output image."

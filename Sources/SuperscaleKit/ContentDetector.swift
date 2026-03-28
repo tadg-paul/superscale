@@ -5,11 +5,11 @@ import CoreGraphics
 import Vision
 
 /// Detected content type of an image.
-enum ContentType: String, CustomStringConvertible {
+public enum ContentType: String, CustomStringConvertible {
     case photo = "photograph"
     case illustration = "illustration"
 
-    var description: String { rawValue }
+    public var description: String { rawValue }
 }
 
 /// Detects image content type to select the best upscaling model.
@@ -22,30 +22,30 @@ enum ContentType: String, CustomStringConvertible {
 /// 2. **Vision labels** (secondary): VNClassifyImageRequest's "illustrations" label
 ///    catches cases the colour heuristic might miss. Only trusted at high confidence
 ///    (≥0.5) since it is unreliable for many illustration styles.
-enum ContentDetector {
+public enum ContentDetector {
 
     /// Maximum colour diversity ratio (distinct colours / samples at 6-bit quantization)
     /// for an image to be classified as illustration. Below this → illustration.
     /// Empirical data: photos ≥ 0.39, illustrations ≤ 0.18.
-    static let colourDiversityThreshold: Float = 0.28
+    public static let colourDiversityThreshold: Float = 0.28
 
     /// Minimum confidence for the "illustrations" Vision label.
-    static let illustrationLabelThreshold: Float = 0.5
+    public static let illustrationLabelThreshold: Float = 0.5
 
     /// VNClassifyImageRequest label identifiers that indicate illustration/anime content.
-    static let illustrationLabels: Set<String> = ["illustrations"]
+    public static let illustrationLabels: Set<String> = ["illustrations"]
 
     /// Maximum number of pixels to sample for colour diversity analysis.
-    static let maxSamples = 10_000
+    public static let maxSamples = 10_000
 
     /// Bits per channel for colour quantization (6 bits = 64 levels per channel).
-    static let quantizationBits = 6
+    public static let quantizationBits = 6
 
     /// Detect the content type of an image.
     ///
     /// - Parameter image: The image to classify.
     /// - Returns: Detected content type and confidence score.
-    static func detect(image: CGImage) throws -> (type: ContentType, confidence: Float) {
+    public static func detect(image: CGImage) throws -> (type: ContentType, confidence: Float) {
         // Primary: colour diversity analysis
         let diversityRatio = colourDiversityRatio(image: image)
         if diversityRatio < colourDiversityThreshold {
@@ -78,7 +78,7 @@ enum ContentDetector {
     ///
     /// - Parameter image: The image to analyse.
     /// - Returns: Ratio of distinct quantized colours to sample count (0.0–1.0).
-    static func colourDiversityRatio(image: CGImage) -> Float {
+    public static func colourDiversityRatio(image: CGImage) -> Float {
         let width = image.width
         let height = image.height
         let totalPixels = width * height
@@ -129,7 +129,7 @@ enum ContentDetector {
     ///
     /// - Parameter labels: Classification labels with confidence scores.
     /// - Returns: Detected content type and confidence score.
-    static func interpret(
+    public static func interpret(
         labels: [(identifier: String, confidence: Float)]
     ) -> (type: ContentType, confidence: Float) {
         let maxIllustration = labels
@@ -149,7 +149,7 @@ enum ContentDetector {
     ///   - contentType: Detected content type.
     ///   - scale: Desired scale factor (2 or 4).
     /// - Returns: CLI model name for ModelRegistry.
-    static func modelName(for contentType: ContentType, scale: Int) -> String {
+    public static func modelName(for contentType: ContentType, scale: Int) -> String {
         switch (contentType, scale) {
         case (.illustration, 4):
             return "realesrgan-anime-6b"

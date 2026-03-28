@@ -4,19 +4,28 @@
 import Foundation
 
 /// Metadata for a single supported model.
-struct ModelInfo {
-    let name: String          // CLI name, e.g. "realesrgan-x4plus"
-    let displayName: String   // Human-readable, e.g. "General photo (4×)"
-    let filename: String      // CoreML package name, e.g. "RealESRGAN_x4plus.mlpackage"
-    let scale: Int            // 2 or 4
-    let tileSize: Int         // Recommended tile size in pixels
-    let isDefault: Bool       // Whether this is the default model
+public struct ModelInfo {
+    public let name: String          // CLI name, e.g. "realesrgan-x4plus"
+    public let displayName: String   // Human-readable, e.g. "General photo (4×)"
+    public let filename: String      // CoreML package name, e.g. "RealESRGAN_x4plus.mlpackage"
+    public let scale: Int            // 2 or 4
+    public let tileSize: Int         // Recommended tile size in pixels
+    public let isDefault: Bool       // Whether this is the default model
+
+    public init(name: String, displayName: String, filename: String, scale: Int, tileSize: Int, isDefault: Bool) {
+        self.name = name
+        self.displayName = displayName
+        self.filename = filename
+        self.scale = scale
+        self.tileSize = tileSize
+        self.isDefault = isDefault
+    }
 }
 
 /// Static catalogue of supported models and their storage locations.
-enum ModelRegistry {
+public enum ModelRegistry {
 
-    static let models: [ModelInfo] = [
+    public static let models: [ModelInfo] = [
         ModelInfo(
             name: "realesrgan-x4plus",
             displayName: "General photo (4×)",
@@ -62,14 +71,14 @@ enum ModelRegistry {
     ]
 
     /// User-side model storage directory (macOS convention, sandbox-compatible).
-    static var userModelsDirectory: URL {
+    public static var userModelsDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("superscale")
             .appendingPathComponent("models")
     }
 
     /// Search paths for installed model files, in priority order.
-    static var searchPaths: [URL] {
+    public static var searchPaths: [URL] {
         var paths: [URL] = []
 
         // 1a. Models directory next to the executable (direct install)
@@ -99,7 +108,7 @@ enum ModelRegistry {
     }
 
     /// Check whether a model's .mlpackage file exists at any search path.
-    static func isInstalled(_ model: ModelInfo) -> Bool {
+    public static func isInstalled(_ model: ModelInfo) -> Bool {
         for path in searchPaths {
             let modelURL = path.appendingPathComponent(model.filename)
             if FileManager.default.fileExists(atPath: modelURL.path) {
@@ -110,7 +119,7 @@ enum ModelRegistry {
     }
 
     /// Find a model by its CLI name.
-    static func model(named name: String) -> ModelInfo? {
+    public static func model(named name: String) -> ModelInfo? {
         models.first { $0.name == name }
     }
 
@@ -118,7 +127,7 @@ enum ModelRegistry {
     ///
     /// Searches all known paths in priority order. Returns nil if the model
     /// name is unknown or the package file is not installed at any location.
-    static func modelURL(for name: String) -> URL? {
+    public static func modelURL(for name: String) -> URL? {
         guard let model = model(named: name) else {
             return nil
         }
@@ -132,7 +141,7 @@ enum ModelRegistry {
     }
 
     /// The default model (always present).
-    static var defaultModel: ModelInfo {
+    public static var defaultModel: ModelInfo {
         models.first { $0.isDefault }!
     }
 }

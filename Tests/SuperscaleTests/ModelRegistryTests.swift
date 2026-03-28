@@ -2,7 +2,7 @@
 // ABOUTME: Validates the model catalogue and --list-models CLI output with status indicators.
 
 import XCTest
-@testable import Superscale
+@testable import SuperscaleKit
 
 final class ModelRegistryTests: XCTestCase {
 

@@ -10,10 +10,10 @@ import Foundation
 /// device-optimized `.mlmodelc` bundle. This takes ~4 seconds per model.
 /// By caching the compiled output, subsequent loads skip compilation
 /// entirely (~200ms).
-enum ModelCache {
+public enum ModelCache {
 
     /// Persistent cache directory for compiled models.
-    static var cacheDirectory: URL {
+    public static var cacheDirectory: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent("superscale")
             .appendingPathComponent("compiled")
@@ -23,7 +23,7 @@ enum ModelCache {
     ///
     /// - Parameter sourceURL: Path to the `.mlpackage` directory.
     /// - Returns: URL of the compiled `.mlmodelc` bundle (either cached or freshly compiled).
-    static func loadCompiledModel(at sourceURL: URL) throws -> URL {
+    public static func loadCompiledModel(at sourceURL: URL) throws -> URL {
         let modelName = sourceURL.deletingPathExtension().lastPathComponent
         let cachedModelDir = cacheDirectory.appendingPathComponent("\(modelName).mlmodelc")
         let cacheKeyFile = cacheDirectory.appendingPathComponent("\(modelName).cachekey")
@@ -55,7 +55,7 @@ enum ModelCache {
     }
 
     /// Remove all cached compiled models.
-    static func clearCache() throws {
+    public static func clearCache() throws {
         if FileManager.default.fileExists(atPath: cacheDirectory.path) {
             try FileManager.default.removeItem(at: cacheDirectory)
         }

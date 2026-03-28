@@ -8,16 +8,16 @@ import Foundation
 ///
 /// Coordinates loading, tiling, inference, stitching, and writing
 /// into a single `process(input:output:)` call.
-class Pipeline {
-    let modelName: String
-    let modelInfo: ModelInfo
-    let tileSize: Int
-    let overlap: Int
-    let faceEnhance: Bool
-    let inference: CoreMLInference
+public class Pipeline {
+    public let modelName: String
+    public let modelInfo: ModelInfo
+    public let tileSize: Int
+    public let overlap: Int
+    public let faceEnhance: Bool
+    public let inference: CoreMLInference
 
     /// Callback for progress reporting. Called with human-readable messages.
-    var onProgress: ((String) -> Void)?
+    public var onProgress: ((String) -> Void)?
 
     /// Create a pipeline for a given model.
     ///
@@ -26,7 +26,7 @@ class Pipeline {
     ///   - tileSize: Override tile size. Pass nil to use the model's default.
     ///   - overlap: Tile overlap in pixels.
     ///   - faceEnhance: Whether to run face enhancement (requires GFPGAN model).
-    init(modelName: String, tileSize: Int? = nil, overlap: Int = 16,
+    public init(modelName: String, tileSize: Int? = nil, overlap: Int = 16,
          faceEnhance: Bool = true) throws {
         guard let info = ModelRegistry.model(named: modelName) else {
             throw SuperscaleError.modelNotFound(modelName)
@@ -52,7 +52,7 @@ class Pipeline {
     ///   - targetWidth: Target width in pixels. Nil means no dimension target.
     ///   - targetHeight: Target height in pixels. Nil means no dimension target.
     ///   - stretch: If true, stretch to exact width×height ignoring aspect ratio.
-    func process(
+    public func process(
         input: URL, output: URL,
         requestedScale: Double? = nil,
         targetWidth: Int? = nil, targetHeight: Int? = nil,

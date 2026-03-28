@@ -10,28 +10,28 @@ import Vision
 ///
 /// Pipeline: crop face with padding → resize to 512×512 → run GFPGAN →
 /// resize back to original crop size → blend into image with feathered edges.
-struct FaceEnhancer {
+public struct FaceEnhancer {
 
     /// GFPGAN operates on 512×512 face crops.
-    static let faceInputSize = 512
+    public static let faceInputSize = 512
 
     /// Expansion factor for face bounding boxes (1.5× matches upstream).
-    static let expandFactor: CGFloat = 1.5
+    public static let expandFactor: CGFloat = 1.5
 
     /// Feather radius in pixels for blending edges (as fraction of crop size).
-    static let featherFraction: CGFloat = 0.05
+    public static let featherFraction: CGFloat = 0.05
 
     /// Minimum mean brightness for a valid GFPGAN output. Below this threshold
     /// the output is considered corrupted (e.g. [0,1]→UInt8 truncation) and
     /// the original face is preserved instead.
-    static let minOutputBrightness: Double = 5.0
+    public static let minOutputBrightness: Double = 5.0
 
     private let inference: CoreMLInference
 
     /// Create a face enhancer using the installed GFPGAN model.
     ///
     /// - Throws: If the GFPGAN model is not installed or cannot be loaded.
-    init() throws {
+    public init() throws {
         guard let modelURL = FaceModelRegistry.modelURL else {
             throw FaceEnhancerError.modelNotInstalled
         }
@@ -44,7 +44,7 @@ struct FaceEnhancer {
     ///   - image: The full image (typically after upscaling).
     ///   - faceRects: Face bounding boxes in pixel coordinates (from FaceDetector).
     /// - Returns: Image with enhanced face regions blended back in.
-    func enhance(image: CGImage, faceRects: [CGRect]) throws -> CGImage {
+    public func enhance(image: CGImage, faceRects: [CGRect]) throws -> CGImage {
         guard !faceRects.isEmpty else { return image }
 
         let width = image.width
@@ -277,10 +277,10 @@ struct FaceEnhancer {
 }
 
 /// Errors from face enhancement operations.
-enum FaceEnhancerError: Error, CustomStringConvertible {
+public enum FaceEnhancerError: Error, CustomStringConvertible {
     case modelNotInstalled
 
-    var description: String {
+    public var description: String {
         switch self {
         case .modelNotInstalled:
             return "GFPGAN face model not installed. Run: superscale --download-face-model"

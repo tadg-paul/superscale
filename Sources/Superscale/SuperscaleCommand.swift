@@ -3,6 +3,7 @@
 
 import ArgumentParser
 import Foundation
+import SuperscaleKit
 
 @main
 struct Superscale: ParsableCommand {

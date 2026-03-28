@@ -4,7 +4,7 @@
 import XCTest
 import CoreGraphics
 import ImageIO
-@testable import Superscale
+@testable import SuperscaleKit
 
 final class ImageIOTests: XCTestCase {
 

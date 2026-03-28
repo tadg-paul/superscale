@@ -71,9 +71,9 @@ Superscale is a Swift CLI application that uses CoreML to run Real-ESRGAN image 
 
 **Help system** (`HelpText.swift`, `Pager.swift`, `CSystemShim`) — ArgumentParser's built-in help is disabled (`helpNames: []`). A custom `-h`/`--help` flag displays a man-page-style manual with sections for usage, options, examples, model details, and licensing. `HelpText` provides two static string constants — `coloured` (with ANSI colour codes: bold cyan for headings, green for flags/commands, yellow for arguments) and `plain` (no escape codes). `Pager.display(coloured:plain:)` writes both to temp files and delegates all display logic to an inline shell script via C `system()` (exposed through `CSystemShim` since Swift marks `system()` unavailable). The shell script handles terminal detection (`[ -t 1 ]`), `NO_COLOR` support, pager resolution (`MANPAGER` → `PAGER` → `less`), and ANSI passthrough (`-R` for less). Interactive terminals get coloured text through the pager; piped output or `NO_COLOR` gets plain text via `cat`. No terminal detection or colour logic runs in Swift. This approach is necessary because Swift's `Process` API cannot properly connect child processes to the controlling terminal.
 
-### Pipeline
+### Pipeline (`SuperscaleKit` library)
 
-All source files are in `Sources/Superscale/`. The core processing sequence:
+All pipeline and model management source files are in `Sources/SuperscaleKit/`. The CLI (`Sources/Superscale/`) imports `SuperscaleKit` and contains only argument parsing and orchestration (`SuperscaleCommand.swift`, `HelpText.swift`, `Pager.swift`). The core processing sequence:
 
 1. **ImageLoader** — reads input image via `CGImageSource`. Supports PNG, JPEG, TIFF, HEIC. Extracts dimensions, colour profile, and alpha channel.
 
@@ -215,15 +215,15 @@ If the input image has an alpha channel (transparency):
 
 All errors go to stderr. Only `--list-models` and `--version` produce stdout output; progress reporting goes to stderr.
 
-## Future: GUI layer
+## Package structure
 
-The SwiftUI GUI will share the `Pipeline/` and `Models/` layers. The CLI and GUI are separate targets in the same Swift package, importing a shared `SuperscaleKit` library.
+The `SuperscaleKit` library contains all pipeline and model management code. The CLI and future GUI are separate executable targets in the same Swift package, both importing `SuperscaleKit`.
 
 ```
 Package.swift
-├── SuperscaleKit (library)    ← Pipeline + Models
-├── superscale (executable)    ← CLI, depends on SuperscaleKit
-└── Superscale (executable)    ← GUI, depends on SuperscaleKit
+├── SuperscaleKit (library)    ← Pipeline + Models (Sources/SuperscaleKit/)
+├── superscale (executable)    ← CLI (Sources/Superscale/) — depends on SuperscaleKit
+└── SuperscaleApp (executable) ← GUI (planned) — depends on SuperscaleKit
 ```
 
 ## External dependencies

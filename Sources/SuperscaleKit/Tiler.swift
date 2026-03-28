@@ -5,10 +5,16 @@ import CoreGraphics
 import Foundation
 
 /// A single tile extracted from a larger image.
-struct Tile {
-    let image: CGImage
-    let origin: CGPoint
-    let size: CGSize
+public struct Tile {
+    public let image: CGImage
+    public let origin: CGPoint
+    public let size: CGSize
+
+    public init(image: CGImage, origin: CGPoint, size: CGSize) {
+        self.image = image
+        self.origin = origin
+        self.size = size
+    }
 }
 
 /// Splits images into overlapping tiles and stitches them back together.
@@ -16,7 +22,7 @@ struct Tile {
 /// The tiling engine enables processing of images larger than the model's
 /// input size by breaking them into overlapping tiles, processing each
 /// independently, and blending the overlapping regions during reassembly.
-enum Tiler {
+public enum Tiler {
 
     /// Split an image into overlapping tiles.
     ///
@@ -25,7 +31,7 @@ enum Tiler {
     ///   - tileSize: The maximum width and height of each tile in pixels.
     ///   - overlap: The number of pixels each tile overlaps with its neighbours.
     /// - Returns: An array of tiles covering the entire image.
-    static func split(image: CGImage, tileSize: Int, overlap: Int) -> [Tile] {
+    public static func split(image: CGImage, tileSize: Int, overlap: Int) -> [Tile] {
         let width = image.width
         let height = image.height
         let stride = max(tileSize - overlap, 1)
@@ -87,7 +93,7 @@ enum Tiler {
     ///   - outputHeight: The height of the output image.
     ///   - overlap: The overlap used during splitting (for blend weighting).
     /// - Returns: The reassembled image.
-    static func stitch(
+    public static func stitch(
         tiles: [Tile],
         outputWidth: Int,
         outputHeight: Int,

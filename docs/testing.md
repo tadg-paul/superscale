@@ -30,6 +30,7 @@ Tests/SuperscaleTests/
 ├── ModelRegistryTests.swift      # Model lookup, metadata, --list-models status
 ├── PipelineTests.swift           # Full pipeline integration tests
 ├── SSIMTests.swift               # SSIM computation and quality regression
+├── SuperscaleKitAPITests.swift   # Public API surface validation (RT-093)
 ├── TilerTests.swift              # Tile splitting and stitching
 ├── Resources/references/         # PyTorch reference images for SSIM comparison
 └── NEXT_IDS.txt                  # Test ID allocation
