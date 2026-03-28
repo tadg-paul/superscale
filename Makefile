@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug test test-ssim test-one-off test-visual clean install uninstall release release-models sync convert-models download-models
+.PHONY: help build build-debug gui test test-ssim test-one-off test-visual clean install uninstall release release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -24,6 +24,10 @@ build: download-models ## Build release binary
 
 build-debug: download-models ## Build debug binary
 	swift build
+
+gui: download-models ## Build and launch the GUI app
+	swift build --target SuperscaleApp
+	.build/debug/SuperscaleApp
 
 test: ## Run regression tests (excludes slow SSIM quality gate)
 	swift test --skip SSIM_RT064
