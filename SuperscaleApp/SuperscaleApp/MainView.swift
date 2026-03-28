@@ -12,6 +12,7 @@ struct MainView: View {
             Divider()
             content
         }
+        .navigationTitle(windowTitle)
         .alert("Error", isPresented: showError, actions: {
             Button("OK") { viewModel.errorMessage = nil }
         }, message: {
@@ -24,11 +25,10 @@ struct MainView: View {
     private var toolbar: some View {
         HStack(spacing: 12) {
             ModelPicker(selectedModelName: $viewModel.selectedModelName,
+                        faceEnhance: $viewModel.faceEnhance,
                         options: viewModel.modelOptions)
 
-            Text("\(viewModel.nativeScale)×")
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.secondary)
+            ScalePicker(viewModel: viewModel)
 
             Spacer()
 
@@ -79,6 +79,13 @@ struct MainView: View {
             DropTargetView(onDrop: viewModel.handleDrop)
                 .opacity(0.01)
         }
+    }
+
+    private var windowTitle: String {
+        if let url = viewModel.inputURL {
+            return "Superscale — \(url.lastPathComponent)"
+        }
+        return "Superscale"
     }
 
     private var showError: Binding<Bool> {
