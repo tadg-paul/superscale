@@ -247,7 +247,7 @@ struct ModelSelectionSheet: View {
             than perceived sharpness (e.g. medical, scientific).
             """,
         "realesrgan-anime-6b": """
-            Optimised for anime and cel-shaded illustration. Preserves \
+            Optimized for anime and cel-shaded illustration. Preserves \
             flat colour regions and clean line art. 6-block RRDBNet \
             — lighter than the full 23-block photo models.
             """,

@@ -290,7 +290,7 @@ public class Pipeline {
         }
         srcCtx.draw(image, in: CGRect(x: 0, y: 0, width: srcW, height: srcH))
 
-        // Create target buffer, initialised to zero (black padding).
+        // Create target buffer, initialized to zero (black padding).
         var dstPixels = [UInt8](repeating: 0, count: targetH * dstBytesPerRow)
 
         // Copy source rows into the top-left of the target buffer.
