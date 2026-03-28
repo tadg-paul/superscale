@@ -105,9 +105,10 @@ make install
 | Target | Description |
 |---|---|
 | `make build` | Download models (if needed) + build release binary |
-| `make test` | Run test suite |
+| `make test` | Run regression tests (excludes slow SSIM quality gate) |
+| `make test-ssim` | Run SSIM quality regression against PyTorch references (~2.5 min) |
 | `make install` | Build + symlink to `~/.local/bin` |
-| `make release` | Tag, build, push, update Homebrew formula |
+| `make release` | Tag, build, push, update Homebrew formula (runs both test packs) |
 | `make release-models` | Upload model artefacts to GitHub Release |
 | `make download-models` | Download missing models from GitHub release |
 | `make convert-models` | Run PyTorch → CoreML conversion (dev only) |

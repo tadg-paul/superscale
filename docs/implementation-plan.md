@@ -1,4 +1,4 @@
-<!-- Version: 1.2 | Last updated: 2026-03-27 -->
+<!-- Version: 1.3 | Last updated: 2026-03-28 -->
 
 # Implementation plan
 
@@ -27,7 +27,7 @@ Issues should be tackled in this order. Where multiple issues share a step numbe
 | 9 | [#1](https://github.com/tigger04/superscale/issues/1) | Phase 7: Face enhancement (GFPGAN) | #11 | **closed** |
 | — | [#33](https://github.com/tigger04/superscale/issues/33) | Compiled model caching | — | **closed** |
 | — | [#35](https://github.com/tigger04/superscale/issues/35) | --list-models shows face model | — | **closed** |
-| — | [#34](https://github.com/tigger04/superscale/issues/34) | SSIM quality regression testing | — | open (future enhancement) |
+| — | [#34](https://github.com/tigger04/superscale/issues/34) | SSIM quality regression testing | — | open (in progress) |
 | 10 | [#14](https://github.com/tigger04/superscale/issues/14) | Phase 8: macOS SwiftUI GUI (tracking) | #11 | open |
 | 10a | [#43](https://github.com/tigger04/superscale/issues/43) | Phase 8a: SuperscaleKit library extraction | — | open |
 | 10b | [#44](https://github.com/tigger04/superscale/issues/44) | Phase 8b: GUI scaffold — core upscaling | #43 | open |
@@ -351,6 +351,7 @@ This phase is broken into six sub-issues:
 | 1.0 | 2026-03-19 | Auto-detect content type (#22). All models bundled (#12). README/docs updated (#23). Face enhancement scaffolding (#1). Closed #13 (folded into #12). |
 | 1.1 | 2026-03-26 | Closed #4 (PoC), #5 (licensing), #12 (distribution), #1 (face enhancement). Added #33 (model caching), #35 (--list-models face model), #34 (SSIM — future). Updated statuses and roadmap. |
 | 1.2 | 2026-03-27 | Broke Phase 8 (#14) into 6 sub-issues (#43–#48): SuperscaleKit extraction, GUI scaffold, comparison view, batch queue, settings, icon/distribution. Updated execution order table and roadmap. Allocated RT-092–093, UT-029–050. |
+| 1.3 | 2026-03-28 | Updated #34 status to "in progress". |
 
 ## See also
 

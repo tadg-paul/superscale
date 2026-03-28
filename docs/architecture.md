@@ -1,4 +1,4 @@
-<!-- Version: 0.7 | Last updated: 2026-03-27 -->
+<!-- Version: 0.8 | Last updated: 2026-03-28 -->
 
 # Architecture
 
@@ -150,7 +150,9 @@ The caching infrastructure is retained because:
 4. Validates the output against the PyTorch reference
 5. Saves as `.mlpackage`
 
-This script requires a Python venv with `torch`, `coremltools`, and `basicsr`. It runs once per model per release, not at runtime.
+This script requires a Python venv with `torch`, `coremltools`, and `numpy` (see `scripts/requirements-convert.txt`). It runs once per model per release, not at runtime.
+
+**`generate_references.py`** — generates PyTorch reference images for SSIM quality regression testing ([#34](https://github.com/tigger04/superscale/issues/34)). Runs the original PyTorch Real-ESRGAN on all test images and saves ground-truth outputs to `Tests/SuperscaleTests/Resources/references/`. Also requires `Pillow`. Dev-time only.
 
 ## Data flow
 

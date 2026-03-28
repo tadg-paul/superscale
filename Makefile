@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug test test-one-off test-visual clean install uninstall release release-models sync convert-models download-models
+.PHONY: help build build-debug test test-ssim test-one-off test-visual clean install uninstall release release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -25,8 +25,11 @@ build: download-models ## Build release binary
 build-debug: download-models ## Build debug binary
 	swift build
 
-test: ## Run regression tests
-	swift test
+test: ## Run regression tests (excludes slow SSIM quality gate)
+	swift test --skip SSIM_RT064
+
+test-ssim: ## Run SSIM quality regression against PyTorch references (~2.5 min)
+	swift test --filter SSIM_RT064
 
 test-one-off: ## Run one-off tests
 ifdef ISSUE
@@ -83,6 +86,7 @@ convert-models: ## Convert PyTorch models to CoreML (requires Python venv)
 release: ## Tag a release and update Homebrew formula (usage: make release [VERSION=x.y.z])
 ifndef SKIP_TESTS
 	@$(MAKE) test
+	@$(MAKE) test-ssim
 else
 	@echo "SKIP_TESTS=1: skipping regression tests (caller asserts they already pass)"
 endif
