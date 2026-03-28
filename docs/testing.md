@@ -48,7 +48,7 @@ Output quality is validated by inspection and automated checks:
 
 SSIM (Structural Similarity Index Measure) compares CoreML output against ground-truth PyTorch Real-ESRGAN output for a set of 7 test images. A score of 1.0 means identical; ≥ 0.90 passes. Any image scoring below 0.90 blocks `make release`. This catches quality regressions (colour shifts, sharpness loss, spatial rearrangement) that visual inspection might miss.
 
-**Test separation:** RT-064 (the full pipeline SSIM comparison) takes ~2.5 minutes — too slow for the TDD development cycle. It runs via `make test-ssim`, not `make test`. Fast SSIM unit tests (RT-062 reference existence, RT-063 SSIM computation correctness) remain in `make test`. `make release` runs both packs — a failing SSIM gate blocks the release.
+**Test separation:** The regression pack (`make test`) already takes ~5 minutes. RT-064 (the full pipeline SSIM comparison) adds another ~2.5 minutes — nearly 50% on top. To keep the development cycle from growing further, RT-064 runs via `make test-ssim` at release time, not during development. Fast SSIM unit tests (RT-062 reference existence, RT-063 SSIM computation correctness) remain in `make test`. `make release` runs both packs (~7.5 min total) — a failing SSIM gate blocks the release.
 
 **SSIM test set:** All 7 test images. (`roundwood.jpg` was removed from the repo — it scored 0.826 due to the cumulative effect of photographic content, JPEG compression, and 4-tile processing, which would have required lowering the threshold and compromising the gate's sensitivity.)
 
