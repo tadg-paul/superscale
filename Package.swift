@@ -32,7 +32,7 @@ let package = Package(
             name: "SuperscaleTests",
             dependencies: ["Superscale"],
             path: "Tests/SuperscaleTests",
-            exclude: ["NEXT_IDS.txt"]
+            exclude: ["NEXT_IDS.txt", "Resources"]
         ),
     ]
 )

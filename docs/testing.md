@@ -1,4 +1,4 @@
-<!-- Version: 0.6 | Last updated: 2026-03-26 -->
+<!-- Version: 0.7 | Last updated: 2026-03-27 -->
 
 # Testing
 
@@ -28,6 +28,7 @@ Tests/SuperscaleTests/
 ├── ManifestTests.swift           # Model manifest schema validation
 ├── ModelRegistryTests.swift      # Model lookup, metadata, --list-models status
 ├── PipelineTests.swift           # Full pipeline integration tests
+├── SSIMTests.swift                # SSIM computation and quality regression
 ├── TilerTests.swift              # Tile splitting and stitching
 └── NEXT_IDS.txt                  # Test ID allocation
 ```
@@ -39,8 +40,24 @@ Output quality is validated by inspection and automated checks:
 1. Output image has the correct dimensions (input × scale factor)
 2. Visual inspection — sharp detail, no tiling artefacts, no colour shifts
 3. Automated regression: a known input image produces output that is pixel-identical (or within tolerance) across builds
+4. **SSIM quality gate** — automated comparison of CoreML output against PyTorch reference images ([#34](https://github.com/tigger04/superscale/issues/34))
 
-SSIM (Structural Similarity Index) comparison against PyTorch reference outputs is planned as a future enhancement ([#34](https://github.com/tigger04/superscale/issues/34)). The primary quality gate is visual correctness.
+### SSIM quality regression testing
+
+SSIM (Structural Similarity Index Measure) compares CoreML output against ground-truth PyTorch Real-ESRGAN output for all test images. A score of 1.0 means identical; ≥ 0.95 passes. This catches subtle quality regressions (colour shifts, sharpness loss, spatial rearrangement) that visual inspection might miss.
+
+**Reference images** are stored in `Tests/SuperscaleTests/Resources/references/` as PNG files named `{stem}_ref.png`. They are generated from the default model (`realesrgan-x4plus`) using the original PyTorch weights.
+
+**Regenerating references** (requires PyTorch — dev-time only):
+```bash
+source .venv/bin/activate
+pip install -r scripts/requirements-convert.txt
+python scripts/generate_references.py
+```
+
+**Threshold:** SSIM ≥ 0.95 (configurable in `SSIMTests.swift`). If a legitimate model or pipeline change lowers SSIM, regenerate references from the updated PyTorch model and verify visually before accepting the new baseline.
+
+**Scope:** Default model only. GFPGAN and other models are excluded (face enhancement output is generative and requires a different validation approach).
 
 ## Test images
 

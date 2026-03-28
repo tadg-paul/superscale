@@ -1,4 +1,4 @@
-<!-- Version: 1.1 | Last updated: 2026-03-26 -->
+<!-- Version: 1.2 | Last updated: 2026-03-27 -->
 
 # Implementation plan
 
@@ -28,7 +28,13 @@ Issues should be tackled in this order. Where multiple issues share a step numbe
 | — | [#33](https://github.com/tigger04/superscale/issues/33) | Compiled model caching | — | **closed** |
 | — | [#35](https://github.com/tigger04/superscale/issues/35) | --list-models shows face model | — | **closed** |
 | — | [#34](https://github.com/tigger04/superscale/issues/34) | SSIM quality regression testing | — | open (future enhancement) |
-| 10 | [#14](https://github.com/tigger04/superscale/issues/14) | Phase 8: macOS SwiftUI GUI | #11 | open |
+| 10 | [#14](https://github.com/tigger04/superscale/issues/14) | Phase 8: macOS SwiftUI GUI (tracking) | #11 | open |
+| 10a | [#43](https://github.com/tigger04/superscale/issues/43) | Phase 8a: SuperscaleKit library extraction | — | open |
+| 10b | [#44](https://github.com/tigger04/superscale/issues/44) | Phase 8b: GUI scaffold — core upscaling | #43 | open |
+| 10c | [#45](https://github.com/tigger04/superscale/issues/45) | Phase 8c: Before/after comparison view | #44 | open |
+| 10c | [#46](https://github.com/tigger04/superscale/issues/46) | Phase 8d: Batch processing queue | #44 | open |
+| 10c | [#47](https://github.com/tigger04/superscale/issues/47) | Phase 8e: Settings panel | #44 | open |
+| 10d | [#48](https://github.com/tigger04/superscale/issues/48) | Phase 8f: App icon and distribution | #44–#47 | open |
 | 11 | [#15](https://github.com/tigger04/superscale/issues/15) | Phase 9: macOS App Store | #14 | open |
 | 11 | [#16](https://github.com/tigger04/superscale/issues/16) | Phase 10: iOS app | #14 | open |
 | 12 | [#17](https://github.com/tigger04/superscale/issues/17) | Phase 11: iOS App Store | #16 | open |
@@ -65,7 +71,20 @@ Issues should be tackled in this order. Where multiple issues share a step numbe
                          #33 Model caching ──────── ✓ closed
                          #35 --list-models face ──── ✓ closed
                                        │
-                         #14 Phase 8: macOS GUI
+                         #14 Phase 8: macOS GUI (tracking)
+                                       │
+                         #43 8a: SuperscaleKit extraction
+                                       │
+                         #44 8b: GUI scaffold + core upscaling
+                                       │
+                               ┌───────┼───────┐
+                               │       │       │
+                         #45 8c:  #46 8d:  #47 8e:
+                         Compare  Batch    Settings
+                               │       │       │
+                               └───────┼───────┘
+                                       │
+                         #48 8f: Icon & distribution
                                │       │
                                │       ▼
                                │  #15 Phase 9: macOS App Store
@@ -238,16 +257,18 @@ Licensing is a gate — it must be resolved before distribution (Phase 5). The p
 
 **Goal:** A native macOS app for drag-and-drop image upscaling.
 
-**Tasks:**
-1. Extract shared code into SuperscaleKit library target
-2. SwiftUI app target in the same Swift package
-3. Drag-and-drop image input
-4. Before/after preview with comparison slider
-5. Model and scale selection
-6. Progress indicator
-7. Batch queue with thumbnail previews
-8. Settings (default model, output format, output directory)
-9. App icon and polish
+This phase is broken into six sub-issues:
+
+| Sub-issue | Description | Depends on |
+|-----------|-------------|------------|
+| [#43](https://github.com/tigger04/superscale/issues/43) | **8a: SuperscaleKit library extraction** — refactor pipeline into shared library | — |
+| [#44](https://github.com/tigger04/superscale/issues/44) | **8b: GUI scaffold — core upscaling** — SwiftUI app, drag-and-drop, model/scale selection, progress | #43 |
+| [#45](https://github.com/tigger04/superscale/issues/45) | **8c: Before/after comparison view** — slider comparison with synchronised zoom | #44 |
+| [#46](https://github.com/tigger04/superscale/issues/46) | **8d: Batch processing queue** — multi-file queue with thumbnails and status | #44 |
+| [#47](https://github.com/tigger04/superscale/issues/47) | **8e: Settings panel** — persistent preferences for model, format, output directory | #44 |
+| [#48](https://github.com/tigger04/superscale/issues/48) | **8f: App icon and distribution** — icon, DMG, Homebrew Cask, code signing | #44–#47 |
+
+**Test IDs:** RT-092–RT-093 (SuperscaleKit extraction), UT-029–UT-050 (GUI features).
 
 **Artefacts:** `Superscale.app` distributed as DMG or via Homebrew Cask.
 
@@ -329,6 +350,7 @@ Licensing is a gate — it must be resolved before distribution (Phase 5). The p
 | 0.9 | 2026-03-19 | Phase 5 implemented — release script, Homebrew formula, first release v0.2.0. |
 | 1.0 | 2026-03-19 | Auto-detect content type (#22). All models bundled (#12). README/docs updated (#23). Face enhancement scaffolding (#1). Closed #13 (folded into #12). |
 | 1.1 | 2026-03-26 | Closed #4 (PoC), #5 (licensing), #12 (distribution), #1 (face enhancement). Added #33 (model caching), #35 (--list-models face model), #34 (SSIM — future). Updated statuses and roadmap. |
+| 1.2 | 2026-03-27 | Broke Phase 8 (#14) into 6 sub-issues (#43–#48): SuperscaleKit extraction, GUI scaffold, comparison view, batch queue, settings, icon/distribution. Updated execution order table and roadmap. Allocated RT-092–093, UT-029–050. |
 
 ## See also
 
