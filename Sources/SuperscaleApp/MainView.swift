@@ -26,9 +26,14 @@ struct MainView: View {
             ModelPicker(selectedModelName: $viewModel.selectedModelName,
                         options: viewModel.modelOptions)
 
-            Text("\(viewModel.selectedScale)×")
-                .font(.system(.body, design: .monospaced))
-                .foregroundStyle(.secondary)
+            Picker("Scale", selection: $viewModel.selectedScale) {
+                ForEach(viewModel.availableScales, id: \.self) { scale in
+                    Text("\(scale == floor(scale) ? String(format: "%.0f", scale) : String(format: "%.1f", scale))×")
+                        .tag(scale)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(maxWidth: 100)
 
             Spacer()
 

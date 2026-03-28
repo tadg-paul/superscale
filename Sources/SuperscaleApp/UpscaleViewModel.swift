@@ -14,6 +14,7 @@ final class UpscaleViewModel: ObservableObject {
     // MARK: - Published state
 
     @Published var selectedModelName: String = "auto"
+    @Published var selectedScale: Double = 4.0
     @Published var isProcessing: Bool = false
     @Published var progressMessage: String = ""
     @Published var result: NSImage?
@@ -37,13 +38,19 @@ final class UpscaleViewModel: ObservableObject {
         return options
     }
 
-    /// Scale factor of the selected (or default) model.
-    var selectedScale: Int {
+    /// Available scale options for the selected model.
+    var availableScales: [Double] {
+        let nativeScale: Int
         if selectedModelName == "auto" {
-            return ModelRegistry.defaultModel.scale
+            nativeScale = ModelRegistry.defaultModel.scale
+        } else {
+            nativeScale = ModelRegistry.model(named: selectedModelName)?.scale
+                ?? ModelRegistry.defaultModel.scale
         }
-        return ModelRegistry.model(named: selectedModelName)?.scale
-            ?? ModelRegistry.defaultModel.scale
+        if nativeScale >= 4 {
+            return [2.0, 4.0]
+        }
+        return [2.0]
     }
 
     // MARK: - Actions
@@ -110,7 +117,10 @@ final class UpscaleViewModel: ObservableObject {
                 let outputURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("superscale_gui_\(UUID().uuidString).png")
 
-                try pipeline.process(input: url, output: outputURL)
+                let scale = await self.selectedScale
+                try pipeline.process(
+                    input: url, output: outputURL,
+                    requestedScale: scale)
 
                 let image = NSImage(contentsOf: outputURL)
                 try? FileManager.default.removeItem(at: outputURL)
@@ -142,6 +152,9 @@ final class UpscaleViewModel: ObservableObject {
     private func outputFilename() -> String {
         guard let inputURL else { return "upscaled.png" }
         let stem = inputURL.deletingPathExtension().lastPathComponent
-        return "\(stem)_\(selectedScale)x.png"
+        let scaleLabel = selectedScale == floor(selectedScale)
+            ? String(format: "%.0f", selectedScale)
+            : String(format: "%.1f", selectedScale)
+        return "\(stem)_\(scaleLabel)x.png"
     }
 }
