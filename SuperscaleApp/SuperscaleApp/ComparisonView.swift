@@ -30,6 +30,16 @@ struct ComparisonView: View {
 
                 // Divider line
                 dividerOverlay(at: dividerX, height: size.height)
+
+                // Zoom controls
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        zoomControls
+                            .padding(12)
+                    }
+                }
             }
             .clipped()
             .contentShape(Rectangle())
@@ -74,6 +84,31 @@ struct ComparisonView: View {
                 .position(x: x, y: height / 2)
                 .gesture(dividerDragGesture)
         }
+    }
+
+    // MARK: - Zoom controls
+
+    private var zoomControls: some View {
+        HStack(spacing: 4) {
+            Button {
+                zoom = max(1.0, zoom - 0.5)
+                if zoom == 1.0 { offset = .zero; dragStart = .zero }
+            } label: {
+                Text("−")
+            }
+
+            Text("\(Int(zoom * 100))%")
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 44)
+
+            Button {
+                zoom = min(10.0, zoom + 0.5)
+            } label: {
+                Text("+")
+            }
+        }
+        .buttonStyle(.bordered)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Gestures
