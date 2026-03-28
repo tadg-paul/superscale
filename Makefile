@@ -25,15 +25,12 @@ build: download-models ## Build release binary
 build-debug: download-models ## Build debug binary
 	swift build
 
+GUI_BUILD_DIR = $(shell xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme Superscale -configuration Debug -showBuildSettings 2>/dev/null | grep ' BUILT_PRODUCTS_DIR' | awk '{print $$3}')
+
 gui: download-models ## Build and launch the GUI app
-	swift build --target SuperscaleApp
-	@mkdir -p .build/Superscale.app/Contents/MacOS
-	@cp .build/debug/SuperscaleApp .build/Superscale.app/Contents/MacOS/SuperscaleApp
-	@ln -sfn "$(CURDIR)/models" .build/Superscale.app/Contents/MacOS/models
-	@if [ ! -f .build/Superscale.app/Contents/Info.plist ]; then \
-		printf '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>\n<key>CFBundleExecutable</key><string>SuperscaleApp</string>\n<key>CFBundleIdentifier</key><string>com.tadgpaul.superscale</string>\n<key>CFBundleName</key><string>Superscale</string>\n<key>CFBundlePackageType</key><string>APPL</string>\n<key>LSMinimumSystemVersion</key><string>14.0</string>\n<key>NSHighResolutionCapable</key><true/>\n</dict></plist>' > .build/Superscale.app/Contents/Info.plist; \
-	fi
-	@open .build/Superscale.app
+	xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme Superscale -configuration Debug build -quiet
+	@ln -sfn "$(CURDIR)/models" "$(GUI_BUILD_DIR)/Superscale.app/Contents/MacOS/models"
+	@open "$(GUI_BUILD_DIR)/Superscale.app"
 
 test: ## Run regression tests (excludes slow SSIM quality gate)
 	swift test --skip SSIM_RT064

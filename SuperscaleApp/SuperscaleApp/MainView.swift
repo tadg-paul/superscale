@@ -26,18 +26,18 @@ struct MainView: View {
             ModelPicker(selectedModelName: $viewModel.selectedModelName,
                         options: viewModel.modelOptions)
 
-            Picker("Scale", selection: $viewModel.selectedScale) {
-                ForEach(viewModel.availableScales, id: \.self) { scale in
-                    Text("\(scale == floor(scale) ? String(format: "%.0f", scale) : String(format: "%.1f", scale))×")
-                        .tag(scale)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 100)
+            Text("\(viewModel.nativeScale)×")
+                .font(.system(.body, design: .monospaced))
+                .foregroundStyle(.secondary)
 
             Spacer()
 
             if viewModel.result != nil {
+                Button(viewModel.showComparison ? "Full View" : "Compare") {
+                    viewModel.showComparison.toggle()
+                }
+                .disabled(viewModel.originalImage == nil)
+
                 Button("Save As…") {
                     viewModel.saveAs()
                 }
@@ -53,8 +53,17 @@ struct MainView: View {
     private var content: some View {
         if viewModel.isProcessing {
             ProgressOverlay(message: viewModel.progressMessage)
-        } else if let image = viewModel.result {
-            resultView(image: image)
+        } else if let upscaled = viewModel.result {
+            if viewModel.showComparison, let original = viewModel.originalImage {
+                ZStack {
+                    ComparisonView(original: original, upscaled: upscaled)
+
+                    DropTargetView(onDrop: viewModel.handleDrop)
+                        .opacity(0.01)
+                }
+            } else {
+                resultView(image: upscaled)
+            }
         } else {
             DropTargetView(onDrop: viewModel.handleDrop)
         }
@@ -67,7 +76,6 @@ struct MainView: View {
                 .aspectRatio(contentMode: .fit)
                 .padding(16)
 
-            // Allow dropping a new image on top of the result
             DropTargetView(onDrop: viewModel.handleDrop)
                 .opacity(0.01)
         }

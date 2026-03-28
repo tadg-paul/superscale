@@ -14,12 +14,13 @@ final class UpscaleViewModel: ObservableObject {
     // MARK: - Published state
 
     @Published var selectedModelName: String = "auto"
-    @Published var selectedScale: Double = 4.0
     @Published var isProcessing: Bool = false
     @Published var progressMessage: String = ""
+    @Published var originalImage: NSImage?
     @Published var result: NSImage?
     @Published var inputURL: URL?
     @Published var errorMessage: String?
+    @Published var showComparison: Bool = false
 
     // MARK: - Model list
 
@@ -38,19 +39,13 @@ final class UpscaleViewModel: ObservableObject {
         return options
     }
 
-    /// Available scale options for the selected model.
-    var availableScales: [Double] {
-        let nativeScale: Int
+    /// Native scale factor of the selected model.
+    var nativeScale: Int {
         if selectedModelName == "auto" {
-            nativeScale = ModelRegistry.defaultModel.scale
-        } else {
-            nativeScale = ModelRegistry.model(named: selectedModelName)?.scale
-                ?? ModelRegistry.defaultModel.scale
+            return ModelRegistry.defaultModel.scale
         }
-        if nativeScale >= 4 {
-            return [2.0, 4.0]
-        }
-        return [2.0]
+        return ModelRegistry.model(named: selectedModelName)?.scale
+            ?? ModelRegistry.defaultModel.scale
     }
 
     // MARK: - Actions
@@ -101,6 +96,8 @@ final class UpscaleViewModel: ObservableObject {
         isProcessing = true
         progressMessage = "Loading..."
         result = nil
+        originalImage = NSImage(contentsOfFile: url.path)
+        showComparison = false
 
         Task.detached { [weak self] in
             guard let self else { return }
@@ -117,10 +114,7 @@ final class UpscaleViewModel: ObservableObject {
                 let outputURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("superscale_gui_\(UUID().uuidString).png")
 
-                let scale = await self.selectedScale
-                try pipeline.process(
-                    input: url, output: outputURL,
-                    requestedScale: scale)
+                try pipeline.process(input: url, output: outputURL)
 
                 let image = NSImage(contentsOf: outputURL)
                 try? FileManager.default.removeItem(at: outputURL)
@@ -152,9 +146,6 @@ final class UpscaleViewModel: ObservableObject {
     private func outputFilename() -> String {
         guard let inputURL else { return "upscaled.png" }
         let stem = inputURL.deletingPathExtension().lastPathComponent
-        let scaleLabel = selectedScale == floor(selectedScale)
-            ? String(format: "%.0f", selectedScale)
-            : String(format: "%.1f", selectedScale)
-        return "\(stem)_\(scaleLabel)x.png"
+        return "\(stem)_\(nativeScale)x.png"
     }
 }

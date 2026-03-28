@@ -1,18 +1,12 @@
 // ABOUTME: SwiftUI app entry point for Superscale GUI.
 // ABOUTME: Configures the main window and menu commands.
 
-import AppKit
 import SwiftUI
+import SuperscaleKit
 
 @main
 struct SuperscaleApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var viewModel = UpscaleViewModel()
-
-    init() {
-        NSApplication.shared.setActivationPolicy(.regular)
-        NSApplication.shared.activate(ignoringOtherApps: true)
-    }
 
     var body: some Scene {
         WindowGroup {
