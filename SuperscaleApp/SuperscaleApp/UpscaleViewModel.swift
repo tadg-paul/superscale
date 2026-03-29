@@ -42,6 +42,7 @@ final class UpscaleViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var showComparison: Bool = false
 
+
     // MARK: - Model list
 
     struct ModelOption: Identifiable {
@@ -328,9 +329,9 @@ final class UpscaleViewModel: ObservableObject {
                         guard let self else { return }
                         // Replace native-scale dimension reports with target dimensions
                         if message.hasPrefix("Stitching output"),
-                           case .custom = await self.scaleMode {
-                            let tw = await self.customWidth
-                            let th = await self.customHeight
+                           case .custom = self.scaleMode {
+                            let tw = self.customWidth
+                            let th = self.customHeight
                             self.progressMessage = "Resizing to \(tw)×\(th)..."
                         } else {
                             self.progressMessage = message
