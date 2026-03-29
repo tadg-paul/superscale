@@ -10,18 +10,37 @@ checkpoints/
 # Swift Package Manager
 .swiftpm/
 
-# Xcode user data (machine-specific)
+# Xcode — user/machine-specific files (not project config)
 xcuserdata/
 *.xcuserstate
 *.xcscmblueprint
 *.xccheckout
+*.xcworkspacedata
+IDEWorkspaceChecks.plist
+*.pbxuser
+*.perspectivev3
+*.mode1v3
+*.mode2v3
 
-# Xcode build artifacts
+# Xcode — build artifacts
 *.app.dSYM.zip
 *.ipa
 *.dSYM/
+*.hmap
+*.ipa
+*.moved-aside
+*.o
+*.d
 
-# SPM-generated Xcode project (not our hand-crafted one)
+# Xcode — profiling and indexing
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+Timeline.xctimeline
+Breakpoints_v2.xcbkptlist
+
+# SPM-generated Xcode project at repo root (not our hand-crafted one in SuperscaleApp/)
 /*.xcodeproj/
 /*.xcworkspace/
 
