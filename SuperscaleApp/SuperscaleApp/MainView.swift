@@ -1,11 +1,13 @@
 // ABOUTME: Main window view for the Superscale GUI.
 // ABOUTME: Contains drag-and-drop target, model picker, result display, and progress overlay.
 
+import SuperscaleKit
 import SwiftUI
 
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @State private var showAbout = false
+    @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
 
     var body: some View {
@@ -38,6 +40,8 @@ struct MainView: View {
                         options: viewModel.modelOptions)
 
             ScalePicker(viewModel: viewModel)
+
+            faceEnhanceButton
 
             Spacer()
 
@@ -97,6 +101,29 @@ struct MainView: View {
 
             DropTargetView(onDrop: viewModel.handleDrop)
                 .opacity(0.01)
+        }
+    }
+
+    // MARK: - Face enhance button
+
+    private var faceEnhanceButton: some View {
+        Button {
+            if FaceModelRegistry.isInstalled {
+                viewModel.faceEnhance.toggle()
+            } else {
+                showFaceDownload = true
+            }
+        } label: {
+            Image(systemName: viewModel.faceEnhance && FaceModelRegistry.isInstalled
+                  ? "face.smiling.inverse" : "face.smiling")
+        }
+        .foregroundStyle(viewModel.faceEnhance && FaceModelRegistry.isInstalled
+                         ? Color.accentColor : Color.secondary)
+        .help("Face enhancement (GFPGAN) — non-commercial licence")
+        .sheet(isPresented: $showFaceDownload) {
+            FaceModelDownloadView(isPresented: $showFaceDownload) {
+                viewModel.faceEnhance = true
+            }
         }
     }
 
