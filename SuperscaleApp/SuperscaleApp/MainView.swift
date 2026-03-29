@@ -5,6 +5,7 @@ import SwiftUI
 
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
+    @State private var showAbout = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -41,6 +42,16 @@ struct MainView: View {
                 Button("Save As…") {
                     viewModel.saveAs()
                 }
+            }
+
+            Button {
+                showAbout = true
+            } label: {
+                Image(systemName: "info.circle")
+            }
+            .help("About Superscale")
+            .sheet(isPresented: $showAbout) {
+                AboutView()
             }
         }
         .padding(.horizontal, 16)
