@@ -18,6 +18,7 @@
 		F1000009 /* ScalePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000A /* ScalePicker.swift */; };
 		F100000B /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000B /* AboutView.swift */; };
 		F100000C /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000C /* InfoPanel.swift */; };
+		F100000D /* FaceModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000D /* FaceModelDownloadView.swift */; };
 		F1000010 /* SuperscaleKit in Frameworks */ = {isa = PBXBuildFile; productRef = F5000001 /* SuperscaleKit */; };
 /* End PBXBuildFile section */
 
@@ -34,6 +35,7 @@
 		F200000A /* ScalePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScalePicker.swift; sourceTree = "<group>"; };
 		F200000B /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		F200000C /* InfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPanel.swift; sourceTree = "<group>"; };
+		F200000D /* FaceModelDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceModelDownloadView.swift; sourceTree = "<group>"; };
 		F2000020 /* Superscale.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Superscale.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -70,6 +72,7 @@
 				F200000A /* ScalePicker.swift */,
 				F200000B /* AboutView.swift */,
 				F200000C /* InfoPanel.swift */,
+				F200000D /* FaceModelDownloadView.swift */,
 				F2000008 /* Assets.xcassets */,
 				F2000009 /* Superscale.entitlements */,
 			);
@@ -164,6 +167,7 @@
 				F1000009 /* ScalePicker.swift in Sources */,
 				F100000B /* AboutView.swift in Sources */,
 				F100000C /* InfoPanel.swift in Sources */,
+				F100000D /* FaceModelDownloadView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -43,7 +43,7 @@ struct ModelSelectionSheet: View {
     let options: [UpscaleViewModel.ModelOption]
     @Binding var isPresented: Bool
     @State private var expandedModelID: String?
-    @State private var faceInfoExpanded: Bool = false
+    @State private var showFaceDownload: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -63,10 +63,8 @@ struct ModelSelectionSheet: View {
                         }
                     }
 
-                    if FaceModelRegistry.isInstalled {
-                        Divider().padding(.horizontal, 16)
-                        faceEnhanceRow
-                    }
+                    Divider().padding(.horizontal, 16)
+                    faceEnhanceRow
                 }
                 .padding(.vertical, 8)
             }
@@ -86,69 +84,39 @@ struct ModelSelectionSheet: View {
     // MARK: - Face enhancement row
 
     private var faceEnhanceRow: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 10) {
-                Toggle("", isOn: $faceEnhance)
-                    .toggleStyle(.checkbox)
-                    .labelsHidden()
-                    .frame(width: 24)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-enhance faces")
-                        .font(.system(.body, weight: faceEnhance ? .semibold : .regular))
-
-                    Text("GFPGAN v1.4")
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(.secondary)
+        HStack(spacing: 10) {
+            Button {
+                if FaceModelRegistry.isInstalled {
+                    faceEnhance.toggle()
+                } else {
+                    showFaceDownload = true
                 }
-
-                Spacer()
-
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        faceInfoExpanded.toggle()
-                    }
-                } label: {
-                    Image(systemName: faceInfoExpanded ? "info.circle.fill" : "info.circle")
-                        .font(.title3)
-                        .foregroundStyle(Color.accentColor)
-                }
-                .buttonStyle(.plain)
+            } label: {
+                Image(systemName: faceEnhance && FaceModelRegistry.isInstalled
+                      ? "face.smiling.inverse" : "face.smiling")
+                    .font(.title3)
+                    .foregroundStyle(faceEnhance && FaceModelRegistry.isInstalled
+                                     ? Color.accentColor : Color.secondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .buttonStyle(.plain)
+            .frame(width: 24)
 
-            if faceInfoExpanded {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("""
-                        GFPGAN face enhancement detects faces in the upscaled image \
-                        and enhances them using a dedicated neural network. Runs \
-                        automatically on every upscale when enabled.
-                        """)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Face enhancement")
+                    .font(.system(.body, weight: faceEnhance ? .semibold : .regular))
+                Text(FaceModelRegistry.isInstalled ? "GFPGAN v1.4" : "Not installed — click to download")
+                    .font(.system(.caption, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
 
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
-                        Text("Non-commercial licence")
-                            .font(.callout)
-                            .fontWeight(.medium)
-                    }
-
-                    Text("""
-                        This model contains components licensed under \
-                        NVIDIA Source Code Licence (non-commercial) and \
-                        CC BY-NC-SA 4.0. The licence applies to the model \
-                        weights, not to output images.
-                        """)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(.leading, 50)
-                .padding(.trailing, 16)
-                .padding(.bottom, 8)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .help("GFPGAN face enhancement — detects and enhances faces in upscaled images. Non-commercial licence (NVIDIA Source Code Licence, CC BY-NC-SA 4.0).")
+        .sheet(isPresented: $showFaceDownload) {
+            FaceModelDownloadView(isPresented: $showFaceDownload) {
+                faceEnhance = true
             }
         }
     }
