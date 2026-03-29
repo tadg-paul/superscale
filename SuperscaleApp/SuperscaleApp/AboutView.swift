@@ -15,7 +15,6 @@ struct AboutView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     modelsSection
                     faceModelSection
-                    linkSection
                 }
                 .padding(16)
             }
@@ -39,12 +38,17 @@ struct AboutView: View {
                 .foregroundStyle(Color.accentColor)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Superscale")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                Text(versionString)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("Superscale")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    Text(versionString)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+                Link("github.com/tigger04/superscale",
+                     destination: URL(string: "https://github.com/tigger04/superscale")!)
+                    .font(.caption)
                 Text("By Taḋg Paul")
                     .font(.caption)
                     .foregroundStyle(.secondary)
