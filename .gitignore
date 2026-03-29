@@ -1,13 +1,37 @@
+# Build
 .build/
-.venv/
-.swiftpm/
-*.xcodeproj/
-xcuserdata/
 DerivedData/
-.DS_Store
-*.mlpackage
-*.mlpackage.zip
+
+# Python
+.venv/
 *.pth
 checkpoints/
+
+# Swift Package Manager
+.swiftpm/
+
+# Xcode user data (machine-specific)
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Xcode build artifacts
+*.app.dSYM.zip
+*.ipa
+*.dSYM/
+
+# SPM-generated Xcode project (not our hand-crafted one)
+/*.xcodeproj/
+/*.xcworkspace/
+
+# Models (downloaded at build time, not committed)
+*.mlpackage
+*.mlpackage.zip
+
+# Environment
 .env
+.DS_Store
+
+# Test output
 Tests/visual_output/
