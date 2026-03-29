@@ -164,9 +164,39 @@ final class UpscaleViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // Preset scale changes trigger re-upscale immediately
         $scaleMode
             .dropFirst()
-            .sink { [weak self] _ in self?.reupscaleIfNeeded() }
+            .sink { [weak self] newMode in
+                guard let self else { return }
+                if case .preset = newMode {
+                    self.reupscaleIfNeeded()
+                }
+                // Custom mode re-upscale is debounced via dimension subscribers below
+            }
+            .store(in: &cancellables)
+
+        // Custom dimension changes trigger re-upscale after 1s debounce
+        $customWidth
+            .dropFirst()
+            .debounce(for: .seconds(1), scheduler: RunLoop.main)
+            .sink { [weak self] val in
+                guard let self,
+                      case .custom = self.scaleMode,
+                      let v = Int(val), v > 0 else { return }
+                self.reupscaleIfNeeded()
+            }
+            .store(in: &cancellables)
+
+        $customHeight
+            .dropFirst()
+            .debounce(for: .seconds(1), scheduler: RunLoop.main)
+            .sink { [weak self] val in
+                guard let self,
+                      case .custom = self.scaleMode,
+                      let v = Int(val), v > 0 else { return }
+                self.reupscaleIfNeeded()
+            }
             .store(in: &cancellables)
     }
 
