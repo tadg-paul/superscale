@@ -76,7 +76,6 @@ final class UpscaleViewModel: ObservableObject {
         // When width changes: strip non-digits, become defining dimension, update other
         $customWidth
             .dropFirst()
-            .removeDuplicates()
             .sink { [weak self] newValue in
                 guard let self, !self.suppressDimensionUpdates else { return }
                 let filtered = newValue.filter { $0.isNumber }
@@ -86,18 +85,24 @@ final class UpscaleViewModel: ObservableObject {
                     self.suppressDimensionUpdates = false
                     return
                 }
-                self.definingDimension = .width
+                // Only set defining dimension if this wasn't a programmatic update
+                if !self.suppressDimensionUpdates {
+                    self.definingDimension = .width
+                }
                 // Activate custom mode when a valid (non-zero) number is entered
                 if self.showCustomFields, let val = Int(filtered), val > 0 {
                     self.scaleMode = .custom
                 } else if case .custom = self.scaleMode {
-                    // Revert to native preset when value is invalid
                     self.scaleMode = .preset(self.nativeScale)
                 }
-                if !self.stretchEnabled {
-                    self.suppressDimensionUpdates = true
-                    self.updateIndicativeDimension()
-                    self.suppressDimensionUpdates = false
+                if !self.stretchEnabled && self.definingDimension == .width {
+                    // Delay indicative update to avoid disrupting TextField input
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                        guard let self, self.definingDimension == .width else { return }
+                        self.suppressDimensionUpdates = true
+                        self.updateIndicativeDimension()
+                        DispatchQueue.main.async { self.suppressDimensionUpdates = false }
+                    }
                 }
             }
             .store(in: &cancellables)
@@ -105,16 +110,16 @@ final class UpscaleViewModel: ObservableObject {
         // When height changes: strip non-digits, become defining dimension, update other
         $customHeight
             .dropFirst()
-            .removeDuplicates()
             .sink { [weak self] newValue in
-                guard let self, !self.suppressDimensionUpdates else { return }
+                guard let self else { return }
                 let filtered = newValue.filter { $0.isNumber }
                 if filtered != newValue {
                     self.suppressDimensionUpdates = true
                     self.customHeight = filtered
-                    self.suppressDimensionUpdates = false
+                    DispatchQueue.main.async { self.suppressDimensionUpdates = false }
                     return
                 }
+                if self.suppressDimensionUpdates { return }
                 self.definingDimension = .height
                 // Activate custom mode when a valid (non-zero) number is entered
                 if self.showCustomFields, let val = Int(filtered), val > 0 {
@@ -122,10 +127,13 @@ final class UpscaleViewModel: ObservableObject {
                 } else if case .custom = self.scaleMode {
                     self.scaleMode = .preset(self.nativeScale)
                 }
-                if !self.stretchEnabled {
-                    self.suppressDimensionUpdates = true
-                    self.updateIndicativeDimension()
-                    self.suppressDimensionUpdates = false
+                if !self.stretchEnabled && self.definingDimension == .height {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                        guard let self, self.definingDimension == .height else { return }
+                        self.suppressDimensionUpdates = true
+                        self.updateIndicativeDimension()
+                        DispatchQueue.main.async { self.suppressDimensionUpdates = false }
+                    }
                 }
             }
             .store(in: &cancellables)
