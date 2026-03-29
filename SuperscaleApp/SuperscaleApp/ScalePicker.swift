@@ -89,7 +89,9 @@ struct ScalePicker: View {
 
             if isEditable {
                 Toggle(isOn: $viewModel.stretchEnabled) {
-                    Image(systemName: "arrow.down.backward.and.arrow.up.forward.rectangle.fill")
+                    Image(systemName: viewModel.stretchEnabled
+                          ? "arrow.down.backward.and.arrow.up.forward.rectangle.fill"
+                          : "arrow.down.backward.and.arrow.up.forward.rectangle")
                 }
                 .toggleStyle(.button)
                 .help("""
