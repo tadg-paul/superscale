@@ -300,10 +300,10 @@ final class UpscaleViewModel: ObservableObject {
         if isNewImage {
             inputURL = url
             originalImage = NSImage(contentsOfFile: url.path)
-            if let img = originalImage {
-                let rep = img.representations.first
-                inputWidth = rep?.pixelsWide ?? Int(img.size.width)
-                inputHeight = rep?.pixelsHigh ?? Int(img.size.height)
+            // Use ImageLoader for accurate pixel dimensions (not DPI-adjusted)
+            if let loaded = try? ImageLoader.load(from: url) {
+                inputWidth = loaded.image.width
+                inputHeight = loaded.image.height
             }
             scaleMode = .preset(nativeScale)
         }
@@ -315,9 +315,18 @@ final class UpscaleViewModel: ObservableObject {
                 let pipeline = try Pipeline(
                     modelName: modelName,
                     faceEnhance: await self.faceEnhance)
-                pipeline.onProgress = { message in
+                pipeline.onProgress = { [weak self] message in
                     Task { @MainActor in
-                        self.progressMessage = message
+                        guard let self else { return }
+                        // Replace native-scale dimension reports with target dimensions
+                        if message.hasPrefix("Stitching output"),
+                           case .custom = await self.scaleMode {
+                            let tw = await self.customWidth
+                            let th = await self.customHeight
+                            self.progressMessage = "Resizing to \(tw)×\(th)..."
+                        } else {
+                            self.progressMessage = message
+                        }
                     }
                 }
 
