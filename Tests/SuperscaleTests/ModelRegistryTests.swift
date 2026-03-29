@@ -132,6 +132,43 @@ final class ModelRegistryTests: XCTestCase {
         }
     }
 
+    // RT-114: Help output contains MODELS heading
+    func test_help_contains_models_heading_RT114() throws {
+        let result = try runCLI(["--help"])
+        let output = result.stdout + result.stderr
+        XCTAssertTrue(output.contains("MODELS"),
+                      "Help text should contain MODELS heading")
+    }
+
+    // RT-115: Help output does NOT contain MODEL DETAILS heading
+    func test_help_does_not_contain_model_details_heading_RT115() throws {
+        let result = try runCLI(["--help"])
+        let output = result.stdout + result.stderr
+        XCTAssertFalse(output.contains("MODEL DETAILS"),
+                       "Help text should not contain separate MODEL DETAILS heading")
+    }
+
+    // RT-116: Each model's detailed description appears in help output
+    func test_help_contains_detailed_descriptions_RT116() throws {
+        let result = try runCLI(["--help"])
+        let output = result.stdout + result.stderr
+        // Each model should have a description paragraph below its summary line.
+        // Check for a distinctive word from each model's detailedDescription.
+        let expectedPhrases: [String: String] = [
+            "realesrgan-x4plus": "RRDBNet architecture",
+            "realesrgan-x2plus": "less hallucination",
+            "realesrnet-x4plus": "PSNR-oriented",
+            "realesrgan-anime-6b": "cel-shaded",
+            "realesr-animevideov3": "SRVGGNetCompact",
+            "realesr-general-x4v3": "faster and lighter",
+            "realesr-general-wdn-x4v3": "Denoise variant",
+        ]
+        for (name, phrase) in expectedPhrases {
+            XCTAssertTrue(output.contains(phrase),
+                          "Help text should contain '\(phrase)' for \(name)")
+        }
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {

@@ -127,50 +127,41 @@ enum HelpText {
 
         \(h("MODELS"))
             \(f("realesrgan-x4plus"))         4\u{00D7}    General photographs (default)
-            \(f("realesrgan-x2plus"))         2\u{00D7}    General photographs
-            \(f("realesrnet-x4plus"))         4\u{00D7}    PSNR-oriented (less sharpening)
-            \(f("realesrgan-anime-6b"))       4\u{00D7}    Anime and cel-shaded illustration
-            \(f("realesr-animevideov3"))      4\u{00D7}    Anime video frames
-            \(f("realesr-general-x4v3"))      4\u{00D7}    General scenes (fast)
-            \(f("realesr-general-wdn-x4v3"))  4\u{00D7}    Denoise + upscale (grainy/compressed)
-
-            \(f("gfpgan-v1.4"))               Face enhancement (optional, non-commercial)
-
-            Use \(f("--list-models")) to see installation status.
-
-        \(h("MODEL DETAILS"))
-            \(f("realesrgan-x4plus")) (default)
                 Best for general photographs. Balanced sharpening and detail
                 preservation. RRDBNet architecture. The default when no model
                 is specified and the image is detected as a photograph.
 
-            \(f("realesrgan-x2plus"))
+            \(f("realesrgan-x2plus"))         2\u{00D7}    General photographs
                 General photographs at 2\u{00D7} scale. Preserves more original detail
                 with less hallucination than 4\u{00D7} models. Use when you need a
                 lighter upscale or want to stay closer to the source.
 
-            \(f("realesrnet-x4plus"))
+            \(f("realesrnet-x4plus"))         4\u{00D7}    PSNR-oriented (less sharpening)
                 PSNR-oriented variant \u{2014} less aggressive sharpening, fewer
                 artefacts. Preferred for images where fidelity matters more
                 than perceived sharpness (e.g. medical, scientific).
 
-            \(f("realesrgan-anime-6b"))
+            \(f("realesrgan-anime-6b"))       4\u{00D7}    Anime and cel-shaded illustration
                 Optimized for anime and cel-shaded illustration. Preserves
                 flat colour regions and clean line art. 6-block RRDBNet.
 
-            \(f("realesr-animevideov3"))
+            \(f("realesr-animevideov3"))      4\u{00D7}    Anime video frames
                 Compact model designed for anime video frame consistency.
                 SRVGGNetCompact architecture \u{2014} faster inference, suitable for
                 batch processing of animation frames.
 
-            \(f("realesr-general-x4v3"))
+            \(f("realesr-general-x4v3"))      4\u{00D7}    General scenes (fast)
                 General scenes with SRVGGNetCompact \u{2014} faster and lighter than
                 x4plus. Good when speed matters more than maximum quality.
 
-            \(f("realesr-general-wdn-x4v3"))
+            \(f("realesr-general-wdn-x4v3"))  4\u{00D7}    Denoise + upscale (grainy/compressed)
                 Denoise variant of general-x4v3. Effective for old photographs,
                 grainy scans, and heavily compressed JPEG sources. Reduces noise
                 while upscaling.
+
+            \(f("gfpgan-v1.4"))               Face enhancement (optional, non-commercial)
+
+            Use \(f("--list-models")) to see installation status.
 
         \(h("FACE ENHANCEMENT"))
             Optional GFPGAN face enhancement. Not bundled due to non-commercial
@@ -308,50 +299,41 @@ enum HelpText {
 
         MODELS
             realesrgan-x4plus         4\u{00D7}    General photographs (default)
-            realesrgan-x2plus         2\u{00D7}    General photographs
-            realesrnet-x4plus         4\u{00D7}    PSNR-oriented (less sharpening)
-            realesrgan-anime-6b       4\u{00D7}    Anime and cel-shaded illustration
-            realesr-animevideov3      4\u{00D7}    Anime video frames
-            realesr-general-x4v3      4\u{00D7}    General scenes (fast)
-            realesr-general-wdn-x4v3  4\u{00D7}    Denoise + upscale (grainy/compressed)
-
-            gfpgan-v1.4               Face enhancement (optional, non-commercial)
-
-            Use --list-models to see installation status.
-
-        MODEL DETAILS
-            realesrgan-x4plus (default)
                 Best for general photographs. Balanced sharpening and detail
                 preservation. RRDBNet architecture. The default when no model
                 is specified and the image is detected as a photograph.
 
-            realesrgan-x2plus
+            realesrgan-x2plus         2\u{00D7}    General photographs
                 General photographs at 2\u{00D7} scale. Preserves more original detail
                 with less hallucination than 4\u{00D7} models. Use when you need a
                 lighter upscale or want to stay closer to the source.
 
-            realesrnet-x4plus
+            realesrnet-x4plus         4\u{00D7}    PSNR-oriented (less sharpening)
                 PSNR-oriented variant \u{2014} less aggressive sharpening, fewer
                 artefacts. Preferred for images where fidelity matters more
                 than perceived sharpness (e.g. medical, scientific).
 
-            realesrgan-anime-6b
+            realesrgan-anime-6b       4\u{00D7}    Anime and cel-shaded illustration
                 Optimized for anime and cel-shaded illustration. Preserves
                 flat colour regions and clean line art. 6-block RRDBNet.
 
-            realesr-animevideov3
+            realesr-animevideov3      4\u{00D7}    Anime video frames
                 Compact model designed for anime video frame consistency.
                 SRVGGNetCompact architecture \u{2014} faster inference, suitable for
                 batch processing of animation frames.
 
-            realesr-general-x4v3
+            realesr-general-x4v3      4\u{00D7}    General scenes (fast)
                 General scenes with SRVGGNetCompact \u{2014} faster and lighter than
                 x4plus. Good when speed matters more than maximum quality.
 
-            realesr-general-wdn-x4v3
+            realesr-general-wdn-x4v3  4\u{00D7}    Denoise + upscale (grainy/compressed)
                 Denoise variant of general-x4v3. Effective for old photographs,
                 grainy scans, and heavily compressed JPEG sources. Reduces noise
                 while upscaling.
+
+            gfpgan-v1.4               Face enhancement (optional, non-commercial)
+
+            Use --list-models to see installation status.
 
         FACE ENHANCEMENT
             Optional GFPGAN face enhancement. Not bundled due to non-commercial
