@@ -88,21 +88,10 @@ struct ScalePicker: View {
                 .focused($focusedField, equals: .height)
 
             if isEditable {
-                Button {
-                    viewModel.stretchEnabled.toggle()
-                } label: {
-                    Image(systemName: "arrow.up.and.down.and.arrow.left.and.right")
-                        .padding(4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .stroke(viewModel.stretchEnabled ? Color.accentColor : Color.secondary.opacity(0.5), lineWidth: 1)
-                        )
-                        .background(
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(viewModel.stretchEnabled ? Color.accentColor.opacity(0.15) : Color.clear)
-                        )
+                Toggle(isOn: $viewModel.stretchEnabled) {
+                    Image(systemName: "rectangle.expand.vertical")
                 }
-                .buttonStyle(.plain)
+                .toggleStyle(.button)
                 .help("""
                     Stretch: resize to exact width × height, ignoring aspect ratio. \
                     Without stretch, enter one dimension and the other is calculated \
