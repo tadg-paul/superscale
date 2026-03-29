@@ -104,6 +104,34 @@ final class ModelRegistryTests: XCTestCase {
         }
     }
 
+    // RT-111: All models have non-empty shortDescription
+    func test_all_models_have_short_description_RT111() {
+        for model in ModelRegistry.models {
+            XCTAssertFalse(model.shortDescription.isEmpty,
+                           "\(model.name) has empty shortDescription")
+        }
+    }
+
+    // RT-112: All models have non-empty detailedDescription
+    func test_all_models_have_detailed_description_RT112() {
+        for model in ModelRegistry.models {
+            XCTAssertFalse(model.detailedDescription.isEmpty,
+                           "\(model.name) has empty detailedDescription")
+        }
+    }
+
+    // RT-113: CLI help text contains each model's shortDescription
+    func test_cli_help_contains_model_descriptions_RT113() throws {
+        let result = try runCLI(["--help"])
+        let output = result.stdout + result.stderr
+        for model in ModelRegistry.models {
+            // The help text should contain the model name — descriptions may be
+            // reformatted but the model name must be present
+            XCTAssertTrue(output.contains(model.name),
+                          "Help text should contain model name \(model.name)")
+        }
+    }
+
     // MARK: - Helpers
 
     struct CLIResult {

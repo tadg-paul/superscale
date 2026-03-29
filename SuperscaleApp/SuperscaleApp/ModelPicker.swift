@@ -156,7 +156,7 @@ struct ModelSelectionSheet: View {
     private func modelRow(option: UpscaleViewModel.ModelOption) -> some View {
         let isSelected = option.id == selectedModelName
         let isExpanded = expandedModelID == option.id
-        let detail = ModelSelectionSheet.modelDetails[option.id]
+        let detail = ModelSelectionSheet.detailText(for: option.id)
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 10) {
@@ -223,44 +223,16 @@ struct ModelSelectionSheet: View {
         .background(isSelected ? Color.accentColor.opacity(0.08) : Color.clear)
     }
 
-    // MARK: - Full model descriptions from CLI help text
+    // MARK: - Model descriptions (from ModelRegistry, with auto-detect fallback)
 
-    static let modelDetails: [String: String] = [
-        "auto": """
-            Automatically selects the best model for your image content \
-            using Vision framework classification. Photographs use \
-            realesrgan-x4plus; illustrations and anime use realesrgan-anime-6b.
-            """,
-        "realesrgan-x4plus": """
-            Best for general photographs. Balanced sharpening and detail \
-            preservation. RRDBNet architecture (23 residual blocks). The \
-            default when no model is specified and the image is detected \
-            as a photograph.
-            """,
-        "realesrgan-x2plus": """
-            General photographs at 2× scale. Preserves more original \
-            detail with less hallucination than 4× models. Use when \
-            you need a lighter upscale or want to stay closer to the source.
-            """,
-        "realesrnet-x4plus": """
-            PSNR-oriented variant — less aggressive sharpening, fewer \
-            artefacts. Preferred for images where fidelity matters more \
-            than perceived sharpness (e.g. medical, scientific).
-            """,
-        "realesrgan-anime-6b": """
-            Optimized for anime and cel-shaded illustration. Preserves \
-            flat colour regions and clean line art. 6-block RRDBNet \
-            — lighter than the full 23-block photo models.
-            """,
-        "realesr-general-x4v3": """
-            General scenes with SRVGGNetCompact architecture — faster \
-            and lighter than x4plus. Good when speed matters more than \
-            maximum quality.
-            """,
-        "realesr-general-wdn-x4v3": """
-            Denoise variant of general-x4v3. Effective for old photographs, \
-            grainy scans, and heavily compressed JPEG sources. Reduces \
-            noise while upscaling.
-            """,
-    ]
+    private static let autoDescription = """
+        Automatically selects the best model for your image content \
+        using Vision framework classification. Photographs use \
+        realesrgan-x4plus; illustrations and anime use realesrgan-anime-6b.
+        """
+
+    static func detailText(for modelID: String) -> String? {
+        if modelID == "auto" { return autoDescription }
+        return ModelRegistry.model(named: modelID)?.detailedDescription
+    }
 }
