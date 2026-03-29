@@ -19,3 +19,8 @@ struct ProgressOverlay: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+#Preview {
+    ProgressOverlay(message: "Processing tile 2 of 4...")
+        .frame(width: 400, height: 300)
+}

@@ -95,3 +95,16 @@ struct MainView: View {
         )
     }
 }
+
+#Preview("Empty") {
+    MainView(viewModel: UpscaleViewModel())
+        .frame(width: 700, height: 500)
+}
+
+#Preview("Processing") {
+    let vm = UpscaleViewModel()
+    vm.isProcessing = true
+    vm.progressMessage = "Processing tile 2 of 4..."
+    return MainView(viewModel: vm)
+        .frame(width: 700, height: 500)
+}
