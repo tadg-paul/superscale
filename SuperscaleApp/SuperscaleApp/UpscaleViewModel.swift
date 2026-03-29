@@ -186,7 +186,7 @@ final class UpscaleViewModel: ObservableObject {
         // Custom dimension changes trigger re-upscale after 1s debounce
         $customWidth
             .dropFirst()
-            .debounce(for: .seconds(2), scheduler: RunLoop.main)
+            .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
             .sink { [weak self] val in
                 guard let self,
                       case .custom = self.scaleMode,
@@ -197,7 +197,7 @@ final class UpscaleViewModel: ObservableObject {
 
         $customHeight
             .dropFirst()
-            .debounce(for: .seconds(2), scheduler: RunLoop.main)
+            .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
             .sink { [weak self] val in
                 guard let self,
                       case .custom = self.scaleMode,
