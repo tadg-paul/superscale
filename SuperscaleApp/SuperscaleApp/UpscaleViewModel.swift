@@ -49,15 +49,9 @@ final class UpscaleViewModel: ObservableObject {
         let displayName: String
     }
 
-    /// Models excluded from the GUI picker (useful for CLI only).
-    private static let guiExcludedModels: Set<String> = [
-        "realesr-animevideov3",  // Video frame model — no benefit for single images
-    ]
-
     var modelOptions: [ModelOption] {
         var options = [ModelOption(id: "auto", displayName: "Auto-detect")]
         for model in ModelRegistry.models {
-            if Self.guiExcludedModels.contains(model.name) { continue }
             options.append(ModelOption(
                 id: model.name,
                 displayName: model.displayName))
