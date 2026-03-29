@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug gui test test-ssim test-one-off test-visual clean install uninstall release release-models sync convert-models download-models
+.PHONY: help build build-debug gui test test-ssim test-one-off test-visual clean install uninstall release release-gui release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -98,6 +98,15 @@ else
 	@echo "SKIP_TESTS=1: skipping regression tests (caller asserts they already pass)"
 endif
 	@./scripts/release.sh $(RELEASE_VERSION)
+
+release-gui: ## Build GUI .app, package DMG, update Homebrew cask
+ifndef SKIP_TESTS
+	@$(MAKE) test
+	@$(MAKE) test-ssim
+else
+	@echo "SKIP_TESTS=1: skipping regression tests (caller asserts they already pass)"
+endif
+	@./scripts/release-gui.sh
 
 release-models: ## Upload model artefacts to GitHub Release (usage: make release-models)
 	@./scripts/release-models.sh
