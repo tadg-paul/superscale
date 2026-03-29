@@ -90,6 +90,9 @@ final class UpscaleViewModel: ObservableObject {
                 // Activate custom mode when a valid (non-zero) number is entered
                 if self.showCustomFields, let val = Int(filtered), val > 0 {
                     self.scaleMode = .custom
+                } else if case .custom = self.scaleMode {
+                    // Revert to native preset when value is invalid
+                    self.scaleMode = .preset(self.nativeScale)
                 }
                 if !self.stretchEnabled {
                     self.suppressDimensionUpdates = true
@@ -116,6 +119,8 @@ final class UpscaleViewModel: ObservableObject {
                 // Activate custom mode when a valid (non-zero) number is entered
                 if self.showCustomFields, let val = Int(filtered), val > 0 {
                     self.scaleMode = .custom
+                } else if case .custom = self.scaleMode {
+                    self.scaleMode = .preset(self.nativeScale)
                 }
                 if !self.stretchEnabled {
                     self.suppressDimensionUpdates = true
