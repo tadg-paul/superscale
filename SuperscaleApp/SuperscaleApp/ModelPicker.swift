@@ -20,6 +20,7 @@ struct ModelPicker: View {
                     .lineLimit(1)
             }
         }
+        .help("Choose the AI upscaling model")
         .sheet(isPresented: $showSheet) {
             ModelSelectionSheet(
                 selectedModelName: $selectedModelName,
