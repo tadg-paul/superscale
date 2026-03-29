@@ -259,6 +259,15 @@ final class UpscaleViewModel: ObservableObject {
         result = nil
         showComparison = false
 
+        // If stretch is on but both dimensions aren't valid, deselect immediately
+        if stretchEnabled {
+            let w = Int(customWidth).flatMap { $0 > 0 ? $0 : nil }
+            let h = Int(customHeight).flatMap { $0 > 0 ? $0 : nil }
+            if w == nil || h == nil {
+                stretchEnabled = false
+            }
+        }
+
         if isNewImage {
             inputURL = url
             originalImage = NSImage(contentsOfFile: url.path)
