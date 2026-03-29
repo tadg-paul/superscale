@@ -6,13 +6,21 @@ import SwiftUI
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @State private var showAbout = false
+    @State private var infoPanelDismissed = false
 
     var body: some View {
         VStack(spacing: 0) {
             toolbar
             Divider()
+            if !infoPanelDismissed && !viewModel.showComparison {
+                InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
+            }
             content
         }
+        .onChange(of: viewModel.selectedModelName) { _ in infoPanelDismissed = false }
+        .onChange(of: viewModel.scaleMode) { _ in infoPanelDismissed = false }
+        .onChange(of: viewModel.stretchEnabled) { _ in infoPanelDismissed = false }
+        .onChange(of: viewModel.faceEnhance) { _ in infoPanelDismissed = false }
         .navigationTitle(windowTitle)
         .alert("Error", isPresented: showError, actions: {
             Button("OK") { viewModel.errorMessage = nil }
