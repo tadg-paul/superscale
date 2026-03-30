@@ -31,14 +31,14 @@ struct ComparisonView: View {
                 // Divider line
                 dividerOverlay(at: dividerX, height: size.height)
 
-                // Zoom controls
+                // Zoom controls (top-right)
                 VStack {
-                    Spacer()
                     HStack {
                         Spacer()
                         zoomControls
                             .padding(12)
                     }
+                    Spacer()
                 }
             }
             .clipped()

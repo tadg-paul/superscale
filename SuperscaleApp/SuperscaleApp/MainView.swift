@@ -116,8 +116,14 @@ struct MainView: View {
                 showFaceDownload = true
             }
         } label: {
-            Image(systemName: viewModel.faceEnhance && FaceModelRegistry.isInstalled
-                  ? "face.smiling.inverse" : "face.smiling")
+            HStack(spacing: 3) {
+                Image(systemName: viewModel.faceEnhance && FaceModelRegistry.isInstalled
+                      ? "face.smiling.inverse" : "face.smiling")
+                if viewModel.showButtonLabels {
+                    Text("Face")
+                        .font(.system(size: 11))
+                }
+            }
         }
         .foregroundStyle(viewModel.faceEnhance && FaceModelRegistry.isInstalled
                          ? Color.accentColor : Color.secondary)

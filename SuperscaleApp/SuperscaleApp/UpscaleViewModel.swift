@@ -24,6 +24,7 @@ final class UpscaleViewModel: ObservableObject {
 
     // MARK: - Published state
 
+    @Published var showButtonLabels: Bool = true
     @Published var selectedModelName: String = "auto"
     @Published var scaleMode: ScaleMode = .preset(4)
     @Published var showCustomFields: Bool = false
@@ -44,6 +45,11 @@ final class UpscaleViewModel: ObservableObject {
     @Published var inputWidth: Int?
     @Published var inputHeight: Int?
     @Published var errorMessage: String?
+    @Published var dimensionCapWarning: String?
+    @Published var customEditPending: Bool = false
+    @Published var lastUpscaleModelName: String?
+    @Published var lastUpscaleFaceCount: Int = 0
+    @Published var lastUpscaleWasAutoDetect: Bool = false
     @Published var showComparison: Bool = false
 
 
@@ -214,26 +220,20 @@ final class UpscaleViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // Custom dimension changes trigger re-upscale after 1s debounce
+        // Mark custom edit as pending when user types in custom fields
         $customWidth
             .dropFirst()
-            .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
-            .sink { [weak self] val in
-                guard let self,
-                      case .custom = self.scaleMode,
-                      let v = Int(val), v > 0 else { return }
-                self.reupscaleIfNeeded()
+            .sink { [weak self] _ in
+                guard let self, self.showCustomFields else { return }
+                self.customEditPending = true
             }
             .store(in: &cancellables)
 
         $customHeight
             .dropFirst()
-            .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
-            .sink { [weak self] val in
-                guard let self,
-                      case .custom = self.scaleMode,
-                      let v = Int(val), v > 0 else { return }
-                self.reupscaleIfNeeded()
+            .sink { [weak self] _ in
+                guard let self, self.showCustomFields else { return }
+                self.customEditPending = true
             }
             .store(in: &cancellables)
     }
@@ -259,6 +259,30 @@ final class UpscaleViewModel: ObservableObject {
         customHeight = savedCustomH
         definingDimension = savedDefining
         showCustomFields = savedShowCustom
+    }
+
+    /// Confirm custom resolution entry — triggers upscale.
+    func confirmCustomDimensions() {
+        customEditPending = false
+        if case .custom = scaleMode {
+            reupscaleIfNeeded()
+        }
+    }
+
+    /// Cancel custom resolution entry — revert to previous preset.
+    func cancelCustomDimensions() {
+        customEditPending = false
+        customWidth = ""
+        customHeight = ""
+        showCustomFields = false
+        scaleMode = .preset(nativeScale)
+    }
+
+    /// Re-cap custom dimensions against current image's 8× limit.
+    private func reapplyDimensionCap() {
+        let cap = maxCustomDimension
+        if let w = Int(customWidth), w > cap { customWidth = "\(cap)" }
+        if let h = Int(customHeight), h > cap { customHeight = "\(cap)" }
     }
 
     /// Maximum custom dimension: 8× the longest input side, or 16384px if no image.
@@ -352,9 +376,12 @@ final class UpscaleViewModel: ObservableObject {
         result = nil
         showComparison = false
 
-        // Invalidate face enhancement cache on re-upscale
+        // Invalidate face enhancement cache and upscale metadata
         cachedWithFaces = nil
         cachedWithoutFaces = nil
+        lastUpscaleModelName = nil
+        lastUpscaleFaceCount = 0
+        lastUpscaleWasAutoDetect = false
 
         // If stretch is on but both dimensions aren't valid, deselect immediately
         if stretchEnabled {
@@ -373,12 +400,15 @@ final class UpscaleViewModel: ObservableObject {
                 inputWidth = loaded.image.width
                 inputHeight = loaded.image.height
             }
+            // Re-cap custom dimensions against new image's 8× limit
+            reapplyDimensionCap()
             scaleMode = .preset(nativeScale)
         }
 
         Task.detached { [weak self] in
             guard let self else { return }
             do {
+                let wasAutoDetect = await self.selectedModelName == "auto"
                 let modelName = try await self.resolveModelName(for: url)
                 let pipeline = try Pipeline(
                     modelName: modelName,
@@ -386,6 +416,12 @@ final class UpscaleViewModel: ObservableObject {
                 pipeline.onProgress = { [weak self] message in
                     Task { @MainActor in
                         guard let self else { return }
+                        // Track face count from progress messages
+                        if message.hasPrefix("Enhancing") && message.contains("face") {
+                            if let num = Int(message.components(separatedBy: " ")[1]) {
+                                self.lastUpscaleFaceCount = num
+                            }
+                        }
                         // Replace native-scale dimension reports with target dimensions
                         if message.hasPrefix("Stitching output"),
                            case .custom = self.scaleMode {
@@ -493,6 +529,8 @@ final class UpscaleViewModel: ObservableObject {
                         self.cachedWithoutFaces = image
                         // cachedWithFaces stays nil — toggling on will trigger re-upscale
                     }
+                    self.lastUpscaleModelName = modelName
+                    self.lastUpscaleWasAutoDetect = wasAutoDetect
                     self.isProcessing = false
                     self.progressMessage = ""
                 }

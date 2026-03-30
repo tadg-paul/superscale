@@ -72,7 +72,7 @@ struct AboutView: View {
 
     private var modelsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Upscaling Models")
+            Text("Models installed:")
                 .font(.headline)
 
             ForEach(ModelRegistry.models, id: \.name) { model in

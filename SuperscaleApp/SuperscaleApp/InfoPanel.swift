@@ -36,12 +36,28 @@ struct InfoPanel: View {
     private var lines: [String] {
         var result: [String] = []
 
-        // Model
+        // Model — show auto-detected name after upscale
         let modelName = viewModel.selectedModelName
-        if modelName == "auto" {
+        if let lastModel = viewModel.lastUpscaleModelName {
+            let model = ModelRegistry.model(named: lastModel)
+            let displayName = model?.displayName ?? lastModel
+            if viewModel.lastUpscaleWasAutoDetect {
+                result.append("Model: \(displayName) (auto-detected)")
+            } else {
+                result.append("Model: \(displayName)")
+            }
+        } else if modelName == "auto" {
             result.append("Model: Auto-detect")
         } else if let model = ModelRegistry.model(named: modelName) {
-            result.append("Model: \(model.displayName) (\(model.name))")
+            result.append("Model: \(model.displayName)")
+        }
+
+        // Face enhancement — immediately after model
+        if viewModel.lastUpscaleFaceCount > 0 {
+            let n = viewModel.lastUpscaleFaceCount
+            result.append("\(n) face\(n == 1 ? "" : "s") enhanced (GFPGAN)")
+        } else if viewModel.faceEnhance {
+            result.append("Face enhancement enabled")
         }
 
         // Scale
@@ -71,19 +87,13 @@ struct InfoPanel: View {
             result.append("Stretch enabled — output ignores aspect ratio")
         }
 
-        // Face enhancement
-        if viewModel.faceEnhance {
-            result.append("Face enhancement enabled (GFPGAN)")
-        }
-
         // Post-upscale summary
         if let result_img = viewModel.result,
            let w = viewModel.inputWidth, let h = viewModel.inputHeight {
             let rep = result_img.representations.first
             let outW = rep?.pixelsWide ?? Int(result_img.size.width)
             let outH = rep?.pixelsHigh ?? Int(result_img.size.height)
-            let modelLabel = modelName == "auto" ? "auto-detected model" : modelName
-            result.append("Upscaled \(w)×\(h) → \(outW)×\(outH) using \(modelLabel)")
+            result.append("Output: \(w)×\(h) → \(outW)×\(outH)")
         }
 
         return result

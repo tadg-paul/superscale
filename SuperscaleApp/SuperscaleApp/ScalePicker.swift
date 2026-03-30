@@ -40,11 +40,19 @@ struct ScalePicker: View {
                 viewModel.showCustomFields.toggle()
                 if viewModel.showCustomFields {
                     focusedField = .width
+                    viewModel.customEditPending = false
                 } else {
                     focusedField = nil
+                    viewModel.confirmCustomDimensions()
                 }
             } label: {
-                Image(systemName: "ruler")
+                HStack(spacing: 3) {
+                    Image(systemName: "ruler")
+                    if viewModel.showButtonLabels {
+                        Text("Custom")
+                            .font(.system(size: 11))
+                    }
+                }
             }
             .buttonStyle(.bordered)
             .tint(viewModel.scaleMode == .custom ? .accentColor : nil)
@@ -89,9 +97,15 @@ struct ScalePicker: View {
 
             if isEditable {
                 Toggle(isOn: $viewModel.stretchEnabled) {
-                    Image(systemName: viewModel.stretchEnabled
-                          ? "arrow.down.backward.and.arrow.up.forward.rectangle.fill"
-                          : "arrow.down.backward.and.arrow.up.forward.rectangle")
+                    HStack(spacing: 3) {
+                        Image(systemName: viewModel.stretchEnabled
+                              ? "arrow.down.backward.and.arrow.up.forward.rectangle.fill"
+                              : "arrow.down.backward.and.arrow.up.forward.rectangle")
+                        if viewModel.showButtonLabels {
+                            Text("Stretch")
+                                .font(.system(size: 11))
+                        }
+                    }
                 }
                 .toggleStyle(.button)
                 .help("""
@@ -99,6 +113,22 @@ struct ScalePicker: View {
                     Without stretch, enter one dimension and the other is calculated \
                     automatically to preserve proportions.
                     """)
+
+                if viewModel.customEditPending {
+                    Button { viewModel.confirmCustomDimensions() } label: {
+                        Image(systemName: "checkmark.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.green)
+                    .help("Apply custom resolution")
+
+                    Button { viewModel.cancelCustomDimensions() } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red)
+                    .help("Cancel custom resolution")
+                }
             }
         }
     }
