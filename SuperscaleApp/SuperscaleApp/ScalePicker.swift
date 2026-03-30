@@ -43,13 +43,10 @@ struct ScalePicker: View {
             }
 
             Button {
-                viewModel.showCustomFields.toggle()
-                if viewModel.showCustomFields {
+                if !viewModel.showCustomFields {
+                    viewModel.showCustomFields = true
                     focusedField = .width
                     viewModel.customEditPending = false
-                } else {
-                    focusedField = nil
-                    viewModel.confirmCustomDimensions()
                 }
             } label: {
                 HStack(spacing: 3) {

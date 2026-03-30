@@ -265,6 +265,7 @@ final class UpscaleViewModel: ObservableObject {
 
     /// Confirm custom resolution entry — triggers upscale.
     func confirmCustomDimensions() {
+        guard customEditPending else { return }
         customEditPending = false
         if case .custom = scaleMode {
             reupscaleIfNeeded()
