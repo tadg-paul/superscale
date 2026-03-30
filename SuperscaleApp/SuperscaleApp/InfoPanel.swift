@@ -31,7 +31,11 @@ struct InfoPanel: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial)
+        .background(.ultraThinMaterial.opacity(0.8))
+        .background(Color.black.opacity(0.3))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.horizontal, 8)
+        .padding(.top, 4)
     }
 
     private var lines: [String] {

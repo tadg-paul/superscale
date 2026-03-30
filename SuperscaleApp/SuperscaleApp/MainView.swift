@@ -14,10 +14,12 @@ struct MainView: View {
         VStack(spacing: 0) {
             toolbar
             Divider()
-            if !infoPanelDismissed && !viewModel.showComparison {
-                InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
+            ZStack(alignment: .top) {
+                content
+                if !infoPanelDismissed && !viewModel.showComparison {
+                    InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
+                }
             }
-            content
         }
         .onChange(of: viewModel.selectedModelName) { _ in infoPanelDismissed = false }
         .onChange(of: viewModel.scaleMode) { _ in infoPanelDismissed = false }
