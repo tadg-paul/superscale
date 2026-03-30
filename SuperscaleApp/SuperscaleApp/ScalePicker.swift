@@ -22,13 +22,6 @@ struct ScalePicker: View {
                 viewModel.confirmCustomDimensions()
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
-            // Window lost key status (clicked elsewhere) — confirm pending edits
-            if viewModel.customEditPending {
-                focusedField = nil
-                viewModel.confirmCustomDimensions()
-            }
-        }
     }
 
     // MARK: - Scale buttons
@@ -39,7 +32,6 @@ struct ScalePicker: View {
                 Button {
                     viewModel.scaleMode = .preset(scale)
                     viewModel.showCustomFields = false
-                    viewModel.customEditPending = false
                     focusedField = nil
                 } label: {
                     Text("\(scale)×")
