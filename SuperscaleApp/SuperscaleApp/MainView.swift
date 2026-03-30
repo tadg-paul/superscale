@@ -40,6 +40,7 @@ struct MainView: View {
             ModelPicker(selectedModelName: $viewModel.selectedModelName,
                         faceEnhance: $viewModel.faceEnhance,
                         options: viewModel.modelOptions)
+                .accessibilityIdentifier("modelPicker")
 
             ScalePicker(viewModel: viewModel)
 
@@ -52,10 +53,12 @@ struct MainView: View {
                     viewModel.showComparison.toggle()
                 }
                 .disabled(viewModel.originalImage == nil)
+                .accessibilityIdentifier("compareButton")
 
                 Button("Save As…") {
                     viewModel.saveAs()
                 }
+                .accessibilityIdentifier("saveButton")
             }
 
             if infoPanelDismissed {
@@ -73,6 +76,7 @@ struct MainView: View {
                 Image(systemName: "info.circle")
             }
             .help("About Superscale")
+            .accessibilityIdentifier("aboutButton")
             .sheet(isPresented: $showAbout) {
                 AboutView()
             }
@@ -137,6 +141,7 @@ struct MainView: View {
         .foregroundStyle(viewModel.faceEnhance && FaceModelRegistry.isInstalled
                          ? Color.accentColor : Color.secondary)
         .help("Face enhancement (GFPGAN) — detects and enhances faces in upscaled images")
+        .accessibilityIdentifier("faceEnhanceButton")
         .sheet(isPresented: $showFaceDownload) {
             FaceModelDownloadView(isPresented: $showFaceDownload) {
                 viewModel.faceEnhance = true

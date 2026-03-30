@@ -17,6 +17,7 @@ struct DropTargetView: View {
             Text("Drop an image here")
                 .font(.title2)
                 .foregroundStyle(isTargeted ? .primary : .secondary)
+                .accessibilityIdentifier("dropTarget")
 
             Text("PNG, JPEG, TIFF, HEIC")
                 .font(.caption)

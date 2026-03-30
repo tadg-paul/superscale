@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug gui test test-ssim test-one-off test-visual clean install uninstall release release-gui release-models sync convert-models download-models
+.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-visual clean install uninstall release release-gui release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -41,6 +41,9 @@ fetch-licences: ## Download licence texts for face model download flow
 
 test: ## Run regression tests (excludes slow SSIM quality gate)
 	swift test --skip SSIM_RT064
+
+test-gui: ## Run GUI UI tests via XCUITest
+	xcodebuild test -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme SuperscaleWithTests -destination 'platform=macOS'
 
 test-ssim: ## Run SSIM quality regression against PyTorch references (~2.5 min)
 	swift test --filter SSIM_RT064

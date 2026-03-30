@@ -34,6 +34,7 @@ struct ScalePicker: View {
                 .buttonStyle(.bordered)
                 .tint(isPresetSelected(scale) ? .accentColor : nil)
                 .help("Upscale \(scale)×")
+                .accessibilityIdentifier("scale\(scale)x")
             }
 
             Button {
@@ -53,6 +54,7 @@ struct ScalePicker: View {
             .buttonStyle(.bordered)
             .tint(viewModel.scaleMode == .custom ? .accentColor : nil)
             .help("Custom resolution")
+            .accessibilityIdentifier("scaleCustom")
         }
     }
 
