@@ -46,7 +46,6 @@ final class UpscaleViewModel: ObservableObject {
     @Published var inputHeight: Int?
     @Published var errorMessage: String?
     @Published var dimensionCapWarning: String?
-    @Published var customEditPending: Bool = false
     @Published var lastUpscaleModelName: String?
     @Published var lastUpscaleFaceCount: Int = 0
     @Published var lastUpscaleWasAutoDetect: Bool = false
@@ -161,9 +160,7 @@ final class UpscaleViewModel: ObservableObject {
         $stretchEnabled
             .dropFirst()
             .sink { [weak self] enabled in
-                guard let self else { return }
-                self.customEditPending = false
-                guard !enabled else { return }
+                guard let self, !enabled else { return }
                 self.suppressDimensionUpdates = true
                 // Clear the non-defining field, then recalculate
                 if self.definingDimension == .width {
@@ -223,19 +220,26 @@ final class UpscaleViewModel: ObservableObject {
             .store(in: &cancellables)
 
         // Mark custom edit as pending when user types in custom fields
+        // Custom dimension changes trigger re-upscale after 1.5s debounce
         $customWidth
             .dropFirst()
-            .sink { [weak self] _ in
-                guard let self, self.showCustomFields, !self.suppressDimensionUpdates else { return }
-                self.customEditPending = true
+            .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
+            .sink { [weak self] val in
+                guard let self,
+                      case .custom = self.scaleMode,
+                      let v = Int(val), v > 0 else { return }
+                self.reupscaleIfNeeded()
             }
             .store(in: &cancellables)
 
         $customHeight
             .dropFirst()
-            .sink { [weak self] _ in
-                guard let self, self.showCustomFields, !self.suppressDimensionUpdates else { return }
-                self.customEditPending = true
+            .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
+            .sink { [weak self] val in
+                guard let self,
+                      case .custom = self.scaleMode,
+                      let v = Int(val), v > 0 else { return }
+                self.reupscaleIfNeeded()
             }
             .store(in: &cancellables)
     }
@@ -261,23 +265,6 @@ final class UpscaleViewModel: ObservableObject {
         customHeight = savedCustomH
         definingDimension = savedDefining
         showCustomFields = savedShowCustom
-    }
-
-    /// Confirm custom resolution entry — triggers upscale.
-    func confirmCustomDimensions() {
-        customEditPending = false
-        if case .custom = scaleMode {
-            reupscaleIfNeeded()
-        }
-    }
-
-    /// Cancel custom resolution entry — revert to previous preset.
-    func cancelCustomDimensions() {
-        customEditPending = false
-        customWidth = ""
-        customHeight = ""
-        showCustomFields = false
-        scaleMode = .preset(nativeScale)
     }
 
     /// Re-cap custom dimensions against current image's 8× limit.

@@ -20,10 +20,6 @@ struct MainView: View {
                     InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
                 }
             }
-            .onTapGesture {
-                // Clicking content area confirms any pending custom edits
-                viewModel.confirmCustomDimensions()
-            }
         }
         .onChange(of: viewModel.selectedModelName) { _ in infoPanelDismissed = false }
         .onChange(of: viewModel.scaleMode) { _ in infoPanelDismissed = false }

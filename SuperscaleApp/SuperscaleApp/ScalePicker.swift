@@ -40,7 +40,6 @@ struct ScalePicker: View {
                 if !viewModel.showCustomFields {
                     viewModel.showCustomFields = true
                     focusedField = .width
-                    viewModel.customEditPending = false
                 }
             } label: {
                 HStack(spacing: 3) {
@@ -78,8 +77,6 @@ struct ScalePicker: View {
                 .multilineTextAlignment(.trailing)
                 .disabled(!isEditable)
                 .focused($focusedField, equals: .width)
-                .onSubmit { viewModel.confirmCustomDimensions() }
-                .onExitCommand { viewModel.cancelCustomDimensions() }
 
             Text("×")
                 .font(.caption)
@@ -93,39 +90,9 @@ struct ScalePicker: View {
                 .multilineTextAlignment(.trailing)
                 .disabled(!isEditable)
                 .focused($focusedField, equals: .height)
-                .onSubmit { viewModel.confirmCustomDimensions() }
-                .onExitCommand { viewModel.cancelCustomDimensions() }
 
             if isEditable {
-                Button {
-                    focusedField = nil
-                    viewModel.confirmCustomDimensions()
-                } label: {
-                    Image(systemName: "checkmark.circle")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(viewModel.customEditPending ? .green : Color.secondary.opacity(0.3))
-                .disabled(!viewModel.customEditPending)
-                .help("Apply custom resolution")
-
-                Button {
-                    focusedField = nil
-                    viewModel.cancelCustomDimensions()
-                } label: {
-                    Image(systemName: "xmark.circle")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(viewModel.customEditPending ? .red : Color.secondary.opacity(0.3))
-                .disabled(!viewModel.customEditPending)
-                .help("Cancel custom resolution")
-
-                Toggle(isOn: Binding(
-                    get: { viewModel.stretchEnabled },
-                    set: { newValue in
-                        focusedField = nil
-                        viewModel.stretchEnabled = newValue
-                    }
-                )) {
+                Toggle(isOn: $viewModel.stretchEnabled) {
                     HStack(spacing: 3) {
                         Image(systemName: viewModel.stretchEnabled
                               ? "arrow.down.backward.and.arrow.up.forward.rectangle.fill"
