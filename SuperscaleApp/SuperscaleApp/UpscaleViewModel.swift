@@ -170,7 +170,7 @@ final class UpscaleViewModel: ObservableObject {
                 } else if !enabled, let cached = self.cachedWithoutFaces {
                     self.result = cached
                 } else {
-                    self.reupscaleIfNeeded()
+                    self.reupscaleForFaceToggle()
                 }
             }
             .store(in: &cancellables)
@@ -233,6 +233,24 @@ final class UpscaleViewModel: ObservableObject {
     private func reupscaleIfNeeded() {
         guard let url = inputURL, !isProcessing else { return }
         processImage(url: url)
+    }
+
+    /// Re-upscale for face enhance toggle only — preserves scale settings.
+    private func reupscaleForFaceToggle() {
+        guard let url = inputURL, !isProcessing else { return }
+        // Capture current scale state before processImage can interfere
+        let savedMode = scaleMode
+        let savedCustomW = customWidth
+        let savedCustomH = customHeight
+        let savedDefining = definingDimension
+        let savedShowCustom = showCustomFields
+        processImage(url: url)
+        // Restore scale state in case anything reset it
+        scaleMode = savedMode
+        customWidth = savedCustomW
+        customHeight = savedCustomH
+        definingDimension = savedDefining
+        showCustomFields = savedShowCustom
     }
 
     // MARK: - Scale helpers
