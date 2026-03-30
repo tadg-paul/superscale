@@ -226,7 +226,7 @@ final class UpscaleViewModel: ObservableObject {
         $customWidth
             .dropFirst()
             .sink { [weak self] _ in
-                guard let self, self.showCustomFields else { return }
+                guard let self, self.showCustomFields, !self.suppressDimensionUpdates else { return }
                 self.customEditPending = true
             }
             .store(in: &cancellables)
@@ -234,7 +234,7 @@ final class UpscaleViewModel: ObservableObject {
         $customHeight
             .dropFirst()
             .sink { [weak self] _ in
-                guard let self, self.showCustomFields else { return }
+                guard let self, self.showCustomFields, !self.suppressDimensionUpdates else { return }
                 self.customEditPending = true
             }
             .store(in: &cancellables)
