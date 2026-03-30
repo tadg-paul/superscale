@@ -121,7 +121,7 @@ struct MainView: View {
         }
         .foregroundStyle(viewModel.faceEnhance && FaceModelRegistry.isInstalled
                          ? Color.accentColor : Color.secondary)
-        .help("Face enhancement (GFPGAN) — non-commercial licence")
+        .help("Face enhancement (GFPGAN) — detects and enhances faces in upscaled images")
         .sheet(isPresented: $showFaceDownload) {
             FaceModelDownloadView(isPresented: $showFaceDownload) {
                 viewModel.faceEnhance = true

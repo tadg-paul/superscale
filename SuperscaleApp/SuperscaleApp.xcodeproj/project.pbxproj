@@ -15,6 +15,8 @@
 		F1000006 /* ProgressOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* ProgressOverlay.swift */; };
 		F1000007 /* ComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* ComparisonView.swift */; };
 		F1000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
+		F100000E /* LICENCE_NVIDIA.txt in Resources */ = {isa = PBXBuildFile; fileRef = F200000E /* LICENCE_NVIDIA.txt */; };
+		F100000F /* LICENCE_CC_BY_NC_SA.txt in Resources */ = {isa = PBXBuildFile; fileRef = F200000F /* LICENCE_CC_BY_NC_SA.txt */; };
 		F1000009 /* ScalePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000A /* ScalePicker.swift */; };
 		F100000B /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000B /* AboutView.swift */; };
 		F100000C /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000C /* InfoPanel.swift */; };
@@ -36,6 +38,8 @@
 		F200000B /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		F200000C /* InfoPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InfoPanel.swift; sourceTree = "<group>"; };
 		F200000D /* FaceModelDownloadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceModelDownloadView.swift; sourceTree = "<group>"; };
+		F200000E /* LICENCE_NVIDIA.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENCE_NVIDIA.txt; sourceTree = "<group>"; };
+		F200000F /* LICENCE_CC_BY_NC_SA.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENCE_CC_BY_NC_SA.txt; sourceTree = "<group>"; };
 		F2000020 /* Superscale.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Superscale.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -74,9 +78,19 @@
 				F200000C /* InfoPanel.swift */,
 				F200000D /* FaceModelDownloadView.swift */,
 				F2000008 /* Assets.xcassets */,
+				F4000004 /* Resources */,
 				F2000009 /* Superscale.entitlements */,
 			);
 			path = SuperscaleApp;
+			sourceTree = "<group>";
+		};
+		F4000004 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				F200000E /* LICENCE_NVIDIA.txt */,
+				F200000F /* LICENCE_CC_BY_NC_SA.txt */,
+			);
+			path = Resources;
 			sourceTree = "<group>";
 		};
 		F4000003 /* Products */ = {
@@ -147,6 +161,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				F1000008 /* Assets.xcassets in Resources */,
+				F100000E /* LICENCE_NVIDIA.txt in Resources */,
+				F100000F /* LICENCE_CC_BY_NC_SA.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

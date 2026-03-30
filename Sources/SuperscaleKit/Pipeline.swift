@@ -56,7 +56,8 @@ public class Pipeline {
         input: URL, output: URL,
         requestedScale: Double? = nil,
         targetWidth: Int? = nil, targetHeight: Int? = nil,
-        stretch: Bool = false
+        stretch: Bool = false,
+        onPreFaceEnhance: ((CGImage) -> Void)? = nil
     ) throws {
         // 1. Load image
         report("Loading \(input.lastPathComponent)...")
@@ -131,7 +132,10 @@ public class Pipeline {
             overlap: scaledOverlap
         )
 
-        // 5. Face enhancement (when enabled and model is present)
+        // 5. Pre-face-enhance callback (for GUI caching)
+        onPreFaceEnhance?(stitched)
+
+        // 5b. Face enhancement (when enabled and model is present)
         if faceEnhance && FaceModelRegistry.isInstalled {
             let faces = try FaceDetector.detect(in: stitched)
             if !faces.isEmpty {

@@ -27,8 +27,15 @@ build-debug: download-models ## Build debug binary
 
 GUI_BUILD_DIR = $(shell xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme Superscale -configuration Debug -showBuildSettings 2>/dev/null | grep ' BUILT_PRODUCTS_DIR' | awk '{print $$3}')
 
-gui: download-models ## Build and launch the GUI app
+gui: download-models fetch-licences ## Build and launch the GUI app
 	xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme Superscale -configuration Debug build -quiet
+
+fetch-licences: ## Download licence texts for face model download flow
+	@mkdir -p SuperscaleApp/SuperscaleApp/Resources
+	@curl -sL https://raw.githubusercontent.com/NVlabs/stylegan2/refs/heads/master/LICENSE.txt \
+		-o SuperscaleApp/SuperscaleApp/Resources/LICENCE_NVIDIA.txt
+	@curl -sL https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt \
+		-o SuperscaleApp/SuperscaleApp/Resources/LICENCE_CC_BY_NC_SA.txt
 	@ln -sfn "$(CURDIR)/models" "$(GUI_BUILD_DIR)/Superscale.app/Contents/MacOS/models"
 	@open "$(GUI_BUILD_DIR)/Superscale.app"
 

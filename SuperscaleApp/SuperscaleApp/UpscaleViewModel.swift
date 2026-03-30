@@ -37,6 +37,10 @@ final class UpscaleViewModel: ObservableObject {
     @Published var originalImage: NSImage?
     @Published var result: NSImage?
     @Published var inputURL: URL?
+
+    /// Cached upscale results for instant face enhancement toggling.
+    private var cachedWithFaces: NSImage?
+    private var cachedWithoutFaces: NSImage?
     @Published var inputWidth: Int?
     @Published var inputHeight: Int?
     @Published var errorMessage: String?
@@ -153,6 +157,21 @@ final class UpscaleViewModel: ObservableObject {
                 }
                 self.updateIndicativeDimension()
                 self.suppressDimensionUpdates = false
+            }
+            .store(in: &cancellables)
+
+        // Face enhance toggle: swap cached versions or re-upscale
+        $faceEnhance
+            .dropFirst()
+            .sink { [weak self] enabled in
+                guard let self, self.inputURL != nil else { return }
+                if enabled, let cached = self.cachedWithFaces {
+                    self.result = cached
+                } else if !enabled, let cached = self.cachedWithoutFaces {
+                    self.result = cached
+                } else {
+                    self.reupscaleIfNeeded()
+                }
             }
             .store(in: &cancellables)
 
@@ -297,6 +316,10 @@ final class UpscaleViewModel: ObservableObject {
         result = nil
         showComparison = false
 
+        // Invalidate face enhancement cache on re-upscale
+        cachedWithFaces = nil
+        cachedWithoutFaces = nil
+
         // If stretch is on but both dimensions aren't valid, deselect immediately
         if stretchEnabled {
             let w = Int(customWidth).flatMap { $0 > 0 ? $0 : nil }
@@ -408,17 +431,26 @@ final class UpscaleViewModel: ObservableObject {
                     }
                 }
 
+                // Capture pre-face-enhance image for cache
+                var preFaceImage: NSImage?
                 try pipeline.process(
                     input: url, output: outputURL,
                     requestedScale: requestedScale,
                     targetWidth: targetWidth, targetHeight: targetHeight,
-                    stretch: stretch)
+                    stretch: stretch,
+                    onPreFaceEnhance: { cgImage in
+                        preFaceImage = NSImage(
+                            cgImage: cgImage,
+                            size: NSSize(width: cgImage.width, height: cgImage.height))
+                    })
 
                 let image = NSImage(contentsOf: outputURL)
                 try? FileManager.default.removeItem(at: outputURL)
 
                 await MainActor.run {
                     self.result = image
+                    self.cachedWithFaces = image
+                    self.cachedWithoutFaces = preFaceImage ?? image
                     self.isProcessing = false
                     self.progressMessage = ""
                 }

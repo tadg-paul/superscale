@@ -1,6 +1,7 @@
 // ABOUTME: Tests for licence files and third-party attribution.
 // ABOUTME: Validates THIRD_PARTY_LICENSES content and GFPGAN exclusion from repo.
 
+import CryptoKit
 import XCTest
 
 final class LicensingTests: XCTestCase {
@@ -58,5 +59,34 @@ final class LicensingTests: XCTestCase {
                       ".gitignore must exclude .pth files (covers GFPGAN weights)")
         XCTAssertTrue(gitignore.contains("*.mlpackage"),
                       ".gitignore must exclude .mlpackage files (covers GFPGAN conversions)")
+    }
+
+    // RT-117: NVIDIA licence file matches canonical SHA-256
+    func test_nvidia_licence_hash_RT117() throws {
+        let path = projectRoot
+            .appendingPathComponent("SuperscaleApp/SuperscaleApp/Resources/LICENCE_NVIDIA.txt")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: path.path),
+                      "Licence file not found — run make fetch-licences")
+        let data = try Data(contentsOf: path)
+        let hash = sha256(data)
+        XCTAssertEqual(hash, "803ddcc4dd20de6387e2e5731f6a864ea01364dd305b17bda7157bcab0c39295",
+                       "NVIDIA licence text has changed from canonical version — review required")
+    }
+
+    // RT-118: CC BY-NC-SA 4.0 licence file matches canonical SHA-256
+    func test_cc_licence_hash_RT118() throws {
+        let path = projectRoot
+            .appendingPathComponent("SuperscaleApp/SuperscaleApp/Resources/LICENCE_CC_BY_NC_SA.txt")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: path.path),
+                      "Licence file not found — run make fetch-licences")
+        let data = try Data(contentsOf: path)
+        let hash = sha256(data)
+        XCTAssertEqual(hash, "e66c269d4819aaab34b49ef5220c4ddab6756f21bb5180761a4eb8561f2b7bbd",
+                       "CC BY-NC-SA 4.0 licence text has changed from canonical version — review required")
+    }
+
+    private func sha256(_ data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
