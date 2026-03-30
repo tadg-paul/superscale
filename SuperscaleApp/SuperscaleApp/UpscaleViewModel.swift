@@ -83,7 +83,11 @@ final class UpscaleViewModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] newValue in
                 guard let self, !self.suppressDimensionUpdates else { return }
-                let filtered = newValue.filter { $0.isNumber }
+                var filtered = newValue.filter { $0.isNumber }
+                // Cap at 8× input or 16384px
+                if let val = Int(filtered), val > self.maxCustomDimension {
+                    filtered = "\(self.maxCustomDimension)"
+                }
                 if filtered != newValue {
                     self.suppressDimensionUpdates = true
                     self.customWidth = filtered
@@ -117,7 +121,11 @@ final class UpscaleViewModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] newValue in
                 guard let self else { return }
-                let filtered = newValue.filter { $0.isNumber }
+                var filtered = newValue.filter { $0.isNumber }
+                // Cap at 8× input or 16384px
+                if let val = Int(filtered), val > self.maxCustomDimension {
+                    filtered = "\(self.maxCustomDimension)"
+                }
                 if filtered != newValue {
                     self.suppressDimensionUpdates = true
                     self.customHeight = filtered
@@ -251,6 +259,13 @@ final class UpscaleViewModel: ObservableObject {
         customHeight = savedCustomH
         definingDimension = savedDefining
         showCustomFields = savedShowCustom
+    }
+
+    /// Maximum custom dimension: 8× the longest input side, or 16384px if no image.
+    private var maxCustomDimension: Int {
+        let longest = max(inputWidth ?? 0, inputHeight ?? 0)
+        if longest > 0 { return longest * 8 }
+        return 16384
     }
 
     // MARK: - Scale helpers
