@@ -107,14 +107,20 @@ struct ScalePicker: View {
 
     private func widthBinding(editable: Bool) -> Binding<String> {
         if editable {
-            return $viewModel.customWidth
+            return Binding(
+                get: { viewModel.customWidth },
+                set: { viewModel.customWidth = capDimension($0) }
+            )
         }
         return .constant(presetWidthString())
     }
 
     private func heightBinding(editable: Bool) -> Binding<String> {
         if editable {
-            return $viewModel.customHeight
+            return Binding(
+                get: { viewModel.customHeight },
+                set: { viewModel.customHeight = capDimension($0) }
+            )
         }
         return .constant(presetHeightString())
     }
@@ -133,6 +139,14 @@ struct ScalePicker: View {
             return "\(dims.height)"
         }
         return ""
+    }
+
+    private func capDimension(_ value: String) -> String {
+        let digits = value.filter { $0.isNumber }
+        guard let val = Int(digits), val > viewModel.maxCustomDimension else {
+            return digits
+        }
+        return "\(viewModel.maxCustomDimension)"
     }
 
     private func fieldStyle(isDefining: Bool) -> some ShapeStyle {

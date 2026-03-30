@@ -262,7 +262,7 @@ final class UpscaleViewModel: ObservableObject {
     }
 
     /// Maximum custom dimension: 8× the longest input side, or 16384px if no image.
-    private var maxCustomDimension: Int {
+    var maxCustomDimension: Int {
         let longest = max(inputWidth ?? 0, inputHeight ?? 0)
         if longest > 0 { return longest * 8 }
         return 16384
