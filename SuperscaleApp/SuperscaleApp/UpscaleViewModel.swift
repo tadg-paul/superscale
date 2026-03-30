@@ -161,7 +161,9 @@ final class UpscaleViewModel: ObservableObject {
         $stretchEnabled
             .dropFirst()
             .sink { [weak self] enabled in
-                guard let self, !enabled else { return }
+                guard let self else { return }
+                self.customEditPending = false
+                guard !enabled else { return }
                 self.suppressDimensionUpdates = true
                 // Clear the non-defining field, then recalculate
                 if self.definingDimension == .width {
