@@ -16,6 +16,12 @@ struct ScalePicker: View {
             scaleButtons
             resolutionFields
         }
+        .onChange(of: focusedField) { newValue in
+            // When focus leaves both fields entirely, treat as confirm
+            if newValue == nil && viewModel.customEditPending {
+                viewModel.confirmCustomDimensions()
+            }
+        }
     }
 
     // MARK: - Scale buttons
@@ -114,21 +120,21 @@ struct ScalePicker: View {
                     automatically to preserve proportions.
                     """)
 
-                if viewModel.customEditPending {
-                    Button { viewModel.confirmCustomDimensions() } label: {
-                        Image(systemName: "checkmark.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.green)
-                    .help("Apply custom resolution")
-
-                    Button { viewModel.cancelCustomDimensions() } label: {
-                        Image(systemName: "xmark.circle")
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.red)
-                    .help("Cancel custom resolution")
+                Button { viewModel.confirmCustomDimensions() } label: {
+                    Image(systemName: "checkmark.circle")
                 }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.customEditPending ? .green : Color.secondary.opacity(0.3))
+                .disabled(!viewModel.customEditPending)
+                .help("Apply custom resolution")
+
+                Button { viewModel.cancelCustomDimensions() } label: {
+                    Image(systemName: "xmark.circle")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(viewModel.customEditPending ? .red : Color.secondary.opacity(0.3))
+                .disabled(!viewModel.customEditPending)
+                .help("Cancel custom resolution")
             }
         }
     }
