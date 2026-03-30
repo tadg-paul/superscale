@@ -16,12 +16,6 @@ struct ScalePicker: View {
             scaleButtons
             resolutionFields
         }
-        .onChange(of: focusedField) { newValue in
-            // When focus leaves both fields entirely, treat as confirm
-            if newValue == nil && viewModel.customEditPending {
-                viewModel.confirmCustomDimensions()
-            }
-        }
     }
 
     // MARK: - Scale buttons
@@ -84,6 +78,8 @@ struct ScalePicker: View {
                 .multilineTextAlignment(.trailing)
                 .disabled(!isEditable)
                 .focused($focusedField, equals: .width)
+                .onSubmit { viewModel.confirmCustomDimensions() }
+                .onExitCommand { viewModel.cancelCustomDimensions() }
 
             Text("×")
                 .font(.caption)
@@ -97,6 +93,8 @@ struct ScalePicker: View {
                 .multilineTextAlignment(.trailing)
                 .disabled(!isEditable)
                 .focused($focusedField, equals: .height)
+                .onSubmit { viewModel.confirmCustomDimensions() }
+                .onExitCommand { viewModel.cancelCustomDimensions() }
 
             if isEditable {
                 Button {

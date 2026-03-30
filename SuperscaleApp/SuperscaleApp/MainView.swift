@@ -20,10 +20,9 @@ struct MainView: View {
                     InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
                 }
             }
-            .focusable()
             .onTapGesture {
-                // Steal focus from text fields — triggers onChange(of: focusedField)
-                NSApp.keyWindow?.makeFirstResponder(nil)
+                // Clicking content area confirms any pending custom edits
+                viewModel.confirmCustomDimensions()
             }
         }
         .onChange(of: viewModel.selectedModelName) { _ in infoPanelDismissed = false }
