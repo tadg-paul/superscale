@@ -58,6 +58,15 @@ struct MainView: View {
                 }
             }
 
+            if infoPanelDismissed {
+                Button {
+                    infoPanelDismissed = false
+                } label: {
+                    Image(systemName: "text.bubble")
+                }
+                .help("Show info panel")
+            }
+
             Button {
                 showAbout = true
             } label: {
