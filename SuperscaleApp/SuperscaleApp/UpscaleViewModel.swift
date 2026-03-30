@@ -447,10 +447,16 @@ final class UpscaleViewModel: ObservableObject {
                 let image = NSImage(contentsOf: outputURL)
                 try? FileManager.default.removeItem(at: outputURL)
 
+                let faceWasEnabled = await self.faceEnhance
                 await MainActor.run {
                     self.result = image
-                    self.cachedWithFaces = image
-                    self.cachedWithoutFaces = preFaceImage ?? image
+                    if faceWasEnabled {
+                        self.cachedWithFaces = image
+                        self.cachedWithoutFaces = preFaceImage ?? image
+                    } else {
+                        self.cachedWithoutFaces = image
+                        // cachedWithFaces stays nil — toggling on will trigger re-upscale
+                    }
                     self.isProcessing = false
                     self.progressMessage = ""
                 }
