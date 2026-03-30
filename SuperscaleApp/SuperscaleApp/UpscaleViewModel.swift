@@ -188,6 +188,9 @@ final class UpscaleViewModel: ObservableObject {
                         ?? ModelRegistry.defaultModel.scale
                 }
                 self.scaleMode = .preset(scale)
+                self.showCustomFields = false
+                self.customWidth = ""
+                self.customHeight = ""
             }
             .store(in: &cancellables)
 
