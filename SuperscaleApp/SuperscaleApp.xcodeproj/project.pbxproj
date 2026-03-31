@@ -375,6 +375,7 @@
 		F8000030 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -384,12 +385,14 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_TARGET_NAME = Superscale;
+				TargetApplicationBundleIdentifier = com.tadgpaul.superscale;
 			};
 			name = Debug;
 		};
 		F8000031 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -399,6 +402,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_TARGET_NAME = Superscale;
+				TargetApplicationBundleIdentifier = com.tadgpaul.superscale;
 			};
 			name = Release;
 		};
