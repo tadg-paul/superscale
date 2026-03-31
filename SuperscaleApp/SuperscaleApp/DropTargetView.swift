@@ -1,6 +1,7 @@
-// ABOUTME: Drag-and-drop target area for image files.
-// ABOUTME: Displays a prominent drop zone with visual feedback on hover.
+// ABOUTME: Drag-and-drop target area for image files with file chooser.
+// ABOUTME: Displays a prominent drop zone with visual feedback and click-to-choose.
 
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -19,6 +20,14 @@ struct DropTargetView: View {
                 .foregroundStyle(isTargeted ? .primary : .secondary)
                 .accessibilityIdentifier("dropTarget")
 
+            Button("or click here to choose a file") {
+                openFileChooser()
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+            .foregroundStyle(Color.accentColor)
+            .accessibilityIdentifier("fileChooser")
+
             Text("PNG, JPEG, TIFF, HEIC")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -34,6 +43,17 @@ struct DropTargetView: View {
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             handleProviders(providers)
         }
+    }
+
+    private func openFileChooser() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Choose an image to upscale"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        onDrop([url])
     }
 
     private func handleProviders(_ providers: [NSItemProvider]) -> Bool {

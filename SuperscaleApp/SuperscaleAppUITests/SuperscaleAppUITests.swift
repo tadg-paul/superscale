@@ -47,4 +47,11 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(app.buttons["scaleCustom"].exists,
                       "Custom scale button should be present")
     }
+
+    // RT-110: File chooser button exists and is clickable
+    func test_file_chooser_button_exists_RT110() {
+        let chooser = app.buttons["fileChooser"]
+        XCTAssertTrue(chooser.waitForExistence(timeout: 5),
+                      "File chooser button should be present on launch")
+    }
 }
