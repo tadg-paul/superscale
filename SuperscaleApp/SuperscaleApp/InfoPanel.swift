@@ -26,6 +26,7 @@ struct InfoPanel: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("infoPanelDismiss")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

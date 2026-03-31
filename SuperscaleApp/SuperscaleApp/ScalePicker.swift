@@ -79,6 +79,7 @@ struct ScalePicker: View {
                 .multilineTextAlignment(.trailing)
                 .disabled(!isEditable)
                 .focused($focusedField, equals: .width)
+                .accessibilityIdentifier("customWidth")
 
             Text("×")
                 .font(.caption)
@@ -92,6 +93,7 @@ struct ScalePicker: View {
                 .multilineTextAlignment(.trailing)
                 .disabled(!isEditable)
                 .focused($focusedField, equals: .height)
+                .accessibilityIdentifier("customHeight")
 
             if isEditable {
                 Toggle(isOn: $viewModel.stretchEnabled) {

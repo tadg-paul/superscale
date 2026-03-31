@@ -68,6 +68,7 @@ struct MainView: View {
                     Image(systemName: "text.bubble")
                 }
                 .help("Show info panel")
+                .accessibilityIdentifier("infoPanelRestore")
             }
 
             Button {
