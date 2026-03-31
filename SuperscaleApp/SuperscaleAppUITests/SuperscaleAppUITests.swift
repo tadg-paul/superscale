@@ -46,8 +46,9 @@ final class SuperscaleAppUITests: XCTestCase {
         let goToField = openPanel.textFields.firstMatch
         guard goToField.waitForExistence(timeout: 3) else { return false }
 
-        // Type the test image path
+        // Clear existing text and type the test image path
         goToField.click()
+        goToField.typeKey("a", modifierFlags: .command)
         goToField.typeText(testImagePath)
 
         // Press Enter to navigate to the file
