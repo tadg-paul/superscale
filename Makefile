@@ -113,6 +113,7 @@ release-gui: ## Build GUI .app, package DMG, update Homebrew cask
 ifndef SKIP_TESTS
 	@$(MAKE) test
 	@$(MAKE) test-ssim
+	@$(MAKE) test-gui
 else
 	@echo "SKIP_TESTS=1: skipping regression tests (caller asserts they already pass)"
 endif
