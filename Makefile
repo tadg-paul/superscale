@@ -25,10 +25,12 @@ build: download-models ## Build release binary
 build-debug: download-models ## Build debug binary
 	swift build
 
-GUI_BUILD_DIR = $(shell xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme Superscale -configuration Debug -showBuildSettings 2>/dev/null | grep ' BUILT_PRODUCTS_DIR' | awk '{print $$3}')
+GUI_BUILD_DIR = $(shell xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme SuperscaleWithTests -configuration Debug -showBuildSettings 2>/dev/null | grep ' BUILT_PRODUCTS_DIR' | awk '{print $$3}')
 
 gui: download-models fetch-licences ## Build and launch the GUI app
-	xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme Superscale -configuration Debug build -quiet
+	xcodebuild -project SuperscaleApp/SuperscaleApp.xcodeproj -scheme SuperscaleWithTests -configuration Debug build -quiet
+	@ln -sfn "$(CURDIR)/models" "$(GUI_BUILD_DIR)/Superscale.app/Contents/MacOS/models"
+	@open "$(GUI_BUILD_DIR)/Superscale.app"
 
 fetch-licences: ## Download licence texts for face model download flow
 	@mkdir -p SuperscaleApp/SuperscaleApp/Resources
@@ -36,8 +38,6 @@ fetch-licences: ## Download licence texts for face model download flow
 		-o SuperscaleApp/SuperscaleApp/Resources/LICENCE_NVIDIA.txt
 	@curl -sL https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt \
 		-o SuperscaleApp/SuperscaleApp/Resources/LICENCE_CC_BY_NC_SA.txt
-	@ln -sfn "$(CURDIR)/models" "$(GUI_BUILD_DIR)/Superscale.app/Contents/MacOS/models"
-	@open "$(GUI_BUILD_DIR)/Superscale.app"
 
 test: ## Run regression tests (excludes slow SSIM quality gate)
 	swift test --skip SSIM_RT064
