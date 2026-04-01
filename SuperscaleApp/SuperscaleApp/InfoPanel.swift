@@ -13,7 +13,7 @@ struct InfoPanel: View {
             VStack(alignment: .leading, spacing: 3) {
                 ForEach(lines, id: \.self) { line in
                     Text(line)
-                        .font(.caption)
+                        .font(.callout)
                         .foregroundStyle(.primary)
                 }
             }
@@ -61,6 +61,11 @@ struct InfoPanel: View {
             result.append("Face enhancement enabled")
         }
 
+        // Input dimensions
+        if let w = viewModel.inputWidth, let h = viewModel.inputHeight {
+            result.append("Input: \(w)×\(h)")
+        }
+
         // Scale
         switch viewModel.scaleMode {
         case .preset(let scale):
@@ -88,14 +93,6 @@ struct InfoPanel: View {
             result.append("Stretch enabled — output ignores aspect ratio")
         }
 
-        // Post-upscale summary
-        if let result_img = viewModel.result,
-           let w = viewModel.inputWidth, let h = viewModel.inputHeight {
-            let rep = result_img.representations.first
-            let outW = rep?.pixelsWide ?? Int(result_img.size.width)
-            let outH = rep?.pixelsHigh ?? Int(result_img.size.height)
-            result.append("Output: \(w)×\(h) → \(outW)×\(outH)")
-        }
 
         return result
     }

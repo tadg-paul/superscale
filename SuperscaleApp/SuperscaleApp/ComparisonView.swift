@@ -45,7 +45,34 @@ struct ComparisonView: View {
             .contentShape(Rectangle())
             .gesture(panGesture)
             .gesture(magnificationGesture)
-            .onScrollGesture(size: size)
+            .onAppear { installScrollMonitor() }
+            .onDisappear { removeScrollMonitor() }
+            .focusable()
+            .onKeyPress(characters: CharacterSet(charactersIn: "=+")) { _ in
+                zoom = min(10.0, zoom + 0.5)
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "-")) { _ in
+                zoom = max(1.0, zoom - 0.5)
+                if zoom == 1.0 { offset = .zero; dragStart = .zero }
+                return .handled
+            }
+            .onKeyPress(.upArrow) {
+                offset.height += 50; dragStart = offset
+                return .handled
+            }
+            .onKeyPress(.downArrow) {
+                offset.height -= 50; dragStart = offset
+                return .handled
+            }
+            .onKeyPress(.leftArrow) {
+                offset.width += 50; dragStart = offset
+                return .handled
+            }
+            .onKeyPress(.rightArrow) {
+                offset.width -= 50; dragStart = offset
+                return .handled
+            }
         }
     }
 
@@ -145,13 +172,27 @@ struct ComparisonView: View {
                 zoom = max(1.0, min(10.0, value.magnification))
             }
     }
-}
 
-// MARK: - Scroll wheel zoom
+    // MARK: - Scroll/trackpad panning
 
-private extension View {
-    func onScrollGesture(size: CGSize) -> some View {
-        self.onContinuousHover { _ in }  // Ensure view accepts events
+    @State private var scrollMonitor: Any?
+
+    private func installScrollMonitor() {
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            // Pan with scroll wheel / trackpad
+            offset = CGSize(
+                width: offset.width + event.scrollingDeltaX,
+                height: offset.height + event.scrollingDeltaY)
+            dragStart = offset
+            return event
+        }
+    }
+
+    private func removeScrollMonitor() {
+        if let monitor = scrollMonitor {
+            NSEvent.removeMonitor(monitor)
+            scrollMonitor = nil
+        }
     }
 }
 
