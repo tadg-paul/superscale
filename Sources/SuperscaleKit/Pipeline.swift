@@ -132,8 +132,24 @@ public class Pipeline {
             overlap: scaledOverlap
         )
 
-        // 5. Pre-face-enhance callback (for GUI caching)
-        onPreFaceEnhance?(stitched)
+        // 5. Upscale alpha channel (needed for pre-face callback and final output)
+        var upscaledAlpha: CGImage?
+        if let alphaChannel = loaded.alphaChannel {
+            report("Upscaling alpha channel...")
+            upscaledAlpha = try upscaleAlpha(
+                alphaChannel, toWidth: nativeWidth, height: nativeHeight)
+        }
+
+        // Pre-face-enhance callback (for GUI caching): pass alpha-composited image
+        // so the cached pre-face version preserves transparency.
+        if let callback = onPreFaceEnhance {
+            if let alpha = upscaledAlpha {
+                let preFaceWithAlpha = try ImageLoader.recombineAlpha(rgb: stitched, alpha: alpha)
+                callback(preFaceWithAlpha)
+            } else {
+                callback(stitched)
+            }
+        }
 
         // 5b. Face enhancement (when enabled and model is present)
         if faceEnhance && FaceModelRegistry.isInstalled {
@@ -145,12 +161,9 @@ public class Pipeline {
             }
         }
 
-        // 6. Handle alpha channel
-        if let alphaChannel = loaded.alphaChannel {
-            report("Upscaling alpha channel...")
-            let upscaledAlpha = try upscaleAlpha(
-                alphaChannel, toWidth: nativeWidth, height: nativeHeight)
-            stitched = try ImageLoader.recombineAlpha(rgb: stitched, alpha: upscaledAlpha)
+        // 6. Recombine alpha into final output (uses already-upscaled alpha)
+        if let alpha = upscaledAlpha {
+            stitched = try ImageLoader.recombineAlpha(rgb: stitched, alpha: alpha)
         }
 
         // 7. Resize to target (if different from native output)

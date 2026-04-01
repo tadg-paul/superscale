@@ -211,6 +211,47 @@ final class PipelineTests: XCTestCase {
         }
     }
 
+    // RT-62.1: onPreFaceEnhance callback receives an alpha-bearing image when input has alpha
+    func test_pipeline_pre_face_callback_receives_alpha_RT62_1() throws {
+        let modelURL = modelsDir.appendingPathComponent("RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelURL.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt62_1_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        // Arrange: transparent input (top half transparent, bottom half blue)
+        let inputURL = tmpDir.appendingPathComponent("alpha_input.png")
+        try createTopTransparentBottomBlueImage(width: 50, height: 50, at: inputURL)
+
+        let outputURL = tmpDir.appendingPathComponent("alpha_output.png")
+
+        // Act: run pipeline with onPreFaceEnhance callback
+        var callbackImage: CGImage?
+        let pipeline = try Pipeline(modelName: "realesrgan-x4plus", faceEnhance: false)
+        try pipeline.process(input: inputURL, output: outputURL,
+                             onPreFaceEnhance: { cgImage in callbackImage = cgImage })
+
+        // Assert: callback was invoked
+        let captured = try XCTUnwrap(callbackImage,
+                                     "onPreFaceEnhance callback should have been called")
+
+        // Assert: captured image has an alpha channel (not noneSkipLast, not none)
+        let alphaInfo = captured.alphaInfo
+        let hasAlpha = alphaInfo != .none && alphaInfo != .noneSkipLast && alphaInfo != .noneSkipFirst
+        XCTAssertTrue(hasAlpha,
+                      "onPreFaceEnhance callback image should carry alpha, got alphaInfo=\(alphaInfo.rawValue)")
+
+        // Assert: the transparent region is actually transparent (alpha ≈ 0)
+        let topPixel = samplePixelRGBA(captured, x: captured.width / 2, y: 10)
+        if let px = topPixel {
+            XCTAssertLessThan(px.a, 50,
+                              "Top (transparent) region should be transparent in callback image, got alpha=\(px.a)")
+        }
+    }
+
     // RT-089: Large image (multi-tile) produces identical output dimensions
     func test_pipeline_large_image_unchanged_RT089() throws {
         let inputURL = testImagesDir.appendingPathComponent("remy2.jpg")
