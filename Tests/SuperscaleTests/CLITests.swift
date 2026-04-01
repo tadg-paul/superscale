@@ -597,7 +597,7 @@ final class CLITests: XCTestCase {
 
         let sections = [
             "NAME", "USAGE", "DESCRIPTION", "ARGUMENTS", "OPTIONS",
-            "EXAMPLES", "MODELS", "MODEL DETAILS",
+            "EXAMPLES", "MODELS",
             "FACE ENHANCEMENT", "REQUIREMENTS", "LICENSE", "SEE ALSO"
         ]
 
