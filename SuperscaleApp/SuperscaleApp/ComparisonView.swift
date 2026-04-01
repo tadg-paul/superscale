@@ -22,8 +22,9 @@ struct ComparisonView: View {
                 // Upscaled image (full background)
                 imageLayer(image: upscaled, size: size)
 
-                // Original image (clipped to left of divider)
-                imageLayer(image: original, size: size)
+                // Original image (clipped to left of divider) — nearest-neighbour so the
+                // user sees the actual source pixels, not Apple's interpolated version.
+                imageLayer(image: original, size: size, interpolation: .none)
                     .clipShape(
                         HorizontalClip(width: dividerX)
                     )
@@ -78,8 +79,12 @@ struct ComparisonView: View {
 
     // MARK: - Image layer
 
-    private func imageLayer(image: NSImage, size: CGSize) -> some View {
+    private func imageLayer(
+        image: NSImage, size: CGSize,
+        interpolation: Image.Interpolation = .high
+    ) -> some View {
         Image(nsImage: image)
+            .interpolation(interpolation)
             .resizable()
             .aspectRatio(contentMode: .fit)
             .scaleEffect(zoom)
