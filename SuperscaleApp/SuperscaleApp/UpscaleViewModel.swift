@@ -522,6 +522,7 @@ final class UpscaleViewModel: ObservableObject {
                     self.lastUpscaleWasAutoDetect = wasAutoDetect
                     self.isProcessing = false
                     self.progressMessage = ""
+                    self.showComparison = true
                 }
             } catch {
                 await MainActor.run {

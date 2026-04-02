@@ -7,8 +7,8 @@ struct ComparisonView: View {
     let original: NSImage
     let upscaled: NSImage
 
-    @State private var dividerPosition: CGFloat = 0.5
-    @State private var zoom: CGFloat = 1.0
+    @State private var dividerPosition: CGFloat = 0.35
+    @State private var zoom: CGFloat = 1.5
     @State private var offset: CGSize = .zero
     @State private var dragStart: CGSize = .zero
     @GestureState private var isDraggingDivider = false
@@ -40,6 +40,18 @@ struct ComparisonView: View {
                             .padding(12)
                     }
                     Spacer()
+                }
+
+                // Minimap (bottom-right, only when zoomed in)
+                if zoom > 1.0 {
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Spacer()
+                            minimapView(viewSize: size)
+                                .padding(12)
+                        }
+                    }
                 }
             }
             .clipped()
@@ -121,26 +133,118 @@ struct ComparisonView: View {
     // MARK: - Zoom controls
 
     private var zoomControls: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 6) {
             Button {
                 zoom = max(1.0, zoom - 0.5)
                 if zoom == 1.0 { offset = .zero; dragStart = .zero }
             } label: {
-                Text("−")
+                Image(systemName: "minus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 28, height: 28)
             }
 
             Text("\(Int(zoom * 100))%")
-                .font(.system(.caption, design: .monospaced))
-                .frame(width: 44)
+                .font(.system(.body, design: .monospaced).bold())
+                .frame(width: 52)
 
             Button {
                 zoom = min(10.0, zoom + 0.5)
             } label: {
-                Text("+")
+                Image(systemName: "plus")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: 28, height: 28)
             }
         }
         .buttonStyle(.bordered)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityIdentifier("zoomControls")
+    }
+
+    // MARK: - Minimap
+
+    private static let minimapWidth: CGFloat = 150
+
+    private func minimapView(viewSize: CGSize) -> some View {
+        let imgAspect = upscaled.size.width / max(upscaled.size.height, 1)
+        let thumbW = Self.minimapWidth
+        let thumbH = thumbW / max(imgAspect, 0.1)
+
+        return ZStack(alignment: .topLeading) {
+            Image(nsImage: upscaled)
+                .resizable()
+                .frame(width: thumbW, height: thumbH)
+
+            // Viewport indicator rectangle
+            viewportRect(thumbW: thumbW, thumbH: thumbH, viewSize: viewSize)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.white.opacity(0.6), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.4), radius: 4)
+        .gesture(minimapDragGesture(thumbW: thumbW, thumbH: thumbH, viewSize: viewSize))
+        .accessibilityIdentifier("minimap")
+    }
+
+    private func viewportRect(
+        thumbW: CGFloat, thumbH: CGFloat, viewSize: CGSize
+    ) -> some View {
+        // Compute the fit size of the image at zoom=1 within the view
+        let imgAspect = upscaled.size.width / max(upscaled.size.height, 1)
+        let viewAspect = viewSize.width / max(viewSize.height, 1)
+        let fitW: CGFloat
+        let fitH: CGFloat
+        if imgAspect > viewAspect {
+            fitW = viewSize.width
+            fitH = viewSize.width / imgAspect
+        } else {
+            fitH = viewSize.height
+            fitW = viewSize.height * imgAspect
+        }
+
+        // Viewport size in normalised image coords
+        let vpW = min(1.0, viewSize.width / (fitW * zoom))
+        let vpH = min(1.0, viewSize.height / (fitH * zoom))
+
+        // Viewport centre offset from image centre
+        let cx = 0.5 - offset.width / (fitW * zoom)
+        let cy = 0.5 - offset.height / (fitH * zoom)
+
+        // Map to minimap pixel coords
+        let rectW = vpW * thumbW
+        let rectH = vpH * thumbH
+        let rectX = cx * thumbW - rectW / 2
+        let rectY = cy * thumbH - rectH / 2
+
+        return Rectangle()
+            .stroke(Color.white, lineWidth: 1.5)
+            .background(Color.white.opacity(0.15))
+            .frame(width: max(rectW, 4), height: max(rectH, 4))
+            .position(x: cx * thumbW, y: cy * thumbH)
+    }
+
+    private func minimapDragGesture(
+        thumbW: CGFloat, thumbH: CGFloat, viewSize: CGSize
+    ) -> some Gesture {
+        let imgAspect = upscaled.size.width / max(upscaled.size.height, 1)
+        let viewAspect = viewSize.width / max(viewSize.height, 1)
+        let fitW: CGFloat = imgAspect > viewAspect
+            ? viewSize.width : viewSize.height * imgAspect
+        let fitH: CGFloat = imgAspect > viewAspect
+            ? viewSize.width / imgAspect : viewSize.height
+
+        return DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                let tapX = value.location.x
+                let tapY = value.location.y
+                let normX = tapX / thumbW
+                let normY = tapY / thumbH
+                offset = CGSize(
+                    width: (0.5 - normX) * fitW * zoom,
+                    height: (0.5 - normY) * fitH * zoom)
+                dragStart = offset
+            }
     }
 
     // MARK: - Gestures
