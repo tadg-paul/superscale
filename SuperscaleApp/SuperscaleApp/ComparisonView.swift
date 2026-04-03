@@ -41,12 +41,18 @@ struct ComparisonView: View {
                     sliderContent(size: size)
                 }
 
-                // Mode toggle (top-left)
+                // Controls (top-right): mode toggle + zoom (slider mode only)
                 VStack {
                     HStack {
-                        modeToggle
-                            .padding(12)
                         Spacer()
+                        VStack(spacing: 6) {
+                            modeToggle
+
+                            if comparisonMode == .slider {
+                                zoomControls
+                            }
+                        }
+                        .padding(12)
                     }
                     Spacer()
                 }
@@ -57,34 +63,14 @@ struct ComparisonView: View {
     // MARK: - Mode toggle
 
     private var modeToggle: some View {
-        HStack(spacing: 2) {
-            Button {
-                switchToMode(.magnifier)
-            } label: {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 30, height: 26)
-                    .background(
-                        comparisonMode == .magnifier
-                            ? AnyShapeStyle(Color.accentColor.opacity(0.3))
-                            : AnyShapeStyle(Color.clear))
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
-            }
-            .accessibilityIdentifier("modeMagnifier")
-
-            Button {
-                switchToMode(.slider)
-            } label: {
-                Image(systemName: "slider.horizontal.below.rectangle")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 30, height: 26)
-                    .background(
-                        comparisonMode == .slider
-                            ? AnyShapeStyle(Color.accentColor.opacity(0.3))
-                            : AnyShapeStyle(Color.clear))
-                    .clipShape(RoundedRectangle(cornerRadius: 5))
-            }
-            .accessibilityIdentifier("modeSlider")
+        Button {
+            let next: ComparisonMode = comparisonMode == .magnifier ? .slider : .magnifier
+            switchToMode(next)
+        } label: {
+            Image(systemName: comparisonMode == .magnifier
+                  ? "magnifyingglass" : "slider.horizontal.below.rectangle")
+                .font(.system(size: 14, weight: .semibold))
+                .frame(width: 32, height: 28)
         }
         .buttonStyle(.bordered)
         .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 8))
@@ -170,16 +156,6 @@ struct ComparisonView: View {
 
             // Divider line
             dividerOverlay(at: dividerX, height: size.height)
-
-            // Zoom controls (top-right)
-            VStack {
-                HStack {
-                    Spacer()
-                    zoomControls
-                        .padding(12)
-                }
-                Spacer()
-            }
 
             // Minimap (bottom-right, only when zoomed in)
             if zoom > 1.0 {
@@ -269,24 +245,24 @@ struct ComparisonView: View {
     // MARK: - Slider zoom controls
 
     private var zoomControls: some View {
-        HStack(spacing: 6) {
+        VStack(spacing: 4) {
             Button {
-                zoom = max(1.0, zoom - 0.5)
-                if zoom == 1.0 { offset = .zero; dragStart = .zero }
+                zoom = min(10.0, zoom + 0.5)
             } label: {
-                Image(systemName: "minus")
+                Image(systemName: "plus")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 28, height: 28)
             }
 
             Text("\(Int(zoom * 100))%")
-                .font(.system(.body, design: .monospaced).bold())
-                .frame(width: 52)
+                .font(.system(.callout, design: .monospaced).bold())
+                .frame(width: 44)
 
             Button {
-                zoom = min(10.0, zoom + 0.5)
+                zoom = max(1.0, zoom - 0.5)
+                if zoom == 1.0 { offset = .zero; dragStart = .zero }
             } label: {
-                Image(systemName: "plus")
+                Image(systemName: "minus")
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 28, height: 28)
             }
