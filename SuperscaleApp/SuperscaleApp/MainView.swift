@@ -94,12 +94,10 @@ struct MainView: View {
             ProgressOverlay(message: viewModel.progressMessage)
         } else if let upscaled = viewModel.result {
             if viewModel.showComparison, let original = viewModel.originalImage {
-                ZStack {
-                    ComparisonView(original: original, upscaled: upscaled)
-
-                    DropTargetView(onDrop: viewModel.handleDrop)
-                        .opacity(0.01)
-                }
+                ComparisonView(original: original, upscaled: upscaled)
+                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
+                        handleDropProviders(providers)
+                    }
             } else {
                 resultView(image: upscaled)
             }
@@ -155,6 +153,21 @@ struct MainView: View {
             return "Superscale — \(url.lastPathComponent)"
         }
         return "Superscale"
+    }
+
+    private func handleDropProviders(_ providers: [NSItemProvider]) -> Bool {
+        let supportedExtensions = ["png", "jpg", "jpeg", "tiff", "tif", "heic"]
+        for provider in providers {
+            _ = provider.loadObject(ofClass: URL.self) { url, _ in
+                guard let url else { return }
+                if supportedExtensions.contains(url.pathExtension.lowercased()) {
+                    DispatchQueue.main.async {
+                        viewModel.handleDrop(urls: [url])
+                    }
+                }
+            }
+        }
+        return true
     }
 
     private var showError: Binding<Bool> {

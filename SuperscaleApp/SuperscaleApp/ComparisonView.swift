@@ -1,95 +1,233 @@
-// ABOUTME: Before/after comparison view with draggable vertical divider.
-// ABOUTME: Overlays original and upscaled images with synchronised zoom and pan.
+// ABOUTME: Before/after comparison view with magnifier loupe and slider modes.
+// ABOUTME: Default magnifier mode shows a split loupe at the cursor; slider mode overlays with a divider.
 
 import SwiftUI
+
+/// Comparison mode for the before/after view.
+enum ComparisonMode: String {
+    case magnifier
+    case slider
+}
 
 struct ComparisonView: View {
     let original: NSImage
     let upscaled: NSImage
 
+    @State private var comparisonMode: ComparisonMode = .magnifier
+
+    // Magnifier state
+    @State private var mousePosition: CGPoint?
+    @State private var cursorHidden = false
+
+    // Slider state
     @State private var dividerPosition: CGFloat = 0.35
-    @State private var zoom: CGFloat = 1.5
+    @State private var zoom: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var dragStart: CGSize = .zero
-    @GestureState private var isDraggingDivider = false
+    @State private var scrollMonitor: Any?
+
+    private static let loupeDiameter: CGFloat = 200
+    private static let loupeMagnification: CGFloat = 4.0
 
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
-            let dividerX = size.width * dividerPosition
 
             ZStack {
-                // Upscaled image (full background)
-                imageLayer(image: upscaled, size: size)
+                switch comparisonMode {
+                case .magnifier:
+                    magnifierContent(size: size)
+                case .slider:
+                    sliderContent(size: size)
+                }
 
-                // Original image (clipped to left of divider) — nearest-neighbour so the
-                // user sees the actual source pixels, not Apple's interpolated version.
-                imageLayer(image: original, size: size, interpolation: .none)
-                    .clipShape(
-                        HorizontalClip(width: dividerX)
-                    )
-
-                // Divider line
-                dividerOverlay(at: dividerX, height: size.height)
-
-                // Zoom controls (top-right)
+                // Mode toggle (top-left)
                 VStack {
                     HStack {
-                        Spacer()
-                        zoomControls
+                        modeToggle
                             .padding(12)
+                        Spacer()
                     }
                     Spacer()
                 }
-
-                // Minimap (bottom-right, only when zoomed in)
-                if zoom > 1.0 {
-                    VStack {
-                        Spacer()
-                        HStack {
-                            Spacer()
-                            minimapView(viewSize: size)
-                                .padding(12)
-                        }
-                    }
-                }
-            }
-            .clipped()
-            .contentShape(Rectangle())
-            .gesture(panGesture)
-            .gesture(magnificationGesture)
-            .onAppear { installScrollMonitor() }
-            .onDisappear { removeScrollMonitor() }
-            .focusable()
-            .onKeyPress(characters: CharacterSet(charactersIn: "=+")) { _ in
-                zoom = min(10.0, zoom + 0.5)
-                return .handled
-            }
-            .onKeyPress(characters: CharacterSet(charactersIn: "-")) { _ in
-                zoom = max(1.0, zoom - 0.5)
-                if zoom == 1.0 { offset = .zero; dragStart = .zero }
-                return .handled
-            }
-            .onKeyPress(.upArrow) {
-                offset.height += 50; dragStart = offset
-                return .handled
-            }
-            .onKeyPress(.downArrow) {
-                offset.height -= 50; dragStart = offset
-                return .handled
-            }
-            .onKeyPress(.leftArrow) {
-                offset.width += 50; dragStart = offset
-                return .handled
-            }
-            .onKeyPress(.rightArrow) {
-                offset.width -= 50; dragStart = offset
-                return .handled
             }
         }
     }
 
-    // MARK: - Image layer
+    // MARK: - Mode toggle
+
+    private var modeToggle: some View {
+        HStack(spacing: 2) {
+            Button {
+                switchToMode(.magnifier)
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 30, height: 26)
+                    .background(
+                        comparisonMode == .magnifier
+                            ? AnyShapeStyle(Color.accentColor.opacity(0.3))
+                            : AnyShapeStyle(Color.clear))
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+            }
+            .accessibilityIdentifier("modeMagnifier")
+
+            Button {
+                switchToMode(.slider)
+            } label: {
+                Image(systemName: "slider.horizontal.below.rectangle")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 30, height: 26)
+                    .background(
+                        comparisonMode == .slider
+                            ? AnyShapeStyle(Color.accentColor.opacity(0.3))
+                            : AnyShapeStyle(Color.clear))
+                    .clipShape(RoundedRectangle(cornerRadius: 5))
+            }
+            .accessibilityIdentifier("modeSlider")
+        }
+        .buttonStyle(.bordered)
+        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityIdentifier("comparisonModeToggle")
+    }
+
+    private func switchToMode(_ mode: ComparisonMode) {
+        if comparisonMode != mode {
+            // Clean up current mode state
+            if comparisonMode == .magnifier {
+                restoreCursor()
+            } else {
+                removeScrollMonitor()
+            }
+            comparisonMode = mode
+        }
+    }
+
+    // MARK: - Magnifier mode
+
+    private func magnifierContent(size: CGSize) -> some View {
+        ZStack {
+            // Full upscaled image at best-fit
+            Image(nsImage: upscaled)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: size.width, height: size.height)
+
+            // Loupe overlay at cursor position
+            if let pos = mousePosition,
+               isMouseOverImage(
+                   position: pos, imageSize: upscaled.size, viewSize: size) {
+                MagnifierView(
+                    original: original,
+                    upscaled: upscaled,
+                    position: pos,
+                    viewSize: size,
+                    diameter: Self.loupeDiameter,
+                    magnification: Self.loupeMagnification)
+                .position(pos)
+            }
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+                let overImage = isMouseOverImage(
+                    position: location, imageSize: upscaled.size, viewSize: size)
+                mousePosition = overImage ? location : nil
+                if overImage && !cursorHidden {
+                    NSCursor.hide()
+                    cursorHidden = true
+                } else if !overImage && cursorHidden {
+                    NSCursor.unhide()
+                    cursorHidden = false
+                }
+            case .ended:
+                mousePosition = nil
+                restoreCursor()
+            }
+        }
+        .onDisappear { restoreCursor() }
+    }
+
+    private func restoreCursor() {
+        if cursorHidden {
+            NSCursor.unhide()
+            cursorHidden = false
+        }
+    }
+
+    // MARK: - Slider mode
+
+    private func sliderContent(size: CGSize) -> some View {
+        let dividerX = size.width * dividerPosition
+
+        return ZStack {
+            // Upscaled image (full background)
+            imageLayer(image: upscaled, size: size)
+
+            // Original image (clipped to left of divider) — nearest-neighbour
+            imageLayer(image: original, size: size, interpolation: .none)
+                .clipShape(HorizontalClip(width: dividerX))
+
+            // Divider line
+            dividerOverlay(at: dividerX, height: size.height)
+
+            // Zoom controls (top-right)
+            VStack {
+                HStack {
+                    Spacer()
+                    zoomControls
+                        .padding(12)
+                }
+                Spacer()
+            }
+
+            // Minimap (bottom-right, only when zoomed in)
+            if zoom > 1.0 {
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        minimapView(viewSize: size)
+                            .padding(12)
+                    }
+                }
+            }
+        }
+        .clipped()
+        .contentShape(Rectangle())
+        .gesture(panGesture)
+        .gesture(magnificationGesture)
+        .onAppear { installScrollMonitor() }
+        .onDisappear { removeScrollMonitor() }
+        .focusable()
+        .onKeyPress(characters: CharacterSet(charactersIn: "=+")) { _ in
+            zoom = min(10.0, zoom + 0.5)
+            return .handled
+        }
+        .onKeyPress(characters: CharacterSet(charactersIn: "-")) { _ in
+            zoom = max(1.0, zoom - 0.5)
+            if zoom == 1.0 { offset = .zero; dragStart = .zero }
+            return .handled
+        }
+        .onKeyPress(.upArrow) {
+            offset.height += 50; dragStart = offset
+            return .handled
+        }
+        .onKeyPress(.downArrow) {
+            offset.height -= 50; dragStart = offset
+            return .handled
+        }
+        .onKeyPress(.leftArrow) {
+            offset.width += 50; dragStart = offset
+            return .handled
+        }
+        .onKeyPress(.rightArrow) {
+            offset.width -= 50; dragStart = offset
+            return .handled
+        }
+    }
+
+    // MARK: - Slider image layer
 
     private func imageLayer(
         image: NSImage, size: CGSize,
@@ -104,18 +242,16 @@ struct ComparisonView: View {
             .frame(width: size.width, height: size.height)
     }
 
-    // MARK: - Divider
+    // MARK: - Slider divider
 
     private func dividerOverlay(at x: CGFloat, height: CGFloat) -> some View {
         ZStack {
-            // Line
             Rectangle()
                 .fill(Color.white)
                 .frame(width: 2, height: height)
                 .shadow(color: .black.opacity(0.5), radius: 2)
                 .position(x: x, y: height / 2)
 
-            // Handle
             Circle()
                 .fill(Color.white)
                 .frame(width: 28, height: 28)
@@ -130,7 +266,7 @@ struct ComparisonView: View {
         }
     }
 
-    // MARK: - Zoom controls
+    // MARK: - Slider zoom controls
 
     private var zoomControls: some View {
         HStack(spacing: 6) {
@@ -160,7 +296,7 @@ struct ComparisonView: View {
         .accessibilityIdentifier("zoomControls")
     }
 
-    // MARK: - Minimap
+    // MARK: - Slider minimap
 
     private static let minimapWidth: CGFloat = 150
 
@@ -174,7 +310,6 @@ struct ComparisonView: View {
                 .resizable()
                 .frame(width: thumbW, height: thumbH)
 
-            // Viewport indicator rectangle
             viewportRect(thumbW: thumbW, thumbH: thumbH, viewSize: viewSize)
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
@@ -190,37 +325,22 @@ struct ComparisonView: View {
     private func viewportRect(
         thumbW: CGFloat, thumbH: CGFloat, viewSize: CGSize
     ) -> some View {
-        // Compute the fit size of the image at zoom=1 within the view
         let imgAspect = upscaled.size.width / max(upscaled.size.height, 1)
         let viewAspect = viewSize.width / max(viewSize.height, 1)
-        let fitW: CGFloat
-        let fitH: CGFloat
-        if imgAspect > viewAspect {
-            fitW = viewSize.width
-            fitH = viewSize.width / imgAspect
-        } else {
-            fitH = viewSize.height
-            fitW = viewSize.height * imgAspect
-        }
+        let fitW: CGFloat = imgAspect > viewAspect
+            ? viewSize.width : viewSize.height * imgAspect
+        let fitH: CGFloat = imgAspect > viewAspect
+            ? viewSize.width / imgAspect : viewSize.height
 
-        // Viewport size in normalised image coords
         let vpW = min(1.0, viewSize.width / (fitW * zoom))
         let vpH = min(1.0, viewSize.height / (fitH * zoom))
-
-        // Viewport centre offset from image centre
         let cx = 0.5 - offset.width / (fitW * zoom)
         let cy = 0.5 - offset.height / (fitH * zoom)
-
-        // Map to minimap pixel coords
-        let rectW = vpW * thumbW
-        let rectH = vpH * thumbH
-        let rectX = cx * thumbW - rectW / 2
-        let rectY = cy * thumbH - rectH / 2
 
         return Rectangle()
             .stroke(Color.white, lineWidth: 1.5)
             .background(Color.white.opacity(0.15))
-            .frame(width: max(rectW, 4), height: max(rectH, 4))
+            .frame(width: max(vpW * thumbW, 4), height: max(vpH * thumbH, 4))
             .position(x: cx * thumbW, y: cy * thumbH)
     }
 
@@ -236,10 +356,8 @@ struct ComparisonView: View {
 
         return DragGesture(minimumDistance: 0)
             .onChanged { value in
-                let tapX = value.location.x
-                let tapY = value.location.y
-                let normX = tapX / thumbW
-                let normY = tapY / thumbH
+                let normX = value.location.x / thumbW
+                let normY = value.location.y / thumbH
                 offset = CGSize(
                     width: (0.5 - normX) * fitW * zoom,
                     height: (0.5 - normY) * fitH * zoom)
@@ -247,14 +365,11 @@ struct ComparisonView: View {
             }
     }
 
-    // MARK: - Gestures
+    // MARK: - Slider gestures
 
     private var dividerDragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                // Convert drag location to fraction of view width
-                // We need to use the parent geometry, so we work with the
-                // absolute x position from the drag
                 if let window = NSApp.keyWindow {
                     let viewWidth = window.contentView?.frame.width ?? 600
                     let newPosition = value.location.x / viewWidth
@@ -282,13 +397,10 @@ struct ComparisonView: View {
             }
     }
 
-    // MARK: - Scroll/trackpad panning
-
-    @State private var scrollMonitor: Any?
+    // MARK: - Slider scroll monitor
 
     private func installScrollMonitor() {
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
-            // Pan with scroll wheel / trackpad
             offset = CGSize(
                 width: offset.width + event.scrollingDeltaX,
                 height: offset.height + event.scrollingDeltaY)

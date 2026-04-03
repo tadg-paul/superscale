@@ -14,6 +14,7 @@
 		F1000005 /* ModelPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000005 /* ModelPicker.swift */; };
 		F1000006 /* ProgressOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000006 /* ProgressOverlay.swift */; };
 		F1000007 /* ComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000007 /* ComparisonView.swift */; };
+		F1000040 /* MagnifierView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000040 /* MagnifierView.swift */; };
 		F1000008 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F2000008 /* Assets.xcassets */; };
 		F100000E /* LICENCE_NVIDIA.txt in Resources */ = {isa = PBXBuildFile; fileRef = F200000E /* LICENCE_NVIDIA.txt */; };
 		F100000F /* LICENCE_CC_BY_NC_SA.txt in Resources */ = {isa = PBXBuildFile; fileRef = F200000F /* LICENCE_CC_BY_NC_SA.txt */; };
@@ -33,6 +34,7 @@
 		F2000005 /* ModelPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPicker.swift; sourceTree = "<group>"; };
 		F2000006 /* ProgressOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressOverlay.swift; sourceTree = "<group>"; };
 		F2000007 /* ComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonView.swift; sourceTree = "<group>"; };
+		F2000040 /* MagnifierView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MagnifierView.swift; sourceTree = "<group>"; };
 		F2000008 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F2000009 /* Superscale.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Superscale.entitlements; sourceTree = "<group>"; };
 		F200000A /* ScalePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScalePicker.swift; sourceTree = "<group>"; };
@@ -77,6 +79,7 @@
 				F2000005 /* ModelPicker.swift */,
 				F2000006 /* ProgressOverlay.swift */,
 				F2000007 /* ComparisonView.swift */,
+				F2000040 /* MagnifierView.swift */,
 				F200000A /* ScalePicker.swift */,
 				F200000B /* AboutView.swift */,
 				F200000C /* InfoPanel.swift */,
@@ -228,6 +231,7 @@
 				F1000005 /* ModelPicker.swift in Sources */,
 				F1000006 /* ProgressOverlay.swift in Sources */,
 				F1000007 /* ComparisonView.swift in Sources */,
+				F1000040 /* MagnifierView.swift in Sources */,
 				F1000009 /* ScalePicker.swift in Sources */,
 				F100000B /* AboutView.swift in Sources */,
 				F100000C /* InfoPanel.swift in Sources */,
