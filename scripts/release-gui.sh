@@ -10,6 +10,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TAP_REPO="tigger04/homebrew-tap"
 CASK_PATH="Casks/superscale-gui.rb"
 XCODEPROJ="${PROJECT_ROOT}/SuperscaleApp/SuperscaleApp.xcodeproj"
+SCHEME="SuperscaleWithTests"
 APP_NAME="Superscale"
 DMG_NAME="Superscale.dmg"
 MODELS_DIR="${PROJECT_ROOT}/models"
@@ -41,11 +42,11 @@ echo ""
 # --- 1. Build release .app ---
 
 echo "Building release .app..."
-BUILD_DIR=$(xcodebuild -project "${XCODEPROJ}" -scheme "${APP_NAME}" \
+BUILD_DIR=$(xcodebuild -project "${XCODEPROJ}" -scheme "${SCHEME}" \
     -configuration Release -showBuildSettings 2>/dev/null \
     | grep ' BUILT_PRODUCTS_DIR' | awk '{print $3}')
 
-xcodebuild -project "${XCODEPROJ}" -scheme "${APP_NAME}" \
+xcodebuild -project "${XCODEPROJ}" -scheme "${SCHEME}" \
     -configuration Release build -quiet 2>&1
 
 APP_PATH="${BUILD_DIR}/${APP_NAME}.app"
