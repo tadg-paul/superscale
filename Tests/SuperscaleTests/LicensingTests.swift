@@ -90,7 +90,7 @@ final class LicensingTests: XCTestCase {
                        "Release script should not generate MIT formula metadata")
     }
 
-    // RT-69.4: GUI face-model licence resources and review surfaces remain present
+    // RT-69.4: GUI source and face-model licence resources and review surfaces remain present
     func test_gui_face_model_licence_surfaces_remain_present_RT69_4() throws {
         let project = try readProjectFile("SuperscaleApp/SuperscaleApp.xcodeproj/project.pbxproj")
         XCTAssertTrue(project.contains("LICENCE_NVIDIA.txt in Resources"),
@@ -118,6 +118,8 @@ final class LicensingTests: XCTestCase {
                       "Model picker help should preserve non-commercial licence wording")
 
         let aboutView = try readProjectFile("SuperscaleApp/SuperscaleApp/AboutView.swift")
+        XCTAssertTrue(aboutView.contains("Source code: Apache-2.0"),
+                      "About panel should identify the Superscale source-code licence")
         XCTAssertTrue(aboutView.contains("Non-commercial: NVIDIA Source Code Licence, CC BY-NC-SA 4.0"),
                       "About panel should preserve GFPGAN licence summary")
     }
