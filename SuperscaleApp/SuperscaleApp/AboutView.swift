@@ -52,6 +52,9 @@ struct AboutView: View {
                 Text("By Taḋg Paul")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text("Source code: Apache-2.0")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
             Spacer()
         }
