@@ -1,0 +1,14 @@
+Superscale
+Copyright 2026 Taḋg Paul
+
+Superscale source code is licensed under the Apache License, Version 2.0.
+
+Superscale and the Superscale logo are trademarks of Taḋg Paul.
+
+This product includes converted Real-ESRGAN model weights. Real-ESRGAN model
+weights are Copyright 2021 Xintao Wang and licensed under the BSD 3-Clause
+License. See THIRD_PARTY_LICENSES and docs/model-licensing.md.
+
+The optional GFPGAN face enhancement model is not bundled with Superscale. It
+contains components governed by non-commercial upstream terms and is downloaded
+only after explicit user review and acceptance.

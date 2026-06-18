@@ -199,7 +199,7 @@ class Superscale < Formula
   homepage "https://github.com/tigger04/superscale"
   url "https://github.com/tigger04/superscale/archive/refs/tags/${TAG}.tar.gz"
   sha256 "${SOURCE_SHA256}"
-  license "MIT"
+  license "Apache-2.0"
 
   depends_on :macos
   depends_on arch: :arm64
