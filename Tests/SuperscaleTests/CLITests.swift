@@ -696,6 +696,23 @@ final class CLITests: XCTestCase {
                       "Help with NO_COLOR should still contain content")
     }
 
+    // RT-69.2: Help reports Apache-2.0 source licence and preserves model licence split
+    func test_cli_help_reports_apache_source_license_RT69_2() throws {
+        let result = try runCLI(["--help"])
+        XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --help")
+
+        XCTAssertTrue(result.stdout.contains("Apache-2.0"),
+                      "Help should report Apache-2.0 source licensing")
+        XCTAssertFalse(result.stdout.contains("MIT. Copyright Taḋg Paul"),
+                       "Help should not report MIT as the current source licence")
+        XCTAssertTrue(result.stdout.contains("Real-ESRGAN") &&
+                      result.stdout.contains("BSD-3-Clause"),
+                      "Help should preserve Real-ESRGAN BSD-3-Clause model licence")
+        XCTAssertTrue(result.stdout.contains("NVIDIA Source Code") &&
+                      result.stdout.contains("CC BY-NC-SA 4.0"),
+                      "Help should preserve GFPGAN non-commercial model licence terms")
+    }
+
     // MARK: - Helpers
 
     private var projectRoot: URL {
