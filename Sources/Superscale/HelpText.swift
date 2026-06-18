@@ -176,7 +176,7 @@ enum HelpText {
             Intel Macs are not supported (no Neural Engine).
 
         \(h("LICENSE"))
-            MIT. Copyright Ta\u{1E0B}g Paul.
+            Apache-2.0. Copyright Ta\u{1E0B}g Paul.
             Bundled model weights (Real-ESRGAN): BSD-3-Clause, Copyright Xintao Wang 2021.
             GFPGAN face model: contains components under NVIDIA Source Code
             Licence (non-commercial) and CC BY-NC-SA 4.0. The licence applies
@@ -348,7 +348,7 @@ enum HelpText {
             Intel Macs are not supported (no Neural Engine).
 
         LICENSE
-            MIT. Copyright Ta\u{1E0B}g Paul.
+            Apache-2.0. Copyright Ta\u{1E0B}g Paul.
             Bundled model weights (Real-ESRGAN): BSD-3-Clause, Copyright Xintao Wang 2021.
             GFPGAN face model: contains components under NVIDIA Source Code
             Licence (non-commercial) and CC BY-NC-SA 4.0. The licence applies

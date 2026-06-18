@@ -1,6 +1,8 @@
 # Superscale
 
-AI image upscaling that runs locally on your Mac, using Apple's Neural Engine — dedicated ML hardware built into every M-series chip. Images never leave your machine, CPU and GPU stay free, and a 1024×1024 image upscales 4× in seconds.
+![Superscale logo](docs/sslogo.svg)
+
+AI image upscaling that runs locally on your Mac, using Apple's Neural Engine --- dedicated ML hardware built into every M-series chip. Images never leave your machine, CPU and GPU stay free, and a 1024×1024 image upscales 4× in seconds.
 
 ## Quickstart
 
@@ -55,7 +57,7 @@ Seven models are bundled, auto-selected by content type (photo, illustration, an
 | `realesrgan-anime-6b` | 4× | Anime/illustration |
 | `realesr-animevideov3` | 4× | Anime video frames |
 | `realesr-general-x4v3` | 4× | General scenes, compact model |
-| `realesr-general-wdn-x4v3` | 4× | General scenes with denoise — effective for old photos, grainy images, or heavily compressed sources |
+| `realesr-general-wdn-x4v3` | 4× | General scenes with denoise --- effective for old photos, grainy images, or heavily compressed sources |
 
 All seven bundled models are Real-ESRGAN weights, licensed under BSD-3-Clause (Copyright Xintao Wang, 2021). See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) and [model licensing](docs/model-licensing.md).
 
@@ -76,7 +78,7 @@ The licence applies to the model weights, not to output images. See [model licen
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- Apple Silicon (M1–M5+)
+- Apple Silicon (M1--M5+)
 
 No other dependencies. Everything runs on built-in system frameworks.
 
@@ -112,7 +114,7 @@ make install
 | `make release-gui` | Build GUI .app, package DMG, update Homebrew cask |
 | `make release-models` | Upload model artefacts to GitHub Release |
 | `make download-models` | Download missing models from GitHub release |
-| `make convert-models` | Run PyTorch → CoreML conversion (dev only) |
+| `make convert-models` | Run PyTorch -> CoreML conversion (dev only) |
 | `make clean` | Remove build artefacts |
 | `make sync` | Git add, commit, pull, push |
 
@@ -128,8 +130,10 @@ make install
 
 ## Licence
 
-MIT. Copyright Taḋg Paul.
+Superscale source code is licensed under Apache-2.0. Copyright Taḋg Paul.
 
 Bundled model weights (Real-ESRGAN) are BSD-3-Clause (Copyright Xintao Wang, 2021). See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
 
 The optional GFPGAN face model is not bundled and contains non-commercial components (StyleGAN2, DFDNet). The licence applies to the model weights, not to output images. See [model licensing](docs/model-licensing.md).
+
+Superscale and the Superscale logo are trademarks of Taḋg Paul. See [trademark policy](docs/trademark.md).

@@ -1,14 +1,14 @@
-<!-- Version: 0.4 | Last updated: 2026-03-26 -->
+<!-- Version: 0.5 | Last updated: 2026-06-18 -->
 
 # Model licensing
 
 ## Summary
 
-Superscale bundles AI model weights converted from the [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) project. This document records the licence status of each model.
+Superscale source code is licensed under Apache-2.0. Superscale also bundles AI model weights converted from the [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) project. This document records the licence status of each model and the separation between source-code licensing and model-weight licensing.
 
 ## Real-ESRGAN models
 
-The Real-ESRGAN repository is licensed under **BSD-3-Clause** (Copyright 2021, Xintao Wang). The model weights are distributed as GitHub release assets within the same repository, with no separate licence terms. The prevailing community interpretation — shared by [OpenModelDB](https://openmodeldb.info), [Upscayl](https://github.com/upscayl/upscayl), and downstream users — is that the BSD-3-Clause licence covers the weights.
+The Real-ESRGAN repository is licensed under **BSD-3-Clause** (Copyright 2021, Xintao Wang). The model weights are distributed as GitHub release assets within the same repository, with no separate licence terms. The prevailing community interpretation --- shared by [OpenModelDB](https://openmodeldb.info), [Upscayl](https://github.com/upscayl/upscayl), and downstream users --- is that the BSD-3-Clause licence covers the weights.
 
 **Note:** Xinntao has not explicitly confirmed this interpretation. [Issue #677](https://github.com/xinntao/Real-ESRGAN/issues/677) asking for clarification remains unanswered. The risk is assessed as low given community precedent and the author's clear intent to release the project under BSD-3-Clause.
 
@@ -23,11 +23,11 @@ The Real-ESRGAN repository is licensed under **BSD-3-Clause** (Copyright 2021, X
 | realesr-animevideov3 | 4× | BSD-3-Clause | Yes, with attribution |
 | realesr-general-x4v3 | 4× | BSD-3-Clause | Yes, with attribution |
 | realesr-general-wdn-x4v3 | 4× | BSD-3-Clause | Yes, with attribution |
-| GFPGAN (face enhancement) | n/a | Apache-2.0, but weights contain non-commercial components (StyleGAN2, DFDNet) | **No** — available as optional user download only. See [excluded models](#excluded-models) below. |
+| GFPGAN (face enhancement) | n/a | Apache-2.0, but weights contain non-commercial components (StyleGAN2, DFDNet) | **No** --- available as optional user download only. See [excluded models](#excluded-models) below. |
 
 ### Training data note
 
-The models were trained on the DF2K + OST dataset. DIV2K (part of DF2K) restricts use to academic research. Whether this restriction flows through to model weights is an open legal question. The prevailing practice across the ML community — including major commercial products — treats model weights as separate artefacts governed by their own licence. Xinntao chose BSD-3-Clause.
+The models were trained on the DF2K + OST dataset. DIV2K (part of DF2K) restricts use to academic research. Whether this restriction flows through to model weights is an open legal question. The prevailing practice across the ML community --- including major commercial products --- treats model weights as separate artefacts governed by their own licence. Xinntao chose BSD-3-Clause.
 
 ## CoreML conversion
 
@@ -43,6 +43,8 @@ GFPGAN (TencentARC) is **not included** in Superscale. While GFPGAN's own code i
 - **DFDNet**: CC BY-NC-SA 4.0 (non-commercial, share-alike)
 
 GFPGAN's Apache-2.0 licence explicitly carves out these third-party components. Redistributing GFPGAN weights in an open-source project carries meaningful legal risk.
+
+Superscale does not persist a separate acceptance record for the GFPGAN licence terms. Acceptance is transactional: the CLI displays the licence notice in an interactive terminal and proceeds only after the user answers yes; the GUI displays the NVIDIA Source Code Licence and CC BY-NC-SA 4.0 screens and proceeds only after the user agrees to both. The installed model on the user's machine is the local result of that acceptance.
 
 ## Downstream projects
 
@@ -66,3 +68,9 @@ All converted models include attribution in [`THIRD_PARTY_LICENSES`](../THIRD_PA
 - [Real-ESRGAN LICENSE](https://github.com/xinntao/Real-ESRGAN/blob/master/LICENSE)
 - [GFPGAN LICENSE](https://github.com/TencentARC/GFPGAN/blob/master/LICENSE)
 - [OpenModelDB: Real-ESRGAN models](https://openmodeldb.info)
+
+## Changelog
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 0.5 | 2026-06-18 | Documented Apache-2.0 source-code licensing and transactional GFPGAN licence acceptance semantics. |

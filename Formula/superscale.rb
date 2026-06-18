@@ -3,7 +3,7 @@ class Superscale < Formula
   homepage "https://github.com/tigger04/superscale"
   url "https://github.com/tigger04/superscale/archive/refs/tags/v1.0.4.tar.gz"
   sha256 "7b016b32dbf027c3a7759dd2899d7e3be790a8f07d3ef1817f48ce3c03065a52"
-  license "MIT"
+  license "Apache-2.0"
 
   depends_on :macos
   depends_on arch: :arm64
