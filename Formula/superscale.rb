@@ -1,8 +1,8 @@
 class Superscale < Formula
   desc "AI image upscaling for Apple Silicon"
   homepage "https://github.com/tigger04/superscale"
-  url "https://github.com/tigger04/superscale/archive/refs/tags/v1.0.4.tar.gz"
-  sha256 "7b016b32dbf027c3a7759dd2899d7e3be790a8f07d3ef1817f48ce3c03065a52"
+  url "https://github.com/tigger04/superscale/archive/refs/tags/v1.0.5.tar.gz"
+  sha256 "d25700bc89cbedf1dec8bdbe2b4d59650111643035a2ebdd52aed8acefca0c1e"
   license "Apache-2.0"
 
   depends_on :macos
@@ -39,6 +39,11 @@ class Superscale < Formula
     sha256 "4d5ee58b2251a61ef6649f99e89f099fc6ae6fafc72df2cb63baaf83c7e93c61"
   end
 
+  resource "realesr-general-wdn-x4v3" do
+    url "https://github.com/tigger04/superscale/releases/download/models-v1/realesr-general-wdn-x4v3.mlpackage.zip"
+    sha256 "27c857d30fdc660c12ba553e21e83e3636fe3d60c793ac0466a77fdc4411eb26"
+  end
+
   def install
     system "swift", "build", "-c", "release", "--disable-sandbox"
     bin.install ".build/release/superscale"
@@ -51,6 +56,7 @@ class Superscale < Formula
       RealESRGAN_x4plus_anime_6B
       realesr-animevideov3
       realesr-general-x4v3
+      realesr-general-wdn-x4v3
     ].each do |model|
       resource(model).stage do
         (prefix/"models"/"#{model}.mlpackage").install Dir["*"]
@@ -60,7 +66,7 @@ class Superscale < Formula
 
   def caveats
     <<~EOS
-      All six upscaling models are bundled and ready to use.
+      All seven upscaling models are bundled and ready to use.
 
       List available models:
         superscale --list-models
@@ -71,7 +77,7 @@ class Superscale < Formula
   end
 
   test do
-    assert_match "1.0.4", shell_output("#{bin}/superscale --version")
+    assert_match "1.0.5", shell_output("#{bin}/superscale --version")
     assert_match "realesrgan-x4plus", shell_output("#{bin}/superscale --list-models")
   end
 end
