@@ -62,7 +62,7 @@
       "arch": "SRVGGNetCompact",
       "default": false,
       "sha256": "d77a916e21e2e063174e86c48fd36649eaefac1c6fad42d505339f2c9906ad99",
-      "url": ""
+      "url": "https://github.com/tigger04/superscale/releases/download/models-v1/realesr-general-wdn-x4v3.mlpackage.zip"
     }
   ]
 }

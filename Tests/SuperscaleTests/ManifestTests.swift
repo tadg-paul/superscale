@@ -49,8 +49,14 @@ final class ManifestTests: XCTestCase {
                             "Model '\(name)' must have 'filename'")
             XCTAssertNotNil(model["sha256"] as? String,
                             "Model '\(name)' must have 'sha256'")
-            XCTAssertNotNil(model["url"] as? String,
-                            "Model '\(name)' must have 'url'")
+            let url = model["url"] as? String
+            XCTAssertNotNil(url, "Model '\(name)' must have 'url'")
+            XCTAssertFalse(url?.isEmpty ?? true,
+                           "Model '\(name)' must have a non-empty download URL")
+            XCTAssertFalse(url?.lowercased().contains("gfpgan") ?? false,
+                           "Bundled Real-ESRGAN manifest must not reference GFPGAN assets")
+            XCTAssertTrue(url?.hasSuffix(".mlpackage.zip") ?? false,
+                          "Model '\(name)' URL must point to a packaged mlpackage zip")
             XCTAssertNotNil(model["scale"] as? Int,
                             "Model '\(name)' must have 'scale'")
         }
