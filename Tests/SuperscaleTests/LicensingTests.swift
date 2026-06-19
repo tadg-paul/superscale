@@ -88,6 +88,10 @@ final class LicensingTests: XCTestCase {
                       "Release script should generate Apache-2.0 formula metadata")
         XCTAssertFalse(releaseScript.contains(#"license "MIT""#),
                        "Release script should not generate MIT formula metadata")
+        XCTAssertTrue(releaseScript.contains("asset_by_name"),
+                      "Release script should resolve model resources from remote release assets")
+        XCTAssertTrue(releaseScript.contains("GFPGAN assets must not be formula resources"),
+                      "Release script should guard against bundling GFPGAN as a formula resource")
     }
 
     // RT-69.4: GUI source and face-model licence resources and review surfaces remain present

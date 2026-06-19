@@ -146,29 +146,60 @@ if [[ ! -f "${MANIFEST}" ]]; then
     die "models/manifest.json not found. Run 'make release-models' first."
 fi
 
-# Generate resource blocks and install lines from manifest + zip SHA256s
+# Generate resource blocks and install lines from manifest + remote asset SHA256s
 MODEL_RESOURCES=$(python3 -c "
-import json, subprocess
+import json, subprocess, sys
 from pathlib import Path
 
 manifest = json.loads(Path('${MANIFEST}').read_text())
 release_tag = manifest['release_tag']
-models_dir = Path('${PROJECT_ROOT}/models')
+
+asset_result = subprocess.run(
+    ['gh', 'release', 'view', release_tag, '--json', 'assets'],
+    capture_output=True,
+    text=True
+)
+if asset_result.returncode != 0:
+    print(f'ERROR: could not read GitHub release assets for {release_tag}: '
+          f'{asset_result.stderr.strip()}',
+          file=sys.stderr)
+    raise SystemExit(1)
+
+asset_by_name = {
+    asset['name']: asset
+    for asset in json.loads(asset_result.stdout).get('assets', [])
+}
 
 resources = []
 names = []
 for m in manifest['models']:
     fn = m['filename']
-    zipfile = models_dir / f'{fn}.zip'
-    if not zipfile.exists():
-        print(f'ERROR: {zipfile} not found', flush=True)
+    url = m.get('url', '').strip()
+    asset_name = f'{fn}.zip'
+
+    if 'gfpgan' in fn.lower() or 'gfpgan' in url.lower():
+        print('ERROR: GFPGAN assets must not be formula resources', file=sys.stderr)
         raise SystemExit(1)
-    # SHA256 of the zip file (what Homebrew downloads)
-    result = subprocess.run(['shasum', '-a', '256', str(zipfile)], capture_output=True, text=True)
-    sha = result.stdout.split()[0]
+    if not url:
+        print(f'ERROR: manifest entry {m[\"name\"]} has no download URL', file=sys.stderr)
+        raise SystemExit(1)
+
+    asset = asset_by_name.get(asset_name)
+    if asset is None:
+        print(f'ERROR: {asset_name} not found on GitHub release {release_tag}',
+              file=sys.stderr)
+        raise SystemExit(1)
+
+    digest = asset.get('digest') or ''
+    if not digest.startswith('sha256:'):
+        print(f'ERROR: {asset_name} has no SHA256 digest on GitHub release {release_tag}',
+              file=sys.stderr)
+        raise SystemExit(1)
+
+    sha = digest.removeprefix('sha256:')
     name = fn.replace('.mlpackage', '')
     resources.append(f'''  resource \"{name}\" do
-    url \"{m['url']}\"
+    url \"{url}\"
     sha256 \"{sha}\"
   end''')
     names.append(name)
