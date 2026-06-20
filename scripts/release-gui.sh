@@ -7,7 +7,7 @@ IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TAP_REPO="tigger04/homebrew-tap"
+TAP_REPO="tadg-paul/homebrew-tap"
 CASK_PATH="Casks/superscale-gui.rb"
 XCODEPROJ="${PROJECT_ROOT}/SuperscaleApp/SuperscaleApp.xcodeproj"
 SCHEME="SuperscaleWithTests"

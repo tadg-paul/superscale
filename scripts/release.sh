@@ -7,7 +7,7 @@ IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TAP_REPO="tigger04/homebrew-tap"
+TAP_REPO="tadg-paul/homebrew-tap"
 FORMULA_PATH="Formula/superscale.rb"
 SOURCE_FILE="${PROJECT_ROOT}/Sources/Superscale/SuperscaleCommand.swift"
 MANIFEST="${PROJECT_ROOT}/models/manifest.json"
