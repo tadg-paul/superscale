@@ -22,15 +22,17 @@ distribution, entitlements, or support needs materially diverge from the CLI.
 
 - Confirm that v2 scope applies to the Superscale GUI only.
 - Keep the existing CLI contract focused on local upscaling.
-- Decide whether new generation services are Swift package targets or Xcode app
-  groups with test targets.
-- Define the initial default generation model and fallback policy.
-- Choose the initial set of prompt packs and reference-image workflows.
+- Add new generation services as Swift package targets by default. Use Xcode app
+  groups only as a temporary fallback if the project integration blocks package
+  targets.
+- Use `xai/grok-imagine-image` as the initial default generation model.
+- Start with bundled prompt packs and support up to three reference images.
 
 Deliverables:
 
 - updated v2 docs;
-- dependency boundary decision;
+- dependency boundary decision recorded in `docs/v2/ARCHITECTURE.org`;
+- wireframes recorded in `docs/v2/WIREFRAMES.org`;
 - first cut of model and prompt-pack inventory.
 
 ## Phase 1: Prepare The Existing App For Handoff
@@ -72,6 +74,8 @@ Validation:
   initial default candidate unless testing chooses otherwise.
 - Pull model-family lessons from `storyboard-gen`, especially edit sibling
   handling and unsupported-option warnings.
+- Do not build a general multi-provider UI in the first v2 batch. Keep the
+  internal design compatible with future providers, but ship FAL first.
 
 Validation:
 
@@ -139,6 +143,7 @@ Validation:
 ## Phase 8: Add History And Comparison
 
 - Store generation sessions and local upscale results in app-managed storage.
+- Use plain files plus JSON metadata for the first v2 storage implementation.
 - Add a History mode with generated, upscaled, and saved outputs.
 - Preserve prompt, model, estimate, reference-image, and timestamp metadata.
 - Reuse or extend the existing comparison UI for generated versus upscaled
@@ -179,14 +184,27 @@ Validation:
 - Reimplementing too much from adjacent projects: port behaviour and fixtures
   from `pix` and `storyboard-gen` before designing new abstractions.
 
-## Open Decisions
+## Default Decisions For Ticket Batching
 
-- Whether `FalGenerationKit` should be a Swift package target immediately or an
-  app-internal module first.
-- Whether the first v2 release should support only FAL, or include a provider
-  protocol shaped for later providers.
-- Which prompt packs should ship by default.
-- Whether history should be plain files plus JSON metadata or a small local
-  database.
-- Whether cost confirmation is always shown or only shown above a configurable
-  threshold.
+Use these defaults when drafting or implementing the first batch of tickets:
+
+- Add `FalGenerationKit` and `SuperscaleUXCore` as Swift package targets.
+- Keep `Superscale` CLI free of generation dependencies and UI changes.
+- Build FAL only for v2; keep provider seams internal and minimal.
+- Use `xai/grok-imagine-image` as the initial default model.
+- Ship bundled prompt packs first; defer user-authored prompt-pack editing.
+- Store history as image files plus JSON metadata, not a database.
+- Show cost confirmation above a configurable threshold, with the initial
+  threshold set to `0.05`.
+- Use fixture-backed tests for FAL integration; never require paid FAL calls in
+  automated tests.
+- Build the visible UX paths in `docs/v2/WIREFRAMES.org` before adding advanced
+  model-management features.
+
+Remaining product choices that can wait until after the first implementation
+batch:
+
+- exact bundled prompt-pack names and copy;
+- whether user prompt packs are edited in-app or imported from files;
+- whether future provider support needs public plugin-style APIs;
+- how much failed-generation history to retain by default.
