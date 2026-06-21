@@ -11,9 +11,9 @@ features as part of this work.
 
 ## Planning Docs
 
-- `docs/v2/ARCHITECTURE.org`: target module boundaries, runtime flows, and
-  PlantUML diagrams.
-- `docs/v2/WIREFRAMES.org`: low-fidelity UX shape for the first implementation
+- `docs/v2/ARCHITECTURE.md`: target module boundaries, runtime flows, and
+  Mermaid diagrams.
+- `docs/v2/WIREFRAMES.md`: low-fidelity UX shape for the first implementation
   batch.
 - `docs/v2/IMPLEMENTATION_PLAN.md`: phased build plan and default decisions for
   tickets.

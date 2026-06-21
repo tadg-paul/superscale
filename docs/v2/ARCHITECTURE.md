@@ -1,92 +1,85 @@
-#+title: Superscale UX v2 Architecture
-#+startup: overview
+# Superscale UX v2 Architecture
 
 Superscale UX v2 extends the existing SwiftUI app with a GUI-only generation
 workspace. The CLI remains focused on local upscaling and must not import the
 generation layer.
 
-* Current Shape
+## Current Shape
 
 The repository currently has these relevant boundaries:
 
-- ~SuperscaleKit~: local upscaling pipeline, model registry, model downloads,
+- `SuperscaleKit`: local upscaling pipeline, model registry, model downloads,
   Core ML execution, image processing, and face enhancement support.
-- ~Superscale~: CLI executable for local upscaling.
-- ~SuperscaleApp~: SwiftUI app built around ~MainView~ and
-  ~UpscaleViewModel~.
+- `Superscale`: CLI executable for local upscaling.
+- `SuperscaleApp`: SwiftUI app built around `MainView` and
+  `UpscaleViewModel`.
 
 V2 preserves those boundaries and adds generation support beside the app, not
 inside the CLI.
 
-* Target Module Boundary
+## Target Module Boundary
 
 The preferred target layout is:
 
-- ~SuperscaleKit~: unchanged public role for local processing.
-- ~FalGenerationKit~: FAL HTTP client, model registry, pricing/account clients,
+- `SuperscaleKit`: unchanged public role for local processing.
+- `FalGenerationKit`: FAL HTTP client, model registry, pricing/account clients,
   request builders, response parsers, and test fixtures.
-- ~SuperscaleUXCore~: GUI-facing orchestration, prompt packs, session history,
-  settings abstractions, and handoff into ~SuperscaleKit~.
-- ~SuperscaleApp~: SwiftUI views, view models, menus, and platform integration.
-- ~Superscale~: existing CLI executable, with no dependency on
-  ~FalGenerationKit~ or ~SuperscaleUXCore~.
+- `SuperscaleUXCore`: GUI-facing orchestration, prompt packs, session history,
+  settings abstractions, and handoff into `SuperscaleKit`.
+- `SuperscaleApp`: SwiftUI views, view models, menus, and platform integration.
+- `Superscale`: existing CLI executable, with no dependency on
+  `FalGenerationKit` or `SuperscaleUXCore`.
 
 The default implementation decision is to create Swift package targets for
-~FalGenerationKit~ and ~SuperscaleUXCore~. If the Xcode project makes that
+`FalGenerationKit` and `SuperscaleUXCore`. If the Xcode project makes that
 awkward, app-internal groups may be used temporarily, but the dependency rule
 still applies: generation code is GUI-only and independently testable.
 
-#+begin_src plantuml
-@startuml
-skinparam componentStyle rectangle
-skinparam shadowing false
-skinparam packageStyle rectangle
+```mermaid
+flowchart LR
+    subgraph SwiftPackage["Swift Package"]
+        Kit["SuperscaleKit"]
+        Fal["FalGenerationKit"]
+        UXCore["SuperscaleUXCore"]
+        CLI["Superscale CLI"]
+    end
 
-package "Swift Package" {
-  [SuperscaleKit] as Kit
-  [FalGenerationKit] as Fal
-  [SuperscaleUXCore] as UXCore
-  [Superscale CLI] as CLI
-}
+    subgraph XcodeApp["Xcode App"]
+        App["SuperscaleApp"]
+    end
 
-package "Xcode App" {
-  [SuperscaleApp] as App
-}
+    FALAPI[("FAL API")]
+    Keychain[("Keychain")]
+    Storage[("App Storage")]
 
-cloud "FAL API" as FALAPI
-database "Keychain" as Keychain
-database "App Storage" as Storage
+    CLI -->|"local upscale only"| Kit
+    App -->|"local processing"| Kit
+    App -->|"generation workflow"| UXCore
+    UXCore -->|"requests, pricing, account"| Fal
+    UXCore -->|"generated-file upscale handoff"| Kit
+    Fal -->|"HTTPS"| FALAPI
+    UXCore -->|"generation/account keys"| Keychain
+    UXCore -->|"sessions and generated assets"| Storage
 
-CLI --> Kit : local upscale only
-App --> Kit : local processing
-App --> UXCore : generation workflow
-UXCore --> Fal : requests, pricing, account
-UXCore --> Kit : generated-file upscale handoff
-Fal --> FALAPI : HTTPS
-UXCore --> Keychain : generation/account keys
-UXCore --> Storage : sessions and generated assets
+    Fal -. "forbidden dependency" .-> CLI
+```
 
-Fal -[hidden]down- CLI
-Fal ..> CLI : forbidden dependency
-@enduml
-#+end_src
-
-* Runtime Flow
+## Runtime Flow
 
 Text-to-image generation:
 
 1. User enters a prompt or selects a prompt pack preset.
-2. ~GenerationViewModel~ resolves the selected model and prompt options.
-3. ~GenerationCoordinator~ asks ~PricingService~ for a cached or live estimate.
+2. `GenerationViewModel` resolves the selected model and prompt options.
+3. `GenerationCoordinator` asks `PricingService` for a cached or live estimate.
 4. User starts generation.
-5. ~FalGenerationClient~ posts to the resolved FAL endpoint.
+5. `FalGenerationClient` posts to the resolved FAL endpoint.
 6. The first generated image is downloaded into app-managed storage.
 7. The generated image appears in the workspace and can be saved or upscaled.
 
 Image-to-image generation:
 
 1. User adds up to three reference images.
-2. ~ReferenceImageEncoder~ prepares image data for the selected handler.
+2. `ReferenceImageEncoder` prepares image data for the selected handler.
 3. The model handler builds the correct edit payload.
 4. The normal generation, download, history, and upscale flow continues.
 
@@ -94,57 +87,55 @@ Generation-to-upscale handoff:
 
 1. Generated output is stored as an image file in app-managed storage.
 2. The GUI passes that file into a public app processing coordinator.
-3. ~SuperscaleKit~ runs the existing local pipeline.
+3. `SuperscaleKit` runs the existing local pipeline.
 4. The app displays generated and upscaled outputs with comparison controls.
 
-The current ~UpscaleViewModel~ owns much of the app processing flow. V2 should
+The current `UpscaleViewModel` owns much of the app processing flow. V2 should
 extract a small GUI-facing processing coordinator so generated files can enter
 the same path as dropped files without duplicating pipeline code.
 
-#+begin_src plantuml
-@startuml
-skinparam shadowing false
-actor User
-participant "GenerateView" as View
-participant "GenerationViewModel" as VM
-participant "GenerationCoordinator" as Coord
-participant "PricingService" as Pricing
-participant "FalGenerationClient" as Fal
-participant "FAL API" as API
-participant "SessionStore" as Store
-participant "UpscaleCoordinator" as Upscale
-participant "SuperscaleKit" as Kit
+```mermaid
+sequenceDiagram
+    actor User
+    participant View as GenerateView
+    participant VM as GenerationViewModel
+    participant Coord as GenerationCoordinator
+    participant Pricing as PricingService
+    participant Fal as FalGenerationClient
+    participant API as FAL API
+    participant Store as SessionStore
+    participant Upscale as UpscaleCoordinator
+    participant Kit as SuperscaleKit
 
-User -> View : prompt + optional references
-View -> VM : generate()
-VM -> Coord : build generation request
-Coord -> Pricing : estimate(request)
-Pricing --> Coord : estimate or unavailable
-Coord -> Fal : submit(request)
-Fal -> API : POST /{endpoint}
-API --> Fal : image URL response
-Fal -> API : download image
-API --> Fal : image bytes
-Fal --> Coord : generated asset
-Coord -> Store : persist session + asset
-Coord --> VM : generated image ready
-User -> View : upscale generated image
-View -> Upscale : process(generated file)
-Upscale -> Kit : run local pipeline
-Kit --> Upscale : upscaled image
-Upscale --> View : display comparison
-@enduml
-#+end_src
+    User->>View: prompt + optional references
+    View->>VM: generate()
+    VM->>Coord: build generation request
+    Coord->>Pricing: estimate(request)
+    Pricing-->>Coord: estimate or unavailable
+    Coord->>Fal: submit(request)
+    Fal->>API: POST /{endpoint}
+    API-->>Fal: image URL response
+    Fal->>API: download image
+    API-->>Fal: image bytes
+    Fal-->>Coord: generated asset
+    Coord->>Store: persist session + asset
+    Coord-->>VM: generated image ready
+    User->>View: upscale generated image
+    View->>Upscale: process(generated file)
+    Upscale->>Kit: run local pipeline
+    Kit-->>Upscale: upscaled image
+    Upscale-->>View: display comparison
+```
 
-* FAL Client Layer
+## FAL Client Layer
 
 The FAL layer should be a small Swift service modelled on the working behaviour
-in ~pix~.
+in `pix`.
 
 Generation client responsibilities:
 
-- build ~https://fal.run/{endpoint}~ requests;
-- send ~Authorization: Key <generation-key>~;
+- build `https://fal.run/{endpoint}` requests;
+- send `Authorization: Key <generation-key>`;
 - support text-to-image and image-to-image/edit payloads;
 - parse image URLs from FAL responses;
 - download generated assets;
@@ -164,34 +155,32 @@ Account client responsibilities:
 - treat account-key failure as non-fatal for generation;
 - clearly identify scope errors without leaking key material.
 
-#+begin_src plantuml
-@startuml
-skinparam shadowing false
-participant "FalGenerationClient" as Gen
-participant "FalPricingClient" as Price
-participant "FalAccountClient" as Account
-database "Keychain" as Keychain
-participant "fal.run" as Run
-participant "api.fal.ai" as Api
+```mermaid
+sequenceDiagram
+    participant Gen as FalGenerationClient
+    participant Price as FalPricingClient
+    participant Account as FalAccountClient
+    participant Keychain
+    participant Run as fal.run
+    participant Api as api.fal.ai
 
-Gen -> Keychain : read generation key
-Gen -> Run : POST generation/edit request
-Run --> Gen : generated image URL
+    Gen->>Keychain: read generation key
+    Gen->>Run: POST generation/edit request
+    Run-->>Gen: generated image URL
 
-Price -> Keychain : read generation key
-Price -> Api : GET pricing / POST estimate
-Api --> Price : unit price or estimate
+    Price->>Keychain: read generation key
+    Price->>Api: GET pricing / POST estimate
+    Api-->>Price: unit price or estimate
 
-Account -> Keychain : read account/admin key
-Account -> Api : GET billing, usage, events
-Api --> Account : account data or scope error
-@enduml
-#+end_src
+    Account->>Keychain: read account/admin key
+    Account->>Api: GET billing, usage, events
+    Api-->>Account: account data or scope error
+```
 
-* Model Registry
+## Model Registry
 
 Model metadata should be data-driven. The initial registry should include the
-FAL image models needed for ~pix~ parity, with ~xai/grok-imagine-image~ as the
+FAL image models needed for `pix` parity, with `xai/grok-imagine-image` as the
 default candidate unless product testing chooses another default.
 
 Each model entry should describe:
@@ -206,10 +195,10 @@ Each model entry should describe:
 - pricing support status;
 - warnings for unsupported options.
 
-The handler strategy used in ~storyboard-gen~ is the right pattern for model
+The handler strategy used in `storyboard-gen` is the right pattern for model
 families. Views should not know how to construct provider-specific payloads.
 
-* Prompt Packs
+## Prompt Packs
 
 Prompt packs provide the pre-canned AI filters. They should be bundled app
 resources with stable identifiers, names, descriptions, model preferences, and
@@ -227,15 +216,15 @@ The prompt system should support:
 Prompt packs should not hard-code paid generation assumptions. The selected
 model and pricing service should determine the final cost estimate.
 
-* Secrets And Settings
+## Secrets And Settings
 
 The GUI stores secrets in Keychain:
 
 - FAL generation key;
 - FAL account/admin key.
 
-Import from ~pix~ configuration may be offered as a convenience, but the GUI
-must not execute arbitrary shell commands from ~pix~ config. If ~pix~ resolves
+Import from `pix` configuration may be offered as a convenience, but the GUI
+must not execute arbitrary shell commands from `pix` config. If `pix` resolves
 keys through command entries, the GUI should ask the user to paste or choose the
 key instead.
 
@@ -248,7 +237,7 @@ Non-secret settings live in app preferences:
 - cost confirmation threshold;
 - session history retention.
 
-* Storage
+## Storage
 
 The app should keep generated and processed assets in app-managed storage before
 the user saves final files. The default storage model is plain image files plus
@@ -268,44 +257,41 @@ Session records include:
 This history enables comparison, retry, and auditability without logging API
 keys or full account data.
 
-#+begin_src plantuml
-@startuml
-skinparam shadowing false
+```mermaid
+classDiagram
+    class GenerationSession {
+        id
+        createdAt
+        prompt
+        modelEndpoint
+        estimatedCost
+        diagnostics
+    }
 
-class GenerationSession {
-  id
-  createdAt
-  prompt
-  modelEndpoint
-  estimatedCost
-  diagnostics
-}
+    class GeneratedAsset {
+        fileURL
+        width
+        height
+        contentType
+    }
 
-class GeneratedAsset {
-  fileURL
-  width
-  height
-  contentType
-}
+    class UpscaleAsset {
+        fileURL
+        modelName
+        scale
+    }
 
-class UpscaleAsset {
-  fileURL
-  modelName
-  scale
-}
+    class ReferenceAsset {
+        fileURL
+        role
+    }
 
-class ReferenceAsset {
-  fileURL
-  role
-}
+    GenerationSession "1" --> "1" GeneratedAsset
+    GenerationSession "1" --> "0..1" UpscaleAsset
+    GenerationSession "1" --> "0..3" ReferenceAsset
+```
 
-GenerationSession "1" -- "1" GeneratedAsset
-GenerationSession "1" -- "0..1" UpscaleAsset
-GenerationSession "1" -- "0..3" ReferenceAsset
-@enduml
-#+end_src
-
-* UX Structure
+## UX Structure
 
 The main window should gain mode-level navigation rather than overloading the
 existing upscaling toolbar.
@@ -320,7 +306,7 @@ Recommended top-level modes:
 Generated images should be able to move into Upscale with one action. Upscale
 results should remain saveable through the existing save flow.
 
-* Error Handling
+## Error Handling
 
 Errors should be classified by source:
 
@@ -336,35 +322,32 @@ Errors should be classified by source:
 The app should show actionable user-facing errors and keep more detailed
 diagnostics available for issue reports. Secrets must be redacted.
 
-#+begin_src plantuml
-@startuml
-skinparam shadowing false
+```mermaid
+stateDiagram-v2
+    [*] --> EmptyWorkspace
+    EmptyWorkspace --> PromptReady: prompt entered
+    PromptReady --> EstimateReady: pricing available
+    PromptReady --> EstimateUnavailable: pricing unavailable
+    EstimateReady --> Generating: Generate
+    EstimateUnavailable --> Generating: Generate with warning
+    Generating --> Generated: image downloaded
+    Generating --> Failed: provider/network/download error
+    Generating --> Cancelled: user cancels
+    Generated --> Upscaling: Upscale
+    Upscaling --> Upscaled: local pipeline succeeds
+    Upscaling --> Failed: local pipeline fails
+    Failed --> PromptReady: edit and retry
+    Cancelled --> PromptReady: retry
+    Upscaled --> [*]
+```
 
-[*] --> EmptyWorkspace
-EmptyWorkspace --> PromptReady : prompt entered
-PromptReady --> EstimateReady : pricing available
-PromptReady --> EstimateUnavailable : pricing unavailable
-EstimateReady --> Generating : Generate
-EstimateUnavailable --> Generating : Generate with warning
-Generating --> Generated : image downloaded
-Generating --> Failed : provider/network/download error
-Generating --> Cancelled : user cancels
-Generated --> Upscaling : Upscale
-Upscaling --> Upscaled : local pipeline succeeds
-Upscaling --> Failed : local pipeline fails
-Failed --> PromptReady : edit and retry
-Cancelled --> PromptReady : retry
-Upscaled --> [*]
-@enduml
-#+end_src
-
-* Testing Strategy
+## Testing Strategy
 
 Automated tests should not call paid FAL endpoints.
 
 Recommended coverage:
 
-- FAL request construction with ~URLProtocol~ or local HTTP fixtures;
+- FAL request construction with `URLProtocol` or local HTTP fixtures;
 - parsing successful and failed FAL responses;
 - pricing and account response parsing;
 - model registry resolution;

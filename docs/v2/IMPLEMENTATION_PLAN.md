@@ -31,8 +31,8 @@ distribution, entitlements, or support needs materially diverge from the CLI.
 Deliverables:
 
 - updated v2 docs;
-- dependency boundary decision recorded in `docs/v2/ARCHITECTURE.org`;
-- wireframes recorded in `docs/v2/WIREFRAMES.org`;
+- dependency boundary decision recorded in `docs/v2/ARCHITECTURE.md`;
+- wireframes recorded in `docs/v2/WIREFRAMES.md`;
 - first cut of model and prompt-pack inventory.
 
 ## Phase 1: Prepare The Existing App For Handoff
@@ -198,7 +198,7 @@ Use these defaults when drafting or implementing the first batch of tickets:
   threshold set to `0.05`.
 - Use fixture-backed tests for FAL integration; never require paid FAL calls in
   automated tests.
-- Build the visible UX paths in `docs/v2/WIREFRAMES.org` before adding advanced
+- Build the visible UX paths in `docs/v2/WIREFRAMES.md` before adding advanced
   model-management features.
 
 Remaining product choices that can wait until after the first implementation
