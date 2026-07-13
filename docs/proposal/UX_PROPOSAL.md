@@ -185,10 +185,13 @@ Recommended order:
 
 1. Keychain-stored FAL generation key.
 2. Keychain-stored FAL account/admin key.
-3. Optional import from existing pix config for migration.
+3. ~~Optional import from existing pix config for migration.~~ Removed from v2
+   scope.
 4. Environment variables only for development/debug builds.
 
-For command-based secret retrieval, the GUI can support import rather than live execution. Running arbitrary configured shell commands from a sandboxed GUI is a different security and UX trade-off than doing so in a CLI.
+~~For command-based secret retrieval, the GUI can support import rather than
+live execution.~~ This import path was removed from v2 scope. Credentials are
+entered directly in the GUI and stored in Keychain.
 
 ### Account And Cost Display
 

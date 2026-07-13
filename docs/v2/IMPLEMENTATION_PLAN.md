@@ -83,20 +83,19 @@ Validation:
 - handler payload tests for text and reference-image workflows;
 - compatibility-warning tests for unsupported fields.
 
-## Phase 4: Add Secrets, Settings, And Pix Import
+## Phase 4: Add Secrets And Settings
 
 - Store FAL generation and account keys in Keychain.
 - Keep account/admin key separate from the generation key.
 - Add settings for default generation model, output location, and cost prompts.
-- Offer safe import from `pix` config where values can be read directly.
-- Do not execute shell commands from imported `pix` config.
+- ~~Offer safe import from `pix` config.~~ Removed from v2 scope; users enter
+  credentials and defaults directly in the GUI.
 
 Validation:
 
 - Keychain abstraction tests with an in-memory test store;
 - settings persistence tests;
-- import tests for supported `pix` config shapes;
-- explicit tests that command-based key entries are not executed by the GUI.
+- ~~`pix` config import tests.~~ Removed with the import feature.
 
 ## Phase 5: Build The Generate Workspace
 

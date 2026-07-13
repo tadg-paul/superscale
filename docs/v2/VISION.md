@@ -95,7 +95,7 @@ V2 should add:
 - prompt packs for canned filters;
 - FAL pricing and account visibility;
 - Keychain-backed API key management;
-- optional import from existing `pix` configuration;
+- ~~optional import from existing `pix` configuration;~~ removed from v2 scope;
 - direct handoff from generated image to local Superscale processing;
 - session history for generated and processed images.
 

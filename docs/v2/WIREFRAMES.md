@@ -158,10 +158,6 @@ Notes:
 |                                                                                |
 | Prompt packs                                                                   |
 | [Bundled packs] [Import pack...]                                               |
-|                                                                                |
-| Pix import                                                                      |
-| [Import readable pix settings]                                                 |
-| Shell command key resolvers are not executed by the GUI.                       |
 +--------------------------------------------------------------------------------+
 ```
 
@@ -169,8 +165,8 @@ Notes:
 
 - Generation and account keys are separate controls.
 - Account failure should not block generation-key validation.
-- The UI should explicitly avoid executing command-based key resolvers imported
-  from `pix` config.
+- ~~Pix configuration import and command-resolver handling.~~ Removed from v2
+  scope; credentials and defaults are entered directly in Settings.
 
 ## First Ticket Batch Implications
 

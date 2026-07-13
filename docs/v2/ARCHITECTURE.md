@@ -223,10 +223,9 @@ The GUI stores secrets in Keychain:
 - FAL generation key;
 - FAL account/admin key.
 
-Import from `pix` configuration may be offered as a convenience, but the GUI
-must not execute arbitrary shell commands from `pix` config. If `pix` resolves
-keys through command entries, the GUI should ask the user to paste or choose the
-key instead.
+~~Import from `pix` configuration may be offered as a convenience.~~ This was
+removed from v2 scope. Users provide credentials directly through the GUI, and
+the app has no `pix` configuration parser or command-resolution path.
 
 Non-secret settings live in app preferences:
 
