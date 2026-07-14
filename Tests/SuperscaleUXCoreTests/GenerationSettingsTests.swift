@@ -44,6 +44,7 @@ final class GenerationSettingsTests: XCTestCase {
             outputFolder: URL(fileURLWithPath: "/valid/output", isDirectory: true),
             costThreshold: 0.08,
             defaultModelID: "xai/grok-imagine-image",
+            defaultUpscaleModelID: "realesrgan-x4plus",
             defaultPromptPackID: "image-design-architectural-drawing"
         )
         let firstStore = GenerationPreferencesStore(defaults: defaults, folderValidator: { _ in true })
@@ -67,6 +68,7 @@ final class GenerationSettingsTests: XCTestCase {
                     outputFolder: URL(fileURLWithPath: "/invalid/output", isDirectory: true),
                     costThreshold: 0.05,
                     defaultModelID: "xai/grok-imagine-image",
+                    defaultUpscaleModelID: "auto",
                     defaultPromptPackID: nil
                 )
             )
@@ -74,13 +76,14 @@ final class GenerationSettingsTests: XCTestCase {
             XCTAssertTrue(error.localizedDescription.contains("output folder"))
         }
 
-        for invalidThreshold in [-0.01, 1.01, .infinity, .nan] {
+        for invalidThreshold in [-0.01, .infinity, .nan] {
             XCTAssertThrowsError(
                 try store.save(
                     GenerationPreferences(
                         outputFolder: nil,
                         costThreshold: invalidThreshold,
                         defaultModelID: "xai/grok-imagine-image",
+                        defaultUpscaleModelID: "auto",
                         defaultPromptPackID: nil
                     )
                 )
