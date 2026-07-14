@@ -2,15 +2,59 @@
 // ABOUTME: Contains drag-and-drop target, model picker, result display, and progress overlay.
 
 import SuperscaleKit
+import SuperscaleUXCore
 import SwiftUI
 
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
+    @StateObject private var navigation = AppNavigation()
     @State private var showAbout = false
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
 
     var body: some View {
+        NavigationSplitView {
+            sidebar
+        } detail: {
+            workspace
+        }
+        .navigationTitle(windowTitle)
+        .alert("Error", isPresented: showError, actions: {
+            Button("OK") { viewModel.errorMessage = nil }
+        }, message: {
+            Text(viewModel.errorMessage ?? "")
+        })
+    }
+
+    private var sidebar: some View {
+        List(selection: selectedMode) {
+            Section("Superscale") {
+                ForEach(AppMode.allCases) { mode in
+                    Label(mode.rawValue, systemImage: icon(for: mode))
+                        .tag(mode)
+                        .accessibilityIdentifier("mode\(mode.rawValue)")
+                }
+            }
+        }
+        .listStyle(.sidebar)
+        .navigationSplitViewColumnWidth(min: 150, ideal: 180, max: 220)
+    }
+
+    @ViewBuilder
+    private var workspace: some View {
+        switch navigation.selectedMode {
+        case .upscale:
+            upscaleWorkspace
+        case .generate:
+            emptyWorkspace(for: .generate)
+        case .history:
+            emptyWorkspace(for: .history)
+        case .settings:
+            emptyWorkspace(for: .settings)
+        }
+    }
+
+    private var upscaleWorkspace: some View {
         VStack(spacing: 0) {
             toolbar
             Divider()
@@ -21,16 +65,40 @@ struct MainView: View {
                 }
             }
         }
-        .onChange(of: viewModel.selectedModelName) { _ in infoPanelDismissed = false }
-        .onChange(of: viewModel.scaleMode) { _ in infoPanelDismissed = false }
-        .onChange(of: viewModel.stretchEnabled) { _ in infoPanelDismissed = false }
-        .onChange(of: viewModel.faceEnhance) { _ in infoPanelDismissed = false }
-        .navigationTitle(windowTitle)
-        .alert("Error", isPresented: showError, actions: {
-            Button("OK") { viewModel.errorMessage = nil }
-        }, message: {
-            Text(viewModel.errorMessage ?? "")
-        })
+        .onChange(of: viewModel.selectedModelName) { infoPanelDismissed = false }
+        .onChange(of: viewModel.scaleMode) { infoPanelDismissed = false }
+        .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
+        .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
+        .accessibilityIdentifier("upscaleWorkspace")
+    }
+
+    private func emptyWorkspace(for mode: AppMode) -> some View {
+        ContentUnavailableView(mode.rawValue, systemImage: icon(for: mode))
+            .accessibilityIdentifier("\(mode.rawValue.lowercased())Workspace")
+    }
+
+    private var selectedMode: Binding<AppMode?> {
+        Binding(
+            get: { navigation.selectedMode },
+            set: { mode in
+                if let mode {
+                    navigation.select(mode)
+                }
+            }
+        )
+    }
+
+    private func icon(for mode: AppMode) -> String {
+        switch mode {
+        case .upscale:
+            return "arrow.up.left.and.arrow.down.right"
+        case .generate:
+            return "sparkles"
+        case .history:
+            return "clock.arrow.circlepath"
+        case .settings:
+            return "gearshape"
+        }
     }
 
     // MARK: - Toolbar

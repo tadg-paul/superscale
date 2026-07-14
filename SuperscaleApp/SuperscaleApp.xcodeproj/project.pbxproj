@@ -23,6 +23,7 @@
 		F100000C /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000C /* InfoPanel.swift */; };
 		F100000D /* FaceModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000D /* FaceModelDownloadView.swift */; };
 		F1000010 /* SuperscaleKit in Frameworks */ = {isa = PBXBuildFile; productRef = F5000001 /* SuperscaleKit */; };
+		F1000011 /* SuperscaleUXCore in Frameworks */ = {isa = PBXBuildFile; productRef = F5000003 /* SuperscaleUXCore */; };
 		F1000030 /* SuperscaleAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000030 /* SuperscaleAppUITests.swift */; };
 /* End PBXBuildFile section */
 
@@ -54,6 +55,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F1000010 /* SuperscaleKit in Frameworks */,
+				F1000011 /* SuperscaleUXCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -135,6 +137,7 @@
 			name = Superscale;
 			packageProductDependencies = (
 				F5000001 /* SuperscaleKit */,
+				F5000003 /* SuperscaleUXCore */,
 			);
 			productName = Superscale;
 			productReference = F2000020 /* Superscale.app */;
@@ -453,6 +456,10 @@
 		F5000001 /* SuperscaleKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SuperscaleKit;
+		};
+		F5000003 /* SuperscaleUXCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SuperscaleUXCore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

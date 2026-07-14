@@ -11,6 +11,8 @@ let package = Package(
     ],
     products: [
         .library(name: "SuperscaleKit", targets: ["SuperscaleKit"]),
+        .library(name: "FalGenerationKit", targets: ["FalGenerationKit"]),
+        .library(name: "SuperscaleUXCore", targets: ["SuperscaleUXCore"]),
         .executable(name: "superscale", targets: ["Superscale"]),
     ],
     dependencies: [
@@ -24,6 +26,15 @@ let package = Package(
         .target(
             name: "CSystemShim",
             path: "Sources/CSystemShim"
+        ),
+        .target(
+            name: "FalGenerationKit",
+            path: "Sources/FalGenerationKit"
+        ),
+        .target(
+            name: "SuperscaleUXCore",
+            dependencies: ["FalGenerationKit", "SuperscaleKit"],
+            path: "Sources/SuperscaleUXCore"
         ),
         .executableTarget(
             name: "Superscale",

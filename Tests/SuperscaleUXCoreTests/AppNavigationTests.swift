@@ -1,8 +1,8 @@
 // ABOUTME: Regression tests for GUI mode navigation outside the SwiftUI app.
 // ABOUTME: Covers the default mode and explicit transitions among v2 workspaces.
 
-@testable import SuperscaleUXCore
 import XCTest
+@testable import SuperscaleUXCore
 
 @MainActor
 final class AppNavigationTests: XCTestCase {
