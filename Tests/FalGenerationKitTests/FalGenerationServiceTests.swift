@@ -58,6 +58,18 @@ final class FalGenerationServiceTests: XCTestCase {
             XCTAssertEqual(payload["image_urls"] as? [String], references)
             XCTAssertTrue(prepared.warnings.isEmpty)
         }
+
+        XCTAssertThrowsError(
+            try FalRequestBuilder().prepare(
+                FalGenerationRequest(
+                    prompt: "Too many",
+                    referenceImageURLs: ["one", "two", "three", "four"]
+                ),
+                apiKey: "fal-test-key"
+            )
+        ) { error in
+            XCTAssertTrue(error.localizedDescription.contains("at most three"))
+        }
     }
 
     // RT-72.4
@@ -131,6 +143,19 @@ final class FalGenerationServiceTests: XCTestCase {
             XCTAssertTrue(diagnostic.contains("401"))
             XCTAssertTrue(diagnostic.contains("req-123"))
         }
+
+
+        let failingClient = FalGenerationClient(
+            transport: FailingFalTransport(message: "Connection failed for \(key)")
+        )
+        do {
+            _ = try await failingClient.generate(FalGenerationRequest(prompt: "Offline"), apiKey: key)
+            XCTFail("Expected transport failure")
+        } catch {
+            XCTAssertFalse(error.localizedDescription.contains(key))
+            XCTAssertTrue(error.localizedDescription.contains("[REDACTED]"))
+            XCTAssertTrue(error.localizedDescription.contains("Connection failed"))
+        }
     }
 
     // RT-72.7
@@ -167,6 +192,20 @@ final class FalGenerationServiceTests: XCTestCase {
                 )
             }
         }
+    }
+}
+
+private struct FailingFalTransport: FalHTTPTransport {
+    let message: String
+
+    func send(_ request: URLRequest) async throws -> FalHTTPResponse {
+        throw Failure(message: message)
+    }
+
+    private struct Failure: LocalizedError {
+        let message: String
+
+        var errorDescription: String? { message }
     }
 }
 
