@@ -40,5 +40,15 @@ let package = Package(
             path: "Tests/SuperscaleTests",
             exclude: ["NEXT_IDS.txt", "Resources"]
         ),
+        .testTarget(
+            name: "FalGenerationKitTests",
+            dependencies: ["FalGenerationKit"],
+            path: "Tests/FalGenerationKitTests"
+        ),
+        .testTarget(
+            name: "SuperscaleUXCoreTests",
+            dependencies: ["SuperscaleUXCore"],
+            path: "Tests/SuperscaleUXCoreTests"
+        ),
     ]
 )

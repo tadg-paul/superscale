@@ -713,6 +713,38 @@ final class CLITests: XCTestCase {
                       "Help should preserve GFPGAN non-commercial model licence terms")
     }
 
+    // RT-70.2: Help and a local fixture upscale remain available.
+    func test_cli_help_and_fixture_upscale_remain_available_RT70_2() throws {
+        let modelPath = projectRoot.appendingPathComponent("models/RealESRGAN_x2plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelPath.path),
+                      "x2plus model not found")
+
+        let help = try runCLI(["--help"])
+        XCTAssertEqual(help.exitCode, 0, "Help should remain available")
+        XCTAssertTrue(help.stdout.contains("USAGE"), "Help should include usage information")
+
+        let temporaryDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt70_2_\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporaryDirectory) }
+        try FileManager.default.createDirectory(
+            at: temporaryDirectory,
+            withIntermediateDirectories: true
+        )
+
+        let input = temporaryDirectory.appendingPathComponent("fixture.png")
+        try createTestImage(width: 16, height: 16, at: input)
+
+        let upscale = try runCLI([
+            input.path,
+            "-o", temporaryDirectory.path,
+            "-m", "realesrgan-x2plus",
+        ])
+        let output = temporaryDirectory.appendingPathComponent("fixture_2x.png")
+
+        XCTAssertEqual(upscale.exitCode, 0, upscale.stderr)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.path))
+    }
+
     // MARK: - Helpers
 
     private var projectRoot: URL {
