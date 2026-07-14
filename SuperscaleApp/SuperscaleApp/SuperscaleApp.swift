@@ -11,7 +11,7 @@ struct SuperscaleApp: App {
     var body: some Scene {
         WindowGroup {
             MainView(viewModel: viewModel)
-                .frame(minWidth: 600, minHeight: 500)
+                .frame(minWidth: 780, minHeight: 500)
         }
         .commands {
             CommandGroup(replacing: .saveItem) {

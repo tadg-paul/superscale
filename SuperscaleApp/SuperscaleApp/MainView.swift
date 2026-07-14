@@ -69,7 +69,6 @@ struct MainView: View {
         .onChange(of: viewModel.scaleMode) { infoPanelDismissed = false }
         .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
         .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
-        .accessibilityIdentifier("upscaleWorkspace")
     }
 
     private func emptyWorkspace(for mode: AppMode) -> some View {
