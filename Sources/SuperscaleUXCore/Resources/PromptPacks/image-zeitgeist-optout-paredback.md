@@ -1,0 +1,1 @@
+Minimal editorial illustration. Single figure or object, centred, generous white space. One accent colour only — muted terracotta or dusty blue. Fine ink line, no hatching, contour only. Serif caption text integrated below the image. The restraint is the style. Museum catalogue aesthetic.

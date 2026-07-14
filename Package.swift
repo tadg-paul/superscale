@@ -34,7 +34,8 @@ let package = Package(
         .target(
             name: "SuperscaleUXCore",
             dependencies: ["FalGenerationKit", "SuperscaleKit"],
-            path: "Sources/SuperscaleUXCore"
+            path: "Sources/SuperscaleUXCore",
+            resources: [.process("Resources")]
         ),
         .executableTarget(
             name: "Superscale",

@@ -1,0 +1,1 @@
+Hybrid illustration: fine pen and ink linework depicting a scene, with elements rendered in deliberate 8-bit pixel art style. Dithered colour gradients where watercolour wash would normally be. Ink contours meet blocky pixel fills. The contrast between handmade line and digital grid. Limited palette, four colours maximum.

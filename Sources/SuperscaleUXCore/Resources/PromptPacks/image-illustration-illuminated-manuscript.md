@@ -1,0 +1,1 @@
+Illuminated manuscript. Fine pen linework with burnished gold leaf accents, rich but flat colour in gouache or egg tempera, decorative borders with interlace and foliate patterns, text integrated into composition. Vellum texture. Celtic or Insular style if you want to lean into the Irish connection.
