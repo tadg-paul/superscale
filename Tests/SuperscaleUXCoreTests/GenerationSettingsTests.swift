@@ -14,6 +14,8 @@ final class GenerationSettingsTests: XCTestCase {
         XCTAssertNil(try credentials.generationKey())
         try credentials.setGenerationKey("generation-key")
         XCTAssertEqual(try credentials.generationKey(), "generation-key")
+        try credentials.setGenerationKey("replacement-generation-key")
+        XCTAssertEqual(try credentials.generationKey(), "replacement-generation-key")
         try credentials.removeGenerationKey()
         XCTAssertNil(try credentials.generationKey())
     }
@@ -27,10 +29,12 @@ final class GenerationSettingsTests: XCTestCase {
         try credentials.setAccountAdministrationKey("admin-key")
         XCTAssertEqual(try credentials.generationKey(), "generation-key")
         XCTAssertEqual(try credentials.accountAdministrationKey(), "admin-key")
+        try credentials.setAccountAdministrationKey("replacement-admin-key")
+        XCTAssertEqual(try credentials.accountAdministrationKey(), "replacement-admin-key")
 
         try credentials.removeGenerationKey()
         XCTAssertNil(try credentials.generationKey())
-        XCTAssertEqual(try credentials.accountAdministrationKey(), "admin-key")
+        XCTAssertEqual(try credentials.accountAdministrationKey(), "replacement-admin-key")
 
         try credentials.removeAccountAdministrationKey()
         XCTAssertNil(try credentials.accountAdministrationKey())

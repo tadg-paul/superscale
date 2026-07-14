@@ -114,6 +114,23 @@ final class SuperscaleAppUITests: XCTestCase {
                       "File chooser button should be present on launch")
     }
 
+    // RT-73.8: Settings exposes separate credentials, defaults, and prompt packs.
+    func test_settings_workspace_controls_RT73_8() {
+        let settingsMode = app.staticTexts["modeSettings"]
+        XCTAssertTrue(settingsMode.waitForExistence(timeout: 5))
+        settingsMode.click()
+
+        XCTAssertTrue(app.secureTextFields["generationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.secureTextFields["accountAdministrationKeyField"].exists)
+        XCTAssertTrue(app.otherElements["accountState"].exists || app.staticTexts["accountState"].exists)
+        XCTAssertTrue(app.popUpButtons["defaultGenerationModelPicker"].exists)
+        XCTAssertTrue(app.popUpButtons["defaultUpscaleModelPicker"].exists)
+        XCTAssertTrue(app.textFields["outputFolderField"].exists)
+        XCTAssertTrue(app.textFields["costThresholdField"].exists)
+        XCTAssertTrue(app.popUpButtons["defaultPromptPackPicker"].exists)
+        XCTAssertTrue(app.buttons["saveSettingsButton"].isEnabled)
+    }
+
     // MARK: - OT-004: GUI scaffold (#44)
 
     // RT-122: Model picker sheet lists all models

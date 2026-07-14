@@ -7,6 +7,7 @@ import SwiftUI
 
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
+    @ObservedObject var settingsState: GenerationSettingsState
     @StateObject private var navigation = AppNavigation()
     @State private var showAbout = false
     @State private var showFaceDownload = false
@@ -50,7 +51,7 @@ struct MainView: View {
         case .history:
             emptyWorkspace(for: .history)
         case .settings:
-            emptyWorkspace(for: .settings)
+            SettingsView(state: settingsState)
         }
     }
 
@@ -246,7 +247,7 @@ struct MainView: View {
 }
 
 #Preview("Empty") {
-    MainView(viewModel: UpscaleViewModel())
+    MainView(viewModel: UpscaleViewModel(), settingsState: previewSettingsState())
         .frame(width: 700, height: 500)
 }
 
@@ -254,6 +255,15 @@ struct MainView: View {
     let vm = UpscaleViewModel()
     vm.isProcessing = true
     vm.progressMessage = "Processing tile 2 of 4..."
-    return MainView(viewModel: vm)
+    return MainView(viewModel: vm, settingsState: previewSettingsState())
         .frame(width: 700, height: 500)
+}
+
+@MainActor
+private func previewSettingsState() -> GenerationSettingsState {
+    GenerationSettingsState(
+        credentials: GenerationCredentialService(storage: KeychainCredentialStorage(service: "org.tigoss.superscale.preview")),
+        preferencesStore: GenerationPreferencesStore(),
+        promptPackCatalogue: (try? PromptPackCatalogue.bundled()) ?? PromptPackCatalogue(packs: [])
+    )
 }
