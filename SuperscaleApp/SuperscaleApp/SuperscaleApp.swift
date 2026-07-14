@@ -11,9 +11,15 @@ struct SuperscaleApp: App {
     @StateObject private var settingsState: GenerationSettingsState
 
     init() {
-        let catalogueResult = Result { try PromptPackCatalogue.bundled() }
-        let catalogue = (try? catalogueResult.get()) ?? PromptPackCatalogue(packs: [])
-        let startupError = catalogueResult.failure?.localizedDescription
+        let catalogue: PromptPackCatalogue
+        let startupError: String?
+        do {
+            catalogue = try PromptPackCatalogue.bundled()
+            startupError = nil
+        } catch {
+            catalogue = PromptPackCatalogue(packs: [])
+            startupError = error.localizedDescription
+        }
         _settingsState = StateObject(
             wrappedValue: GenerationSettingsState(
                 credentials: GenerationCredentialService(storage: KeychainCredentialStorage()),
@@ -38,12 +44,5 @@ struct SuperscaleApp: App {
                 .disabled(viewModel.result == nil)
             }
         }
-    }
-}
-
-private extension Result {
-    var failure: Failure? {
-        guard case let .failure(error) = self else { return nil }
-        return error
     }
 }

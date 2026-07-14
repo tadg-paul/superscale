@@ -14,9 +14,13 @@ public struct FalPreparedRequest: Sendable {
 }
 
 public struct FalRequestBuilder: Sendable {
-    private let baseURL: URL
+    private let baseURL: URL?
 
-    public init(baseURL: URL = URL(string: "https://fal.run")!) {
+    public init() {
+        self.baseURL = URL(string: "https://fal.run")
+    }
+
+    public init(baseURL: URL) {
         self.baseURL = baseURL
     }
 
@@ -56,6 +60,9 @@ public struct FalRequestBuilder: Sendable {
         }
 
         let endpoint = acceptedReferences.isEmpty ? handler.textEndpoint : handler.editEndpoint
+        guard let baseURL else {
+            throw FalGenerationError.invalidRequest("The FAL base URL is invalid.")
+        }
         guard let url = URL(string: endpoint, relativeTo: baseURL.appendingPathComponent("/"))?.absoluteURL else {
             throw FalGenerationError.invalidRequest("The FAL endpoint for \(request.modelID) is invalid.")
         }

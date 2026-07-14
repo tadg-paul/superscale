@@ -47,10 +47,12 @@ public struct FalGenerationClient: Sendable {
     private let transport: any FalHTTPTransport
     private let requestBuilder: FalRequestBuilder
 
-    public init(
-        transport: any FalHTTPTransport = URLSessionFalHTTPTransport(),
-        baseURL: URL = URL(string: "https://fal.run")!
-    ) {
+    public init(transport: any FalHTTPTransport = URLSessionFalHTTPTransport()) {
+        self.transport = transport
+        self.requestBuilder = FalRequestBuilder()
+    }
+
+    public init(transport: any FalHTTPTransport = URLSessionFalHTTPTransport(), baseURL: URL) {
         self.transport = transport
         self.requestBuilder = FalRequestBuilder(baseURL: baseURL)
     }
