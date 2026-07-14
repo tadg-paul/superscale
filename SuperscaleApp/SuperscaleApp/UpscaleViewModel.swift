@@ -6,6 +6,7 @@ import Combine
 import CoreGraphics
 import Foundation
 import SuperscaleKit
+import SuperscaleUXCore
 import SwiftUI
 
 @MainActor
@@ -79,10 +80,13 @@ final class UpscaleViewModel: ObservableObject {
     }
 
     private var cancellables = Set<AnyCancellable>()
+    private let upscaleCoordinator: GUIUpscaleCoordinator
+    private var currentInputSource: GUIUpscaleSource?
 
     private var suppressDimensionUpdates = false
 
-    init() {
+    init(upscaleCoordinator: GUIUpscaleCoordinator = GUIUpscaleCoordinator()) {
+        self.upscaleCoordinator = upscaleCoordinator
         // When width changes: strip non-digits, become defining dimension, update other
         $customWidth
             .dropFirst()
@@ -246,7 +250,7 @@ final class UpscaleViewModel: ObservableObject {
 
     private func reupscaleIfNeeded() {
         guard let url = inputURL, !isProcessing else { return }
-        processImage(url: url)
+        processImage(source: currentInputSource ?? .selectedFile(url))
     }
 
     /// Re-upscale for face enhance toggle only — preserves scale settings.
@@ -258,7 +262,7 @@ final class UpscaleViewModel: ObservableObject {
         let savedCustomH = customHeight
         let savedDefining = definingDimension
         let savedShowCustom = showCustomFields
-        processImage(url: url)
+        processImage(source: currentInputSource ?? .selectedFile(url))
         // Restore scale state in case anything reset it
         scaleMode = savedMode
         customWidth = savedCustomW
@@ -318,7 +322,11 @@ final class UpscaleViewModel: ObservableObject {
 
     func handleDrop(urls: [URL]) {
         guard let url = urls.first else { return }
-        processImage(url: url)
+        processImage(source: .selectedFile(url))
+    }
+
+    func handleGeneratedImage(at url: URL) {
+        processImage(source: .generatedFile(url))
     }
 
     func saveAs() {
@@ -356,8 +364,10 @@ final class UpscaleViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private func processImage(url: URL) {
+    private func processImage(source: GUIUpscaleSource) {
+        let url = source.url
         let isNewImage = inputURL != url
+        currentInputSource = source
 
         errorMessage = nil
         isProcessing = true
@@ -394,15 +404,12 @@ final class UpscaleViewModel: ObservableObject {
             scaleMode = .preset(nativeScale)
         }
 
+        let options = coordinatorOptions()
+        let coordinator = upscaleCoordinator
         Task.detached { [weak self] in
             guard let self else { return }
             do {
-                let wasAutoDetect = await self.selectedModelName == "auto"
-                let modelName = try await self.resolveModelName(for: url)
-                let pipeline = try Pipeline(
-                    modelName: modelName,
-                    faceEnhance: await self.faceEnhance)
-                pipeline.onProgress = { [weak self] message in
+                let output = try coordinator.process(source: source, options: options) { [weak self] message in
                     Task { @MainActor in
                         guard let self else { return }
                         // Track face count from progress messages
@@ -422,92 +429,8 @@ final class UpscaleViewModel: ObservableObject {
                         }
                     }
                 }
-
-                let outputURL = FileManager.default.temporaryDirectory
-                    .appendingPathComponent("superscale_gui_\(UUID().uuidString).png")
-
-                // Resolve scale/resolution parameters
-                let currentMode = await self.scaleMode
-                let requestedScale: Double?
-                let targetWidth: Int?
-                let targetHeight: Int?
-                let stretch: Bool
-
-                switch currentMode {
-                case .preset(let scale):
-                    requestedScale = Double(scale)
-                    targetWidth = nil
-                    targetHeight = nil
-                    stretch = false
-                case .custom:
-                    let stretchOn = await self.stretchEnabled
-                    let defining = await self.definingDimension
-                    let wStr = await self.customWidth
-                    let hStr = await self.customHeight
-                    let w = Int(wStr).flatMap { $0 > 0 ? $0 : nil }
-                    let h = Int(hStr).flatMap { $0 > 0 ? $0 : nil }
-
-                    if stretchOn, let w, let h {
-                        requestedScale = nil
-                        targetWidth = w
-                        targetHeight = h
-                        stretch = true
-                    } else if stretchOn {
-                        // Stretch selected but missing a dimension — fall back to non-stretch
-                        await MainActor.run { self.stretchEnabled = false }
-                        if let w {
-                            requestedScale = nil
-                            targetWidth = w
-                            targetHeight = nil
-                            stretch = false
-                        } else if let h {
-                            requestedScale = nil
-                            targetWidth = nil
-                            targetHeight = h
-                            stretch = false
-                        } else {
-                            let native = await self.nativeScale
-                            requestedScale = Double(native)
-                            targetWidth = nil
-                            targetHeight = nil
-                            stretch = false
-                        }
-                    } else if defining == .width, let w {
-                        requestedScale = nil
-                        targetWidth = w
-                        targetHeight = nil
-                        stretch = false
-                    } else if defining == .height, let h {
-                        requestedScale = nil
-                        targetWidth = nil
-                        targetHeight = h
-                        stretch = false
-                    } else {
-                        // Invalid custom values — fall back to native scale
-                        let native = await self.nativeScale
-                        requestedScale = Double(native)
-                        targetWidth = nil
-                        targetHeight = nil
-                        stretch = false
-                    }
-                }
-
-                // Capture pre-face-enhance image for cache
-                var preFaceImage: NSImage?
-                try pipeline.process(
-                    input: url, output: outputURL,
-                    requestedScale: requestedScale,
-                    targetWidth: targetWidth, targetHeight: targetHeight,
-                    stretch: stretch,
-                    onPreFaceEnhance: { cgImage in
-                        preFaceImage = NSImage(
-                            cgImage: cgImage,
-                            size: NSSize(width: cgImage.width, height: cgImage.height))
-                    })
-
-                let image = NSImage(contentsOf: outputURL)
-                try? FileManager.default.removeItem(at: outputURL)
-
+                let image = NSImage(data: output.imageData)
+                let preFaceImage = output.preFaceImageData.flatMap(NSImage.init(data:))
                 let faceWasEnabled = await self.faceEnhance
                 await MainActor.run {
                     self.result = image
@@ -518,8 +441,8 @@ final class UpscaleViewModel: ObservableObject {
                         self.cachedWithoutFaces = image
                         // cachedWithFaces stays nil — toggling on will trigger re-upscale
                     }
-                    self.lastUpscaleModelName = modelName
-                    self.lastUpscaleWasAutoDetect = wasAutoDetect
+                    self.lastUpscaleModelName = output.resolvedModelName
+                    self.lastUpscaleWasAutoDetect = output.wasAutoDetect
                     self.isProcessing = false
                     self.progressMessage = ""
                     self.showComparison = true
@@ -534,13 +457,29 @@ final class UpscaleViewModel: ObservableObject {
         }
     }
 
-    private func resolveModelName(for url: URL) async throws -> String {
-        if selectedModelName != "auto" {
-            return selectedModelName
+    private func coordinatorOptions() -> GUIUpscaleOptions {
+        let sizing: GUIUpscaleSizing
+        switch scaleMode {
+        case let .preset(scale):
+            sizing = .preset(scale: scale)
+        case .custom:
+            let width = Int(customWidth).flatMap { $0 > 0 ? $0 : nil }
+            let height = Int(customHeight).flatMap { $0 > 0 ? $0 : nil }
+            if stretchEnabled, let width, let height {
+                sizing = .custom(width: width, height: height, stretch: true)
+            } else if definingDimension == .width, let width {
+                sizing = .custom(width: width, height: nil, stretch: false)
+            } else if definingDimension == .height, let height {
+                sizing = .custom(width: nil, height: height, stretch: false)
+            } else {
+                sizing = .preset(scale: nativeScale)
+            }
         }
-        let loaded = try ImageLoader.load(from: url)
-        let (contentType, _) = try ContentDetector.detect(image: loaded.image)
-        return ContentDetector.modelName(for: contentType, scale: 4)
+        return GUIUpscaleOptions(
+            selectedModelName: selectedModelName,
+            faceEnhance: faceEnhance,
+            sizing: sizing
+        )
     }
 
     private func outputFilename() -> String {

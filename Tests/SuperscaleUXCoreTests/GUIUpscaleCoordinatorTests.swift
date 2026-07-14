@@ -1,6 +1,7 @@
 // ABOUTME: Verifies selected and generated files share one GUI upscale coordinator path.
 // ABOUTME: Covers option preservation, results, and consistent local-processing failures.
 
+import AppKit
 import Foundation
 import XCTest
 @testable import SuperscaleUXCore
@@ -22,6 +23,34 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         XCTAssertEqual(result.source, .selectedFile(fixture))
         XCTAssertEqual(result.imageData, Data("selected-upscaled".utf8))
         XCTAssertEqual(processor.requests.map(\.inputURL), [fixture])
+    }
+
+    // RT-71.1
+    func test_selectedFixtureRunsThroughSuperscaleProcessor() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let fixture = repositoryRoot.appendingPathComponent("Tests/images/icon3.png")
+        let model = repositoryRoot.appendingPathComponent("models/RealESRGAN_x2plus.mlpackage")
+        try XCTSkipUnless(FileManager.default.fileExists(atPath: model.path), "2x model is not installed")
+        let coordinator = GUIUpscaleCoordinator()
+
+        let result = try coordinator.process(
+            source: .selectedFile(fixture),
+            options: GUIUpscaleOptions(
+                selectedModelName: "realesrgan-x2plus",
+                faceEnhance: false,
+                sizing: .preset(scale: 2)
+            ),
+            onProgress: { _ in }
+        )
+
+        let image = try XCTUnwrap(NSBitmapImageRep(data: result.imageData))
+        XCTAssertEqual(image.pixelsWide, 448)
+        XCTAssertEqual(image.pixelsHigh, 414)
+        XCTAssertEqual(result.resolvedModelName, "realesrgan-x2plus")
+        XCTAssertFalse(result.wasAutoDetect)
     }
 
     // RT-71.2
@@ -66,10 +95,10 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         let coordinator = GUIUpscaleCoordinator(processor: FailingUpscaleProcessor())
 
         let selectedError = captureError {
-            try coordinator.process(source: .selectedFile(fixture), options: defaultOptions, onProgress: { _ in })
+            _ = try coordinator.process(source: .selectedFile(fixture), options: defaultOptions, onProgress: { _ in })
         }
         let generatedError = captureError {
-            try coordinator.process(source: .generatedFile(fixture), options: defaultOptions, onProgress: { _ in })
+            _ = try coordinator.process(source: .generatedFile(fixture), options: defaultOptions, onProgress: { _ in })
         }
 
         XCTAssertEqual(selectedError, "Fixture processing failed")
@@ -104,7 +133,7 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
     }
 }
 
-private final class RecordingUpscaleProcessor: GUIUpscaleProcessing {
+private final class RecordingUpscaleProcessor: GUIUpscaleProcessing, @unchecked Sendable {
     struct Request {
         let inputURL: URL
         let options: GUIUpscaleOptions
@@ -115,7 +144,7 @@ private final class RecordingUpscaleProcessor: GUIUpscaleProcessing {
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping (String) -> Void
+        onProgress: @escaping @Sendable (String) -> Void
     ) throws -> GUIUpscaleProcessedImage {
         requests.append(Request(inputURL: inputURL, options: options))
         let input = try Data(contentsOf: inputURL)
@@ -132,7 +161,7 @@ private struct FailingUpscaleProcessor: GUIUpscaleProcessing {
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping (String) -> Void
+        onProgress: @escaping @Sendable (String) -> Void
     ) throws -> GUIUpscaleProcessedImage {
         throw Failure.fixture
     }
