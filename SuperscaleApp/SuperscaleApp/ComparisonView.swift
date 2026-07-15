@@ -253,6 +253,7 @@ struct ComparisonView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 28, height: 28)
             }
+            .accessibilityIdentifier("zoomInButton")
 
             Text("\(Int(zoom * 100))%")
                 .font(.system(.callout, design: .monospaced).bold())
@@ -266,10 +267,10 @@ struct ComparisonView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .frame(width: 28, height: 28)
             }
+            .accessibilityIdentifier("zoomOutButton")
         }
         .buttonStyle(.bordered)
         .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 10))
-        .accessibilityIdentifier("zoomControls")
     }
 
     // MARK: - Slider minimap

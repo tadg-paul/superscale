@@ -70,6 +70,17 @@ final class SuperscaleAppUITests: XCTestCase {
         return saveButton.waitForExistence(timeout: timeout)
     }
 
+    private func showInfoPanel() {
+        let comparisonButton = app.buttons["compareButton"]
+        if comparisonButton.label == "Full View" {
+            comparisonButton.click()
+        }
+    }
+
+    private func textContent(of element: XCUIElement) -> String {
+        (element.value as? String) ?? element.label
+    }
+
     private func element(identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier]
     }
@@ -648,18 +659,21 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        // Change scale to 2×
+        showInfoPanel()
         app.buttons["scale2x"].click()
-        sleep(3)
+        sleep(1)
+        XCTAssertTrue(waitForUpscaleComplete())
+        showInfoPanel()
 
-        // Info panel should reflect the new scale
-        let scaleText = app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS '2×'")).firstMatch
+        let scaleText = app.staticTexts["infoScale"]
         XCTAssertTrue(scaleText.waitForExistence(timeout: 5),
                       "Info panel should update to show 2× scale")
+        let scaleContent = textContent(of: scaleText)
+        XCTAssertTrue(scaleContent.contains("Scale: 2×"),
+                      "Info panel should reflect the selected 2× scale, got: \(scaleContent)")
     }
 
-    // RT-157: Post-upscale summary in info panel
+    // RT-157: Post-upscale dimensions in the current info-panel format
     func test_info_panel_post_upscale_summary_RT157() {
         guard loadTestImage() else {
             XCTFail("Could not load test image")
@@ -670,11 +684,16 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        // Info panel should show output dimensions
-        let outputText = app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'Output:'")).firstMatch
-        XCTAssertTrue(outputText.waitForExistence(timeout: 5),
-                      "Info panel should show output dimensions after upscale")
+        showInfoPanel()
+
+        let inputText = app.staticTexts["infoInput"]
+        let scaleText = app.staticTexts["infoScale"]
+        XCTAssertTrue(inputText.waitForExistence(timeout: 5),
+                      "Info panel should show input dimensions after upscale")
+        let inputContent = textContent(of: inputText)
+        let scaleContent = textContent(of: scaleText)
+        XCTAssertTrue(inputContent.contains("Input: 224×207"), inputContent)
+        XCTAssertTrue(scaleContent.contains("→ 896×828"), scaleContent)
     }
 
     // MARK: - OT-009: File chooser upscale (#56)
@@ -852,18 +871,13 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        // Enter comparison mode
-        let compare = app.buttons["compareButton"]
-        compare.click()
-        sleep(1)
+        // Upscale completion enters magnifier comparison mode automatically.
+        app.buttons["comparisonModeToggle"].click()
 
-        // Zoom buttons should be visible (+ and − text)
-        let plusButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS '+'")).firstMatch
-        let minusButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS '−' OR label CONTAINS '-'")).firstMatch
-        XCTAssertTrue(plusButton.exists, "Zoom + button should be visible in comparison mode")
-        XCTAssertTrue(minusButton.exists, "Zoom − button should be visible in comparison mode")
+        XCTAssertTrue(app.buttons["zoomInButton"].waitForExistence(timeout: 3),
+                      "Zoom + button should be visible in slider comparison mode")
+        XCTAssertTrue(app.buttons["zoomOutButton"].exists,
+                      "Zoom − button should be visible in slider comparison mode")
     }
 
     // RT-158: Info panel ordering and reset on setting change
@@ -877,21 +891,22 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        // After upscale, output info should be visible
-        let outputText = app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'Output:'")).firstMatch
-        XCTAssertTrue(outputText.waitForExistence(timeout: 5))
+        showInfoPanel()
+        XCTAssertTrue(app.staticTexts["infoModel"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["infoInput"].exists)
 
-        // Change scale — should reset info panel
         app.buttons["scale2x"].click()
         sleep(1)
+        XCTAssertTrue(waitForUpscaleComplete())
+        showInfoPanel()
 
-        // The old output text should no longer be visible (or should update)
-        // The model text should still be present
-        let modelText = app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'Model:'")).firstMatch
-        XCTAssertTrue(modelText.exists,
-                      "Model info should still be visible after setting change")
+        let modelText = app.staticTexts["infoModel"]
+        let scaleText = app.staticTexts["infoScale"]
+        XCTAssertTrue(modelText.exists, "Model info should remain visible after setting change")
+        let modelContent = textContent(of: modelText)
+        let scaleContent = textContent(of: scaleText)
+        XCTAssertTrue(modelContent.contains("auto-detected"), modelContent)
+        XCTAssertTrue(scaleContent.contains("Scale: 2×"), scaleContent)
     }
 
     // MARK: - OT-013: Info panel restore (#63)

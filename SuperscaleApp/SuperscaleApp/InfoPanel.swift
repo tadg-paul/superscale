@@ -15,6 +15,7 @@ struct InfoPanel: View {
                     Text(line)
                         .font(.callout)
                         .foregroundStyle(.primary)
+                        .accessibilityIdentifier(identifier(for: line))
                 }
             }
 
@@ -95,5 +96,13 @@ struct InfoPanel: View {
 
 
         return result
+    }
+
+    private func identifier(for line: String) -> String {
+        if line.hasPrefix("Model:") { return "infoModel" }
+        if line.hasPrefix("Input:") { return "infoInput" }
+        if line.hasPrefix("Scale:") || line.hasPrefix("Custom") { return "infoScale" }
+        if line.contains("face") || line.hasPrefix("Face") { return "infoFace" }
+        return "infoDetail"
     }
 }
