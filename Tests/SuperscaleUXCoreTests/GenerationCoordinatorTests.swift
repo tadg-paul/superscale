@@ -27,7 +27,7 @@ final class GenerationCoordinatorTests: XCTestCase {
         let service = FixtureGenerationService(
             result: .success(
                 FalGeneratedImage(
-                    remoteURL: URL(string: "https://images.example/output.png")!,
+                    remoteURL: try XCTUnwrap(URL(string: "https://images.example/output.png")),
                     data: Data("generated-image".utf8),
                     contentType: "image/png",
                     warnings: []
@@ -76,14 +76,14 @@ final class GenerationCoordinatorTests: XCTestCase {
     }
 
     // RT-75.6
-    func test_successfulOutputExposesGeneratedFileForSharedUpscaleHandoff() async {
+    func test_successfulOutputExposesGeneratedFileForSharedUpscaleHandoff() async throws {
         let directory = temporaryDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let coordinator = GenerationCoordinator(
             service: FixtureGenerationService(
                 result: .success(
                     FalGeneratedImage(
-                        remoteURL: URL(string: "https://images.example/handoff.jpg")!,
+                        remoteURL: try XCTUnwrap(URL(string: "https://images.example/handoff.jpg")),
                         data: Data("handoff".utf8),
                         contentType: "image/jpeg",
                         warnings: []

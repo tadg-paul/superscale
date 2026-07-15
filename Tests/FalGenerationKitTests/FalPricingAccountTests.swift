@@ -12,7 +12,10 @@ final class FalPricingAccountTests: XCTestCase {
             .json(200, #"{"prices":[{"unit_price":0.02,"unit":"image","currency":"USD"}]}"#),
             .json(200, #"{"total_cost":0.0185,"currency":"USD"}"#),
         ])
-        let client = FalPricingClient(transport: transport, baseURL: URL(string: "https://api.example")!)
+        let client = FalPricingClient(
+            transport: transport,
+            baseURL: try XCTUnwrap(URL(string: "https://api.example"))
+        )
 
         let pricing = try await client.pricing(modelID: "xai/grok-imagine-image", apiKey: "generation-key")
 
@@ -25,7 +28,7 @@ final class FalPricingAccountTests: XCTestCase {
     }
 
     // RT-76.2
-    func test_pricingClientRejectsUnavailableAndMalformedResponses() async {
+    func test_pricingClientRejectsUnavailableAndMalformedResponses() async throws {
         let fixtures: [[FalHTTPResponse]] = [
             [.json(200, #"{"prices":[]}"#)],
             [.json(200, #"{"prices":"invalid"}"#)],
@@ -35,7 +38,7 @@ final class FalPricingAccountTests: XCTestCase {
         for responses in fixtures {
             let client = FalPricingClient(
                 transport: PricingFixtureTransport(responses: responses),
-                baseURL: URL(string: "https://api.example")!
+                baseURL: try XCTUnwrap(URL(string: "https://api.example"))
             )
             do {
                 _ = try await client.pricing(modelID: "model", apiKey: "key")
@@ -53,7 +56,10 @@ final class FalPricingAccountTests: XCTestCase {
             .json(200, #"{"time_series":[{"bucket":"today","results":[{"endpoint_id":"model","unit":"image","quantity":2,"unit_price":0.02,"cost":0.04,"currency":"USD"}]}],"has_more":false}"#),
             .json(200, #"{"billing_events":[{"request_id":"req-1","endpoint_id":"model","timestamp":"2026-07-15T00:00:00Z","output_units":1,"unit_price":0.02,"cost_estimate_nano_usd":20000000}],"has_more":false}"#),
         ])
-        let client = FalAccountClient(transport: transport, baseURL: URL(string: "https://api.example")!)
+        let client = FalAccountClient(
+            transport: transport,
+            baseURL: try XCTUnwrap(URL(string: "https://api.example"))
+        )
 
         let summary = try await client.summary(accountKey: "admin-key")
 
@@ -68,17 +74,17 @@ final class FalPricingAccountTests: XCTestCase {
     }
 
     // RT-76.4
-    func test_accountClientDistinguishesMissingUnauthorizedAndScopeErrors() async {
+    func test_accountClientDistinguishesMissingUnauthorizedAndScopeErrors() async throws {
         let client = FalAccountClient(
             transport: PricingFixtureTransport(responses: []),
-            baseURL: URL(string: "https://api.example")!
+            baseURL: try XCTUnwrap(URL(string: "https://api.example"))
         )
         await assertFailure(client: client, key: "", contains: "required")
 
         for (status, fragment) in [(401, "unauthorized"), (403, "Admin scope")] {
             let failing = FalAccountClient(
                 transport: PricingFixtureTransport(responses: [.json(status, #"{"message":"denied"}"#)]),
-                baseURL: URL(string: "https://api.example")!
+                baseURL: try XCTUnwrap(URL(string: "https://api.example"))
             )
             await assertFailure(client: failing, key: "admin-key", contains: fragment)
         }

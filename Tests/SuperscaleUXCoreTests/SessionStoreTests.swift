@@ -28,7 +28,8 @@ final class SessionStoreTests: XCTestCase {
             generatedAsset: source
         )
 
-        XCTAssertTrue(FileManager.default.fileExists(atPath: record.generatedAssetPath!))
+        let generatedAssetPath = try XCTUnwrap(record.generatedAssetPath)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: generatedAssetPath))
         XCTAssertTrue(FileManager.default.fileExists(atPath: record.metadataPath))
         XCTAssertEqual(try store.sessions(), [record])
         XCTAssertEqual(record.prompt, "A lighthouse")
