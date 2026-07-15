@@ -13,7 +13,7 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "F6000001"
                BuildableName = "Superscale.app"
-               BlueprintName = "Superscale"
+               BlueprintName = "SuperscaleApp"
                ReferencedContainer = "container:SuperscaleApp.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -29,7 +29,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "F6000001"
             BuildableName = "Superscale.app"
-            BlueprintName = "Superscale"
+            BlueprintName = "SuperscaleApp"
             ReferencedContainer = "container:SuperscaleApp.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
@@ -62,7 +62,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "F6000001"
             BuildableName = "Superscale.app"
-            BlueprintName = "Superscale"
+            BlueprintName = "SuperscaleApp"
             ReferencedContainer = "container:SuperscaleApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>

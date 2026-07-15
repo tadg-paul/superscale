@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var state: GenerationSettingsState
+    @State private var accountState: GenerationAccountState = .unavailable
 
     var body: some View {
         Form {
@@ -25,6 +26,19 @@ struct SettingsView: View {
                     credentialStatus(configured: state.isAccountAdministrationConfigured)
                 }
                 .accessibilityIdentifier("accountState")
+
+                LabeledContent("Account summary") {
+                    accountSummary
+                }
+                .accessibilityIdentifier("accountSummaryState")
+
+                Button {
+                    refreshAccount()
+                } label: {
+                    Label("Refresh Account", systemImage: "arrow.clockwise")
+                }
+                .disabled(!state.isAccountAdministrationConfigured || accountState == .loading)
+                .accessibilityIdentifier("refreshAccountButton")
             }
 
             Section("Defaults") {
@@ -98,6 +112,20 @@ struct SettingsView: View {
             .foregroundStyle(configured ? Color.secondary : Color.orange)
     }
 
+    @ViewBuilder
+    private var accountSummary: some View {
+        switch accountState {
+        case .unavailable:
+            Text("Not loaded").foregroundStyle(.secondary)
+        case .loading:
+            ProgressView().controlSize(.small)
+        case let .available(balance, recentUsage, currency):
+            Text("\(balance.formatted(.currency(code: currency))) balance · \(recentUsage.formatted(.currency(code: currency))) recent usage")
+        case let .failed(message):
+            Text(message).foregroundStyle(.secondary)
+        }
+    }
+
     private var outputFolderPath: Binding<String> {
         Binding(
             get: { state.outputFolder?.path ?? "" },
@@ -121,6 +149,23 @@ struct SettingsView: View {
         panel.allowsMultipleSelection = false
         if panel.runModal() == .OK {
             state.outputFolder = panel.url
+        }
+    }
+
+    private func refreshAccount() {
+        accountState = .loading
+        let key = state.accountAdministrationKey
+        Task {
+            do {
+                let summary = try await FalAccountClient().summary(accountKey: key)
+                accountState = .available(
+                    balance: summary.balance,
+                    recentUsage: summary.recentUsageCost,
+                    currency: summary.currency
+                )
+            } catch {
+                accountState = .failed(error.localizedDescription)
+            }
         }
     }
 }

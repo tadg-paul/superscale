@@ -9,9 +9,13 @@ struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @ObservedObject var settingsState: GenerationSettingsState
     @StateObject private var navigation = AppNavigation()
+    @StateObject private var generationCoordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
     @State private var showAbout = false
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
+    @State private var reopenedSession: GenerationSessionRecord?
+
+    private let sessionStore = GenerationSessionStore(rootDirectory: V2AppPaths.history)
 
     var body: some View {
         NavigationSplitView {
@@ -47,12 +51,30 @@ struct MainView: View {
         case .upscale:
             upscaleWorkspace
         case .generate:
-            emptyWorkspace(for: .generate)
+            GenerateView(
+                settings: settingsState,
+                coordinator: generationCoordinator,
+                sessionStore: sessionStore,
+                reopenedSession: reopenedSession,
+                onSendToUpscale: sendToUpscale
+            )
         case .history:
-            emptyWorkspace(for: .history)
+            HistoryView(
+                store: sessionStore,
+                onOpenInGenerate: { session in
+                    reopenedSession = session
+                    navigation.select(.generate)
+                },
+                onSendToUpscale: sendToUpscale
+            )
         case .settings:
             SettingsView(state: settingsState)
         }
+    }
+
+    private func sendToUpscale(_ url: URL) {
+        viewModel.handleGeneratedImage(at: url)
+        navigation.select(.upscale)
     }
 
     private var upscaleWorkspace: some View {
@@ -82,7 +104,9 @@ struct MainView: View {
             get: { navigation.selectedMode },
             set: { mode in
                 if let mode {
-                    navigation.select(mode)
+                    DispatchQueue.main.async {
+                        navigation.select(mode)
+                    }
                 }
             }
         )

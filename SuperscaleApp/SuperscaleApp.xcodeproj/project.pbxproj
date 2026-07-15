@@ -23,6 +23,8 @@
 		F100000C /* InfoPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000C /* InfoPanel.swift */; };
 		F100000D /* FaceModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000D /* FaceModelDownloadView.swift */; };
 		F1000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* SettingsView.swift */; };
+		F1000013 /* GenerateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000013 /* GenerateView.swift */; };
+		F1000014 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000014 /* HistoryView.swift */; };
 		F1000010 /* SuperscaleKit in Frameworks */ = {isa = PBXBuildFile; productRef = F5000001 /* SuperscaleKit */; };
 		F1000011 /* SuperscaleUXCore in Frameworks */ = {isa = PBXBuildFile; productRef = F5000003 /* SuperscaleUXCore */; };
 		F1000030 /* SuperscaleAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000030 /* SuperscaleAppUITests.swift */; };
@@ -46,6 +48,8 @@
 		F200000E /* LICENCE_NVIDIA.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENCE_NVIDIA.txt; sourceTree = "<group>"; };
 		F200000F /* LICENCE_CC_BY_NC_SA.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENCE_CC_BY_NC_SA.txt; sourceTree = "<group>"; };
 		F2000012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F2000013 /* GenerateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GenerateView.swift; sourceTree = "<group>"; };
+		F2000014 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		F2000030 /* SuperscaleAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperscaleAppUITests.swift; sourceTree = "<group>"; };
 		F2000021 /* SuperscaleAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SuperscaleAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2000020 /* Superscale.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Superscale.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -89,6 +93,8 @@
 				F200000C /* InfoPanel.swift */,
 				F200000D /* FaceModelDownloadView.swift */,
 				F2000012 /* SettingsView.swift */,
+				F2000013 /* GenerateView.swift */,
+				F2000014 /* HistoryView.swift */,
 				F2000008 /* Assets.xcassets */,
 				F4000004 /* Resources */,
 				F2000009 /* Superscale.entitlements */,
@@ -137,7 +143,7 @@
 			);
 			dependencies = (
 			);
-			name = Superscale;
+			name = SuperscaleApp;
 			packageProductDependencies = (
 				F5000001 /* SuperscaleKit */,
 				F5000003 /* SuperscaleUXCore */,
@@ -178,7 +184,7 @@
 			containerPortal = F7000001 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = F6000001;
-			remoteInfo = Superscale;
+			remoteInfo = SuperscaleApp;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -243,6 +249,8 @@
 				F100000C /* InfoPanel.swift in Sources */,
 				F100000D /* FaceModelDownloadView.swift in Sources */,
 				F1000012 /* SettingsView.swift in Sources */,
+				F1000013 /* GenerateView.swift in Sources */,
+				F1000014 /* HistoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -395,7 +403,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.tadgpaul.superscale.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Superscale;
+				TEST_TARGET_NAME = SuperscaleApp;
 				TargetApplicationBundleIdentifier = com.tadgpaul.superscale;
 			};
 			name = Debug;
@@ -412,7 +420,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.tadgpaul.superscale.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = Superscale;
+				TEST_TARGET_NAME = SuperscaleApp;
 				TargetApplicationBundleIdentifier = com.tadgpaul.superscale;
 			};
 			name = Release;
