@@ -5,7 +5,7 @@ import Foundation
 import XCTest
 
 final class PackageDependencyTests: XCTestCase {
-    // RT-70.1: The CLI remains isolated from GUI-only modules.
+    // RT-70.1, RT-78.2: The CLI remains isolated from GUI-only modules.
     func test_cli_target_excludes_gui_only_modules_RT70_1() throws {
         let dependencyMap = try loadTargetDependencyMap()
         let dependencies = Set(try XCTUnwrap(dependencyMap["Superscale"]))
