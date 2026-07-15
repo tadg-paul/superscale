@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-visual clean install uninstall release release-gui release-models sync convert-models download-models
+.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-visual inspect-gui-release clean install uninstall release release-gui release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -74,6 +74,10 @@ test-visual: build-debug ## Upscale test images for visual inspection (UT-002)
 	@echo ""
 	@echo "Visual output saved to Tests/visual_output/"
 	@echo "Inspect before/after images there."
+
+inspect-gui-release: ## Inspect a GUI .app before release (APP_PATH=/path/to/Superscale.app)
+	@test -n "$(APP_PATH)" || { echo "APP_PATH is required" >&2; exit 1; }
+	@./scripts/inspect-gui-release.sh "$(APP_PATH)"
 
 clean: ## Remove build artefacts
 	rm -rf .build

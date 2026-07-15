@@ -56,17 +56,10 @@ fi
 
 echo "  Built: ${APP_PATH}"
 
-# --- 2. Verify no bundled models ---
+# --- 2. Inspect packaged resources and exclusions ---
 
-if [[ -d "${APP_PATH}/Contents/MacOS/models" ]]; then
-    # Remove any symlinks from development
-    if [[ -L "${APP_PATH}/Contents/MacOS/models" ]]; then
-        rm -f "${APP_PATH}/Contents/MacOS/models"
-        echo "  Removed development model symlink"
-    else
-        die ".app contains bundled models — should use shared location instead"
-    fi
-fi
+echo "Inspecting release contents..."
+"${SCRIPT_DIR}/inspect-gui-release.sh" "${APP_PATH}"
 
 # --- 3. Ad-hoc code sign ---
 

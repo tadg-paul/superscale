@@ -53,7 +53,7 @@ final class ReleasePackagingTests: XCTestCase {
         let cliScript = try readProjectFile("scripts/release.sh")
         let guiScript = try readProjectFile("scripts/release-gui.sh")
 
-        XCTAssertTrue(makefile.contains("release:\"".dropLast()))
+        XCTAssertTrue(makefile.contains("release:"))
         XCTAssertTrue(makefile.contains("@./scripts/release.sh $(RELEASE_VERSION)"))
         XCTAssertTrue(makefile.contains("release-gui:"))
         XCTAssertTrue(makefile.contains("@./scripts/release-gui.sh"))
