@@ -913,4 +913,44 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(modelTextAgain.waitForExistence(timeout: 3),
                       "Info panel should reappear after clicking restore")
     }
+
+    // RT-75.1: Generate exposes the MVP controls and defaults.
+    func test_generate_workspace_controls_RT75_1() {
+        app.staticTexts["modeGenerate"].click()
+
+        XCTAssertTrue(app.popUpButtons["generationPromptPackPicker"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textViews["generationPromptField"].exists
+                      || app.textFields["generationPromptField"].exists)
+        XCTAssertTrue(app.popUpButtons["generationModelPicker"].exists)
+        XCTAssertTrue(app.popUpButtons["generationAspectPicker"].exists)
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'referenceWell'")).count, 3)
+        XCTAssertTrue(app.buttons["estimateCostButton"].exists)
+        XCTAssertTrue(app.buttons["generateButton"].exists)
+        XCTAssertTrue(app.buttons["cancelGenerationButton"].exists)
+    }
+
+    // RT-76.6: Cost and account states are visible without blocking Generate.
+    func test_generation_cost_and_account_status_controls_RT76_6() {
+        app.staticTexts["modeGenerate"].click()
+        XCTAssertTrue(app.staticTexts["generationCostState"].waitForExistence(timeout: 5))
+
+        app.staticTexts["modeSettings"].click()
+        XCTAssertTrue(app.buttons["refreshAccountButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["accountSummaryState"].exists
+                      || app.otherElements["accountSummaryState"].exists)
+    }
+
+    // RT-77.5: History exposes filters and selected-session actions.
+    func test_history_workspace_controls_RT77_5() {
+        app.staticTexts["modeHistory"].click()
+
+        XCTAssertTrue(app.segmentedControls["historyFilter"].waitForExistence(timeout: 5)
+                      || app.popUpButtons["historyFilter"].exists)
+        XCTAssertTrue(app.otherElements["historySessionList"].exists
+                      || app.scrollViews["historySessionList"].exists)
+        XCTAssertTrue(app.buttons["historyOpenInGenerate"].exists)
+        XCTAssertTrue(app.buttons["historySendToUpscale"].exists)
+        XCTAssertTrue(app.buttons["historySaveAs"].exists)
+        XCTAssertTrue(app.buttons["historyReveal"].exists)
+    }
 }
