@@ -330,13 +330,14 @@ final class UpscaleViewModel: ObservableObject {
         processImage(source: .generatedFile(url))
     }
 
-    func saveAs() {
+    func saveAs(defaultDirectory: URL? = nil) {
         guard let image = result else { return }
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png, .jpeg]
         panel.nameFieldStringValue = outputFilename()
         panel.canCreateDirectories = true
+        panel.directoryURL = defaultDirectory
 
         guard panel.runModal() == .OK, let url = panel.url else { return }
 

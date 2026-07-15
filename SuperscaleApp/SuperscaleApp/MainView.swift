@@ -8,6 +8,8 @@ import SwiftUI
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @ObservedObject var settingsState: GenerationSettingsState
+    @ObservedObject var pricingCoordinator: GenerationPricingCoordinator
+    @ObservedObject var accountCoordinator: GenerationAccountCoordinator
     @StateObject private var navigation = AppNavigation()
     @StateObject private var generationCoordinator: GenerationCoordinator
     @State private var showAbout = false
@@ -22,10 +24,14 @@ struct MainView: View {
         viewModel: UpscaleViewModel,
         settingsState: GenerationSettingsState,
         generationCoordinator: GenerationCoordinator? = nil,
+        pricingCoordinator: GenerationPricingCoordinator? = nil,
+        accountCoordinator: GenerationAccountCoordinator? = nil,
         sessionStore: GenerationSessionStore? = nil
     ) {
         self.viewModel = viewModel
         self.settingsState = settingsState
+        self.pricingCoordinator = pricingCoordinator ?? GenerationPricingCoordinator()
+        self.accountCoordinator = accountCoordinator ?? GenerationAccountCoordinator()
         _generationCoordinator = StateObject(
             wrappedValue: generationCoordinator
                 ?? GenerationCoordinator(outputDirectory: V2AppPaths.generated)
@@ -35,10 +41,14 @@ struct MainView: View {
     }
 
     var body: some View {
-        NavigationSplitView {
-            sidebar
-        } detail: {
-            workspace
+        VStack(spacing: 0) {
+            NavigationSplitView {
+                sidebar
+            } detail: {
+                workspace
+            }
+            Divider()
+            statusBar
         }
         .navigationTitle(windowTitle)
         .alert("Error", isPresented: showError, actions: {
@@ -77,9 +87,11 @@ struct MainView: View {
             GenerateView(
                 settings: settingsState,
                 coordinator: generationCoordinator,
+                pricing: pricingCoordinator,
                 sessionStore: sessionStore,
                 reopenedSession: reopenedSession,
-                onSendToUpscale: sendToUpscale
+                onSendToUpscale: sendToUpscale,
+                onOpenSettings: { navigation.select(.settings) }
             )
         case .history:
             HistoryView(
@@ -93,12 +105,20 @@ struct MainView: View {
                 }
             )
         case .settings:
-            SettingsView(state: settingsState)
+            SettingsView(
+                state: settingsState,
+                pricing: pricingCoordinator,
+                account: accountCoordinator
+            )
         }
     }
 
     private func sendToUpscale(_ url: URL, sessionID: UUID?) {
         pendingSessionID = sessionID
+        let preferredModel = settingsState.defaultUpscaleModelID
+        if preferredModel == "auto" || ModelRegistry.model(named: preferredModel) != nil {
+            viewModel.selectedModelName = preferredModel
+        }
         viewModel.handleGeneratedImage(at: url)
         navigation.select(.upscale)
     }
@@ -132,11 +152,6 @@ struct MainView: View {
         .onChange(of: viewModel.scaleMode) { infoPanelDismissed = false }
         .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
         .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
-    }
-
-    private func emptyWorkspace(for mode: AppMode) -> some View {
-        ContentUnavailableView(mode.rawValue, systemImage: icon(for: mode))
-            .accessibilityIdentifier("\(mode.rawValue.lowercased())Workspace")
     }
 
     private var selectedMode: Binding<AppMode?> {
@@ -188,7 +203,7 @@ struct MainView: View {
                 .accessibilityIdentifier("compareButton")
 
                 Button("Save As…") {
-                    viewModel.saveAs()
+                    viewModel.saveAs(defaultDirectory: settingsState.outputFolder)
                 }
                 .accessibilityIdentifier("saveButton")
             }
@@ -216,6 +231,49 @@ struct MainView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+    }
+
+    private var statusBar: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(statusColour)
+                .frame(width: 7, height: 7)
+            Text(statusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer()
+            Text(navigation.selectedMode.rawValue)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 26)
+        .accessibilityIdentifier("appStatusBar")
+    }
+
+    private var statusText: String {
+        if viewModel.isProcessing { return viewModel.progressMessage }
+        switch generationCoordinator.phase {
+        case .generating:
+            return "Generating with FAL"
+        case .failed:
+            return "Generation needs attention"
+        case .cancelled:
+            return "Generation cancelled"
+        case .succeeded:
+            return "Generated image ready"
+        case .idle:
+            return settingsState.isGenerationConfigured
+                ? "Ready · FAL configured · local upscale available"
+                : "Ready · local upscale available · FAL key not configured"
+        }
+    }
+
+    private var statusColour: Color {
+        if viewModel.isProcessing || generationCoordinator.phase == .generating { return .orange }
+        if case .failed = generationCoordinator.phase { return .red }
+        return .green
     }
 
     // MARK: - Content

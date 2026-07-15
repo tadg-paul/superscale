@@ -11,6 +11,8 @@ struct SuperscaleApp: App {
     @StateObject private var viewModel = UpscaleViewModel()
     @StateObject private var settingsState: GenerationSettingsState
     @StateObject private var generationCoordinator: GenerationCoordinator
+    @StateObject private var pricingCoordinator: GenerationPricingCoordinator
+    @StateObject private var accountCoordinator: GenerationAccountCoordinator
     private let sessionStore: GenerationSessionStore
 
     init() {
@@ -26,6 +28,8 @@ struct SuperscaleApp: App {
 
         var credentialStorage: any CredentialStorage = KeychainCredentialStorage()
         var coordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
+        var pricing = GenerationPricingCoordinator()
+        var account = GenerationAccountCoordinator()
         var store = GenerationSessionStore(rootDirectory: V2AppPaths.history)
 
 #if DEBUG
@@ -41,6 +45,8 @@ struct SuperscaleApp: App {
                     directory: root.appendingPathComponent("Generated", isDirectory: true)
                 )
             )
+            pricing = GenerationPricingCoordinator(service: UITestPricingService())
+            account = GenerationAccountCoordinator(service: UITestAccountService())
             store = GenerationSessionStore(
                 rootDirectory: root.appendingPathComponent("History", isDirectory: true)
             )
@@ -62,6 +68,8 @@ struct SuperscaleApp: App {
             )
         )
         _generationCoordinator = StateObject(wrappedValue: coordinator)
+        _pricingCoordinator = StateObject(wrappedValue: pricing)
+        _accountCoordinator = StateObject(wrappedValue: account)
         sessionStore = store
     }
 
@@ -71,6 +79,8 @@ struct SuperscaleApp: App {
                 viewModel: viewModel,
                 settingsState: settingsState,
                 generationCoordinator: generationCoordinator,
+                pricingCoordinator: pricingCoordinator,
+                accountCoordinator: accountCoordinator,
                 sessionStore: sessionStore
             )
                 .frame(minWidth: 780, minHeight: 500)
@@ -78,7 +88,7 @@ struct SuperscaleApp: App {
         .commands {
             CommandGroup(replacing: .saveItem) {
                 Button("Save As…") {
-                    viewModel.saveAs()
+                    viewModel.saveAs(defaultDirectory: settingsState.outputFolder)
                 }
                 .keyboardShortcut("s", modifiers: [.command])
                 .disabled(viewModel.result == nil)
@@ -117,6 +127,37 @@ private struct UITestGenerationService: GenerationServing {
             data: try Data(contentsOf: imageURL),
             contentType: "image/png",
             warnings: []
+        )
+    }
+}
+
+private struct UITestPricingService: GenerationPricingServing {
+    func pricing(modelID: String, apiKey: String) async throws -> FalPricing {
+        FalPricing(
+            unitPrice: FalUnitPrice(amount: 0.02, unit: "image", currency: "USD"),
+            estimatedCost: 0.02,
+            currency: "USD"
+        )
+    }
+}
+
+private struct UITestAccountService: GenerationAccountServing {
+    func summary(accountKey: String) async throws -> FalAccountSummary {
+        FalAccountSummary(
+            username: "UI Test Account",
+            balance: 12.50,
+            currency: "USD",
+            recentUsageCost: 0.04,
+            billingEvents: [
+                FalBillingEvent(
+                    requestID: "ui-test-request",
+                    endpointID: FalGenerationRequest.defaultModelID,
+                    timestamp: "2026-07-15T00:00:00Z",
+                    outputUnits: 1,
+                    unitPrice: 0.02,
+                    costEstimateNanoUSD: 20_000_000
+                ),
+            ]
         )
     }
 }

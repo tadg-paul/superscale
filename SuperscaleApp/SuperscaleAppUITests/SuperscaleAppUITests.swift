@@ -161,6 +161,15 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(app.textFields["outputFolderField"].exists)
         XCTAssertTrue(app.textFields["costThresholdField"].exists)
         XCTAssertTrue(app.popUpButtons["defaultPromptPackPicker"].exists)
+        XCTAssertTrue(element(identifier: "saveGenerationKeyButton").exists)
+        XCTAssertTrue(element(identifier: "removeGenerationKeyButton").isEnabled)
+        XCTAssertTrue(element(identifier: "saveAccountKeyButton").exists)
+        XCTAssertTrue(element(identifier: "removeAccountKeyButton").isEnabled)
+        XCTAssertTrue(element(identifier: "checkPricingButton").isEnabled)
+        XCTAssertTrue(element(identifier: "refreshAccountButton").isEnabled)
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS[c] 'bundled image filters' OR label CONTAINS[c] 'bundled image filters'")
+        ).firstMatch.exists)
         XCTAssertTrue(app.buttons["saveSettingsButton"].isEnabled)
     }
 
@@ -988,6 +997,11 @@ final class SuperscaleAppUITests: XCTestCase {
 
         let sendToUpscale = app.buttons["generatedSendToUpscale"]
         XCTAssertTrue(sendToUpscale.waitForExistence(timeout: 10))
+        XCTAssertTrue(element(identifier: "generatedSessionDetails").exists
+                      || app.staticTexts["Session details"].exists)
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS 'UI fixture generation' OR label CONTAINS 'UI fixture generation'")
+        ).firstMatch.exists)
         XCTAssertTrue(app.buttons["generatedSaveAs"].isEnabled)
         XCTAssertTrue(app.buttons["generatedRetry"].isEnabled)
         XCTAssertTrue(app.buttons["generatedReveal"].isEnabled)
@@ -1012,9 +1026,23 @@ final class SuperscaleAppUITests: XCTestCase {
                       || costText.exists)
 
         app.staticTexts["modeSettings"].click()
-        XCTAssertTrue(element(identifier: "refreshAccountButton").waitForExistence(timeout: 5))
-        XCTAssertTrue(element(identifier: "accountSummaryState").exists
-                      || app.staticTexts["Not loaded"].exists)
+        let pricingButton = element(identifier: "checkPricingButton")
+        XCTAssertTrue(pricingButton.waitForExistence(timeout: 5))
+        pricingButton.click()
+        let populatedPricing = app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS '$0.02' OR label CONTAINS '$0.02'")
+        ).firstMatch
+        XCTAssertTrue(populatedPricing.waitForExistence(timeout: 5))
+
+        let accountButton = element(identifier: "refreshAccountButton")
+        XCTAssertTrue(accountButton.exists)
+        accountButton.click()
+        let populatedAccount = app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS 'UI Test Account' OR label CONTAINS 'UI Test Account'")
+        ).firstMatch
+        XCTAssertTrue(populatedAccount.waitForExistence(timeout: 5))
+        XCTAssertTrue(element(identifier: "billingEvents").exists
+                      || app.staticTexts["Recent billing"].exists)
     }
 
     // RT-77.5: History exposes filters and selected-session actions.
@@ -1027,6 +1055,7 @@ final class SuperscaleAppUITests: XCTestCase {
                       || app.staticTexts["All"].exists)
         XCTAssertTrue(element(identifier: "historySessionList").exists
                       || app.staticTexts["No history selected"].exists)
+        XCTAssertTrue(element(identifier: "historySearchField").exists)
         XCTAssertTrue(element(identifier: "historyOpenInGenerate").exists)
         XCTAssertTrue(element(identifier: "historySendToUpscale").exists)
         XCTAssertTrue(element(identifier: "historySaveAs").exists)
@@ -1041,6 +1070,13 @@ final class SuperscaleAppUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(fixture.waitForExistence(timeout: 5))
         fixture.click()
+
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS 'xai/grok-imagine-image' OR label CONTAINS 'xai/grok-imagine-image'")
+        ).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS '$0.01' OR label CONTAINS '$0.01'")
+        ).firstMatch.exists)
 
         XCTAssertTrue(app.buttons["historyOpenInGenerate"].isEnabled)
         XCTAssertTrue(app.buttons["historySendToUpscale"].isEnabled)

@@ -20,38 +20,45 @@ enum V2AppPaths {
 struct GenerateView: View {
     @ObservedObject var settings: GenerationSettingsState
     @ObservedObject var coordinator: GenerationCoordinator
+    @ObservedObject var pricing: GenerationPricingCoordinator
     let sessionStore: GenerationSessionStore
     let reopenedSession: GenerationSessionRecord?
     let onSendToUpscale: (URL, UUID?) -> Void
+    let onOpenSettings: () -> Void
 
     @State private var prompt = ""
     @State private var selectedPackID: String?
     @State private var selectedModelID = FalGenerationRequest.defaultModelID
     @State private var aspectRatio = "1:1"
     @State private var references: [URL] = []
-    @State private var pricingState: PricingState = .idle
     @State private var showCostConfirmation = false
     @State private var localError: String?
     @State private var lastRecordedPhase: String?
     @State private var lastSessionID: UUID?
+    @State private var didLoadDefaults = false
 
     private let aspects = ["1:1", "16:9", "9:16", "4:3", "3:4"]
 
     var body: some View {
         VStack(spacing: 0) {
+            workspaceHeader
+            Divider()
             controls
             Divider()
             output
         }
         .onAppear {
-            selectedPackID = reopenedSession == nil ? settings.defaultPromptPackID : selectedPackID
-            selectedModelID = reopenedSession?.modelID ?? settings.defaultModelID
-            if let reopenedSession { prompt = reopenedSession.prompt }
+            guard !didLoadDefaults else { return }
+            didLoadDefaults = true
+            selectedPackID = settings.defaultPromptPackID
+            selectedModelID = settings.defaultModelID
+            if let reopenedSession { apply(reopenedSession) }
         }
         .onChange(of: reopenedSession?.id) { _, _ in
-            guard let reopenedSession else { return }
-            prompt = reopenedSession.prompt
-            selectedModelID = reopenedSession.modelID
+            if let reopenedSession { apply(reopenedSession) }
+        }
+        .onChange(of: selectedModelID) { _, _ in
+            pricing.reset()
         }
         .onChange(of: coordinator.phase) { _, phase in
             persist(phase)
@@ -69,8 +76,25 @@ struct GenerateView: View {
         }
     }
 
+    private var workspaceHeader: some View {
+        HStack(spacing: 16) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Generate").font(.title2).fontWeight(.semibold)
+                Text("Create with FAL, then enhance locally")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Label(selectedModel?.displayName ?? selectedModelID, systemImage: "cpu")
+                .foregroundStyle(.secondary)
+            compactCostStatus
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
     private var controls: some View {
-        HStack(alignment: .top, spacing: 20) {
+        HStack(alignment: .top, spacing: 18) {
             Form {
                 Picker("Prompt pack", selection: $selectedPackID) {
                     Text("None").tag(nil as String?)
@@ -91,9 +115,15 @@ struct GenerateView: View {
                     ForEach(aspects, id: \.self) { Text($0).tag($0) }
                 }
                 .accessibilityIdentifier("generationAspectPicker")
+
+                if let selectedPack {
+                    Text(selectedPack.category)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             .formStyle(.grouped)
-            .frame(width: 260)
+            .frame(width: 250)
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Prompt").font(.headline)
@@ -102,6 +132,16 @@ struct GenerateView: View {
                     .frame(minHeight: 90, maxHeight: 130)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.35)))
                     .accessibilityIdentifier("generationPromptField")
+
+                if !settings.isGenerationConfigured {
+                    HStack {
+                        Label("Add a FAL generation key before generating.", systemImage: "key")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Open Settings", action: onOpenSettings)
+                            .accessibilityIdentifier("openGenerationSettings")
+                    }
+                }
 
                 Text("Reference images").font(.headline)
                 HStack(spacing: 10) {
@@ -115,21 +155,26 @@ struct GenerateView: View {
                         .accessibilityIdentifier("generationCostState")
                     Spacer()
                     Button("Estimate Cost") { estimateCost() }
+                        .labelStyle(.titleAndIcon)
                         .accessibilityIdentifier("estimateCostButton")
                 }
 
                 HStack(spacing: 10) {
                     Spacer()
-                    Button("Cancel") { coordinator.cancel() }
+                    Button("Cancel", role: .cancel) { coordinator.cancel() }
                         .disabled(coordinator.phase != .generating)
                         .accessibilityIdentifier("cancelGenerationButton")
-                    Button("Generate") { beginGeneration() }
+                    Button {
+                        beginGeneration()
+                    } label: {
+                        Label("Generate", systemImage: "sparkles")
+                    }
                         .buttonStyle(.borderedProminent)
                         .disabled(!canGenerate)
                         .accessibilityIdentifier("generateButton")
                 }
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 14)
             .padding(.trailing, 20)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -139,10 +184,20 @@ struct GenerateView: View {
     private var output: some View {
         switch coordinator.phase {
         case .idle:
-            ContentUnavailableView("No generated image", systemImage: "sparkles")
+            ContentUnavailableView(
+                "Ready to generate",
+                systemImage: "sparkles",
+                description: Text("Enter a prompt or choose a prompt pack. Add reference images for an edit.")
+            )
         case .generating:
-            ProgressView("Generating with FAL...")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            VStack(spacing: 12) {
+                ProgressView().controlSize(.large)
+                Text("Generating with FAL...").font(.headline)
+                Text("You can cancel while the provider request is running.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .cancelled:
             ContentUnavailableView("Generation cancelled", systemImage: "xmark.circle")
         case let .failed(message):
@@ -153,26 +208,79 @@ struct GenerateView: View {
     }
 
     private func generatedOutput(_ generated: GeneratedOutput) -> some View {
-        VStack(spacing: 12) {
-            if let image = NSImage(contentsOf: generated.localURL) {
-                Image(nsImage: image)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(12)
+        VStack(spacing: 0) {
+            HSplitView {
+                Group {
+                    if let image = NSImage(contentsOf: generated.localURL) {
+                        Image(nsImage: image)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .padding(16)
+                    } else {
+                        ContentUnavailableView("Preview unavailable", systemImage: "photo")
+                    }
+                }
+                .frame(minWidth: 360, maxWidth: .infinity, maxHeight: .infinity)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("Session details").font(.headline)
+                            .accessibilityIdentifier("generatedSessionDetails")
+                        detailRow("Prompt", PromptComposer.compose(pack: selectedPack, userPrompt: prompt))
+                        detailRow("Model", selectedModel?.displayName ?? selectedModelID)
+                        detailRow("Endpoint", selectedModelID)
+                        detailRow("Prompt pack", selectedPack?.displayName ?? "None")
+                        detailRow("Aspect", aspectRatio)
+                        detailRow("References", "\(references.count)")
+                        detailRow("Estimate", estimateDescription)
+                        detailRow("File", generated.localURL.path)
+                        if !generated.warnings.isEmpty {
+                            Divider()
+                            Label("Provider warnings", systemImage: "exclamationmark.triangle")
+                                .font(.headline)
+                            ForEach(Array(generated.warnings.enumerated()), id: \.offset) { _, warning in
+                                Text(warningDescription(warning))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(minWidth: 260, idealWidth: 310, maxWidth: 380)
             }
+            Divider()
             HStack {
-                Button("Send to Upscale") { onSendToUpscale(generated.localURL, lastSessionID) }
+                Button {
+                    onSendToUpscale(generated.localURL, lastSessionID)
+                } label: {
+                    Label("Send to Upscale", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("generatedSendToUpscale")
-                Button("Save As...") { save(generated.localURL) }
+                Button { save(generated.localURL) } label: {
+                    Label("Save As...", systemImage: "square.and.arrow.down")
+                }
                     .accessibilityIdentifier("generatedSaveAs")
-                Button("Retry") { beginGeneration() }
+                Button { beginGeneration() } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
                     .accessibilityIdentifier("generatedRetry")
-                Button("Reveal") { reveal(generated.localURL) }
+                Button { reveal(generated.localURL) } label: {
+                    Label("Reveal", systemImage: "folder")
+                }
                     .accessibilityIdentifier("generatedReveal")
+                Spacer()
             }
-            .padding(.bottom, 14)
+            .padding(14)
+        }
+    }
+
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label).font(.caption).foregroundStyle(.secondary)
+            Text(value).textSelection(.enabled)
         }
     }
 
@@ -198,18 +306,32 @@ struct GenerateView: View {
 
     @ViewBuilder
     private var costStatus: some View {
-        switch pricingState {
+        switch pricing.state {
         case .idle:
             Text("Cost not estimated")
         case .loading:
             ProgressView().controlSize(.small)
             Text("Checking cost...")
         case let .available(pricing):
-            Text("Est. \(pricing.estimatedCost, format: .currency(code: pricing.currency))")
+            Text("Est. \(pricing.estimatedCost, format: .currency(code: pricing.currency)) · \(pricing.unitPrice.amount, format: .currency(code: pricing.unitPrice.currency))/\(pricing.unitPrice.unit)")
         case let .unavailable(message):
             Text("Cost unavailable: \(message)")
                 .foregroundStyle(.secondary)
-                .lineLimit(1)
+                .lineLimit(2)
+        }
+    }
+
+    @ViewBuilder
+    private var compactCostStatus: some View {
+        switch pricing.state {
+        case let .available(value):
+            Label(value.estimatedCost.formatted(.currency(code: value.currency)), systemImage: "dollarsign.circle")
+                .monospacedDigit()
+        case .loading:
+            ProgressView().controlSize(.small)
+        case .idle, .unavailable:
+            Label("Not estimated", systemImage: "dollarsign.circle")
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -223,9 +345,18 @@ struct GenerateView: View {
         selectedPackID.flatMap(settings.promptPackCatalogue.pack(id:))
     }
 
+    private var selectedModel: GenerationModel? {
+        GenerationModelRegistry.mvp.selectableModels.first { $0.id == selectedModelID }
+    }
+
     private var estimatedCost: Double? {
-        guard case let .available(pricing) = pricingState else { return nil }
+        guard case let .available(pricing) = pricing.state else { return nil }
         return pricing.estimatedCost
+    }
+
+    private var estimateDescription: String {
+        guard case let .available(value) = pricing.state else { return "Unavailable" }
+        return value.estimatedCost.formatted(.currency(code: value.currency))
     }
 
     private var costConfirmationMessage: String {
@@ -246,15 +377,10 @@ struct GenerateView: View {
     }
 
     private func estimateCost() {
-        pricingState = .loading
         let key = settings.generationKey
         let modelID = selectedModelID
         Task {
-            do {
-                pricingState = .available(try await FalPricingClient().pricing(modelID: modelID, apiKey: key))
-            } catch {
-                pricingState = .unavailable(error.localizedDescription)
-            }
+            await pricing.refresh(modelID: modelID, apiKey: key)
         }
     }
 
@@ -342,6 +468,7 @@ struct GenerateView: View {
     private func save(_ source: URL) {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = source.lastPathComponent
+        panel.directoryURL = settings.outputFolder
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         do {
             try FileManager.default.copyItem(at: source, to: destination)
@@ -357,11 +484,23 @@ struct GenerateView: View {
     private var showError: Binding<Bool> {
         Binding(get: { localError != nil }, set: { if !$0 { localError = nil } })
     }
-}
 
-private enum PricingState: Equatable {
-    case idle
-    case loading
-    case available(FalPricing)
-    case unavailable(String)
+    private func apply(_ session: GenerationSessionRecord) {
+        prompt = session.prompt
+        selectedModelID = session.modelID
+        references = session.referencePaths
+            .map(URL.init(fileURLWithPath:))
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+            .prefix(GenerationReferenceSelection.maximumCount)
+            .map { $0 }
+        coordinator.reset()
+        pricing.reset()
+    }
+
+    private func warningDescription(_ warning: FalGenerationWarning) -> String {
+        switch warning {
+        case let .extraReferencesIgnored(modelID, accepted, provided):
+            return "\(modelID) accepted \(accepted) of \(provided) reference images."
+        }
+    }
 }
