@@ -99,8 +99,16 @@ final class GenerationCoordinatorTests: XCTestCase {
     }
 
     private func temporaryDirectory() -> URL {
-        FileManager.default.temporaryDirectory
+        projectRoot
+            .appendingPathComponent(".agent/tmp/package-tests", isDirectory: true)
             .appendingPathComponent("GenerationCoordinatorTests-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    private var projectRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
     }
 }
 

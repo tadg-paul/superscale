@@ -6,6 +6,7 @@ import XCTest
 final class SuperscaleAppUITests: XCTestCase {
 
     let app = XCUIApplication()
+    private var runtimeRoot: URL!
 
     /// Absolute path to a small test image for upscale tests.
     /// Uses icon3.png (224×207, smallest test image) for speed.
@@ -20,9 +21,28 @@ final class SuperscaleAppUITests: XCTestCase {
         return projectRoot.appendingPathComponent("Tests/images/icon3.png").path
     }
 
+    private var projectRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+        runtimeRoot = projectRoot
+            .appendingPathComponent(".agent/tmp/ui-tests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        app.launchEnvironment["SUPERSCALE_UI_TEST_ROOT"] = runtimeRoot.path
+        app.launchEnvironment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] = testImagePath
         app.launch()
+    }
+
+    override func tearDownWithError() throws {
+        if let runtimeRoot, FileManager.default.fileExists(atPath: runtimeRoot.path) {
+            try FileManager.default.removeItem(at: runtimeRoot)
+        }
+        try super.tearDownWithError()
     }
 
     // MARK: - Helpers
@@ -960,6 +980,37 @@ final class SuperscaleAppUITests: XCTestCase {
                       || app.buttons["Cancel"].exists)
     }
 
+    // RT-75.5, RT-75.6, RT-75.7, RT-77.3, RT-77.4, RT-77.6
+    func test_fixtureGenerationUpscalesAndAppearsInHistory() {
+        app.staticTexts["modeGenerate"].click()
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+
+        let generate = app.buttons["generateButton"]
+        XCTAssertTrue(generate.isEnabled)
+        generate.click()
+        let confirmation = app.alerts["Confirm generation cost"]
+        XCTAssertTrue(confirmation.waitForExistence(timeout: 3))
+        confirmation.buttons["Generate"].click()
+
+        let sendToUpscale = app.buttons["generatedSendToUpscale"]
+        XCTAssertTrue(sendToUpscale.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["generatedSaveAs"].isEnabled)
+        XCTAssertTrue(app.buttons["generatedRetry"].isEnabled)
+        XCTAssertTrue(app.buttons["generatedReveal"].isEnabled)
+        sendToUpscale.click()
+
+        XCTAssertTrue(waitForUpscaleComplete())
+        app.staticTexts["modeHistory"].click()
+        app.buttons["Upscaled"].click()
+        let session = app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS 'UI fixture generation' OR label CONTAINS 'UI fixture generation'")
+        ).firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 5))
+    }
+
     // RT-76.6: Cost and account states are visible without blocking Generate.
     func test_generation_cost_and_account_status_controls_RT76_6() {
         app.staticTexts["modeGenerate"].click()
@@ -989,5 +1040,24 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(element(identifier: "historySendToUpscale").exists)
         XCTAssertTrue(element(identifier: "historySaveAs").exists)
         XCTAssertTrue(element(identifier: "historyReveal").exists)
+    }
+
+    // RT-77.6
+    func test_history_fixtureEnablesSessionActions() {
+        app.staticTexts["modeHistory"].click()
+        let fixture = app.staticTexts.matching(
+            NSPredicate(format: "value CONTAINS 'History fixture' OR label CONTAINS 'History fixture'")
+        ).firstMatch
+        XCTAssertTrue(fixture.waitForExistence(timeout: 5))
+        fixture.click()
+
+        XCTAssertTrue(app.buttons["historyOpenInGenerate"].isEnabled)
+        XCTAssertTrue(app.buttons["historySendToUpscale"].isEnabled)
+        XCTAssertTrue(app.buttons["historySaveAs"].isEnabled)
+        XCTAssertTrue(app.buttons["historyReveal"].isEnabled)
+        app.buttons["historyOpenInGenerate"].click()
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        XCTAssertTrue(textContent(of: prompt).contains("History fixture"))
     }
 }

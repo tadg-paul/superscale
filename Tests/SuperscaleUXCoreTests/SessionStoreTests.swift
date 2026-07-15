@@ -79,6 +79,24 @@ final class SessionStoreTests: XCTestCase {
         XCTAssertEqual(updated.upscaleSource, updated.generatedAssetURL.map(GUIUpscaleSource.generatedFile))
     }
 
+    // RT-77.3, RT-77.4
+    func test_encodedUpscaleOutputIsAssociatedWithoutAnIntermediateFile() throws {
+        let root = temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = GenerationSessionStore(rootDirectory: root)
+        let record = try store.record(.fixture, generatedAsset: nil)
+        let output = Data("encoded-upscale".utf8)
+
+        let updated = try store.associateUpscaledAsset(
+            output,
+            fileExtension: "png",
+            withSessionID: record.id
+        )
+
+        XCTAssertEqual(updated.status, .upscaled)
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(updated.upscaledAssetURL)), output)
+    }
+
     // RT-77.5
     func test_sessionsCanBeFilteredAcrossAllMVPStates() throws {
         let root = temporaryDirectory()
@@ -95,8 +113,16 @@ final class SessionStoreTests: XCTestCase {
     }
 
     private func temporaryDirectory() -> URL {
-        FileManager.default.temporaryDirectory
+        projectRoot
+            .appendingPathComponent(".agent/tmp/package-tests", isDirectory: true)
             .appendingPathComponent("SessionStoreTests-\(UUID().uuidString)", isDirectory: true)
+    }
+
+    private var projectRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
     }
 }
 
