@@ -38,6 +38,7 @@ final class UpscaleViewModel: ObservableObject {
     @Published var progressMessage: String = ""
     @Published var originalImage: NSImage?
     @Published var result: NSImage?
+    @Published private(set) var resultData: Data?
     @Published var inputURL: URL?
 
     /// Cached upscale results for instant face enhancement toggling.
@@ -373,6 +374,7 @@ final class UpscaleViewModel: ObservableObject {
         isProcessing = true
         progressMessage = "Loading..."
         result = nil
+        resultData = nil
         showComparison = false
 
         // Invalidate face enhancement cache and upscale metadata
@@ -434,6 +436,7 @@ final class UpscaleViewModel: ObservableObject {
                 let faceWasEnabled = await self.faceEnhance
                 await MainActor.run {
                     self.result = image
+                    self.resultData = output.imageData
                     if faceWasEnabled {
                         self.cachedWithFaces = image
                         self.cachedWithoutFaces = preFaceImage ?? image

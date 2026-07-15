@@ -8,7 +8,7 @@ import SwiftUI
 struct HistoryView: View {
     let store: GenerationSessionStore
     let onOpenInGenerate: (GenerationSessionRecord) -> Void
-    let onSendToUpscale: (URL) -> Void
+    let onSendToUpscale: (URL, UUID) -> Void
 
     @State private var filter: HistoryFilter = .all
     @State private var sessions: [GenerationSessionRecord] = []
@@ -85,7 +85,9 @@ struct HistoryView: View {
                 .disabled(selectedSession == nil)
                 .accessibilityIdentifier("historyOpenInGenerate")
                 Button("Send to Upscale") {
-                    if let url = selectedSession?.generatedAssetURL { onSendToUpscale(url) }
+                    if let session = selectedSession, let url = session.generatedAssetURL {
+                        onSendToUpscale(url, session.id)
+                    }
                 }
                 .disabled(selectedSession?.generatedAssetURL == nil)
                 .accessibilityIdentifier("historySendToUpscale")

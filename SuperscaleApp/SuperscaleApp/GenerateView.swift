@@ -22,7 +22,7 @@ struct GenerateView: View {
     @ObservedObject var coordinator: GenerationCoordinator
     let sessionStore: GenerationSessionStore
     let reopenedSession: GenerationSessionRecord?
-    let onSendToUpscale: (URL) -> Void
+    let onSendToUpscale: (URL, UUID?) -> Void
 
     @State private var prompt = ""
     @State private var selectedPackID: String?
@@ -33,6 +33,7 @@ struct GenerateView: View {
     @State private var showCostConfirmation = false
     @State private var localError: String?
     @State private var lastRecordedPhase: String?
+    @State private var lastSessionID: UUID?
 
     private let aspects = ["1:1", "16:9", "9:16", "4:3", "3:4"]
 
@@ -42,7 +43,6 @@ struct GenerateView: View {
             Divider()
             output
         }
-        .accessibilityIdentifier("generateWorkspace")
         .onAppear {
             selectedPackID = reopenedSession == nil ? settings.defaultPromptPackID : selectedPackID
             selectedModelID = reopenedSession?.modelID ?? settings.defaultModelID
@@ -162,7 +162,7 @@ struct GenerateView: View {
                     .padding(12)
             }
             HStack {
-                Button("Send to Upscale") { onSendToUpscale(generated.localURL) }
+                Button("Send to Upscale") { onSendToUpscale(generated.localURL, lastSessionID) }
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("generatedSendToUpscale")
                 Button("Save As...") { save(generated.localURL) }
@@ -277,6 +277,7 @@ struct GenerateView: View {
                 referenceImageURLs: referenceValues
             )
             lastRecordedPhase = nil
+            lastSessionID = nil
             coordinator.start(request, apiKey: settings.generationKey)
         } catch {
             localError = error.localizedDescription
@@ -318,7 +319,7 @@ struct GenerateView: View {
             return
         }
         do {
-            _ = try sessionStore.record(
+            let record = try sessionStore.record(
                 GenerationSessionDraft(
                     prompt: PromptComposer.compose(pack: selectedPack, userPrompt: prompt),
                     modelID: selectedModelID,
@@ -331,6 +332,7 @@ struct GenerateView: View {
                 generatedAsset: generatedAsset,
                 secrets: [settings.generationKey, settings.accountAdministrationKey]
             )
+            lastSessionID = record.id
             lastRecordedPhase = signature
         } catch {
             localError = "Could not save generation history: \(error.localizedDescription)"

@@ -9,13 +9,30 @@ struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @ObservedObject var settingsState: GenerationSettingsState
     @StateObject private var navigation = AppNavigation()
-    @StateObject private var generationCoordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
+    @StateObject private var generationCoordinator: GenerationCoordinator
     @State private var showAbout = false
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
     @State private var reopenedSession: GenerationSessionRecord?
+    @State private var pendingSessionID: UUID?
 
-    private let sessionStore = GenerationSessionStore(rootDirectory: V2AppPaths.history)
+    private let sessionStore: GenerationSessionStore
+
+    init(
+        viewModel: UpscaleViewModel,
+        settingsState: GenerationSettingsState,
+        generationCoordinator: GenerationCoordinator? = nil,
+        sessionStore: GenerationSessionStore? = nil
+    ) {
+        self.viewModel = viewModel
+        self.settingsState = settingsState
+        _generationCoordinator = StateObject(
+            wrappedValue: generationCoordinator
+                ?? GenerationCoordinator(outputDirectory: V2AppPaths.generated)
+        )
+        self.sessionStore = sessionStore
+            ?? GenerationSessionStore(rootDirectory: V2AppPaths.history)
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -29,6 +46,12 @@ struct MainView: View {
         }, message: {
             Text(viewModel.errorMessage ?? "")
         })
+        .onChange(of: viewModel.resultData) { _, data in
+            associateCompletedUpscale(data)
+        }
+        .onChange(of: viewModel.errorMessage) { _, message in
+            if message != nil { pendingSessionID = nil }
+        }
     }
 
     private var sidebar: some View {
@@ -65,16 +88,33 @@ struct MainView: View {
                     reopenedSession = session
                     navigation.select(.generate)
                 },
-                onSendToUpscale: sendToUpscale
+                onSendToUpscale: { url, sessionID in
+                    sendToUpscale(url, sessionID: sessionID)
+                }
             )
         case .settings:
             SettingsView(state: settingsState)
         }
     }
 
-    private func sendToUpscale(_ url: URL) {
+    private func sendToUpscale(_ url: URL, sessionID: UUID?) {
+        pendingSessionID = sessionID
         viewModel.handleGeneratedImage(at: url)
         navigation.select(.upscale)
+    }
+
+    private func associateCompletedUpscale(_ data: Data?) {
+        guard let data, let pendingSessionID else { return }
+        do {
+            _ = try sessionStore.associateUpscaledAsset(
+                data,
+                fileExtension: "png",
+                withSessionID: pendingSessionID
+            )
+            self.pendingSessionID = nil
+        } catch {
+            viewModel.errorMessage = "Could not update generation history: \(error.localizedDescription)"
+        }
     }
 
     private var upscaleWorkspace: some View {

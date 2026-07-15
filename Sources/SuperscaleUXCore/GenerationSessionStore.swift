@@ -55,6 +55,10 @@ public struct GenerationSessionRecord: Codable, Equatable, Identifiable, Sendabl
         generatedAssetPath.map(URL.init(fileURLWithPath:))
     }
 
+    public var upscaledAssetURL: URL? {
+        upscaledAssetPath.map(URL.init(fileURLWithPath:))
+    }
+
     public var upscaleSource: GUIUpscaleSource? {
         generatedAssetURL.map(GUIUpscaleSource.generatedFile)
     }
@@ -121,13 +125,26 @@ public struct GenerationSessionStore: Sendable {
         _ source: URL,
         withSessionID sessionID: UUID
     ) throws -> GenerationSessionRecord {
+        let pathExtension = source.pathExtension.isEmpty ? "png" : source.pathExtension
+        return try associateUpscaledAsset(
+            Data(contentsOf: source),
+            fileExtension: pathExtension,
+            withSessionID: sessionID
+        )
+    }
+
+    public func associateUpscaledAsset(
+        _ data: Data,
+        fileExtension: String,
+        withSessionID sessionID: UUID
+    ) throws -> GenerationSessionRecord {
         guard var record = try sessions().first(where: { $0.id == sessionID }) else {
             throw GenerationSessionStoreError.sessionNotFound(sessionID)
         }
         let directory = URL(fileURLWithPath: record.metadataPath).deletingLastPathComponent()
-        let name = "upscaled.\(source.pathExtension.isEmpty ? "png" : source.pathExtension)"
+        let name = "upscaled.\(fileExtension.isEmpty ? "png" : fileExtension)"
         let destination = directory.appendingPathComponent(name)
-        try FileManager.default.copyItem(at: source, to: destination)
+        try data.write(to: destination, options: .atomic)
         record.upscaledAssetPath = destination.path
         record.status = .upscaled
         try write(record)

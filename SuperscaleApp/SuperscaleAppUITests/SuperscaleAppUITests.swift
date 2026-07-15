@@ -6,7 +6,6 @@ import XCTest
 final class SuperscaleAppUITests: XCTestCase {
 
     let app = XCUIApplication()
-    private var runtimeRoot: URL!
 
     /// Absolute path to a small test image for upscale tests.
     /// Uses icon3.png (224×207, smallest test image) for speed.
@@ -30,19 +29,11 @@ final class SuperscaleAppUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        runtimeRoot = projectRoot
-            .appendingPathComponent(".agent/tmp/ui-tests", isDirectory: true)
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let runtimeRoot = projectRoot
+            .appendingPathComponent(".agent/tmp/ui-test-runtime", isDirectory: true)
         app.launchEnvironment["SUPERSCALE_UI_TEST_ROOT"] = runtimeRoot.path
         app.launchEnvironment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] = testImagePath
         app.launch()
-    }
-
-    override func tearDownWithError() throws {
-        if let runtimeRoot, FileManager.default.fileExists(atPath: runtimeRoot.path) {
-            try FileManager.default.removeItem(at: runtimeRoot)
-        }
-        try super.tearDownWithError()
     }
 
     // MARK: - Helpers
@@ -991,7 +982,7 @@ final class SuperscaleAppUITests: XCTestCase {
         let generate = app.buttons["generateButton"]
         XCTAssertTrue(generate.isEnabled)
         generate.click()
-        let confirmation = app.alerts["Confirm generation cost"]
+        let confirmation = app.sheets.firstMatch
         XCTAssertTrue(confirmation.waitForExistence(timeout: 3))
         confirmation.buttons["Generate"].click()
 
@@ -1004,7 +995,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
         XCTAssertTrue(waitForUpscaleComplete())
         app.staticTexts["modeHistory"].click()
-        app.buttons["Upscaled"].click()
+        app.radioButtons["Upscaled"].click()
         let session = app.staticTexts.matching(
             NSPredicate(format: "value CONTAINS 'UI fixture generation' OR label CONTAINS 'UI fixture generation'")
         ).firstMatch
