@@ -17,6 +17,7 @@ struct MainView: View {
     @State private var infoPanelDismissed = false
     @State private var reopenedSession: GenerationSessionRecord?
     @State private var pendingSessionID: UUID?
+    @State private var latestGenerationSessionID: UUID?
 
     private let sessionStore: GenerationSessionStore
 
@@ -91,7 +92,8 @@ struct MainView: View {
                 sessionStore: sessionStore,
                 reopenedSession: reopenedSession,
                 onSendToUpscale: sendToUpscale,
-                onOpenSettings: { navigation.select(.settings) }
+                onOpenSettings: { navigation.select(.settings) },
+                onSessionRecorded: { latestGenerationSessionID = $0 }
             )
         case .history:
             HistoryView(
@@ -114,7 +116,7 @@ struct MainView: View {
     }
 
     private func sendToUpscale(_ url: URL, sessionID: UUID?) {
-        pendingSessionID = sessionID
+        pendingSessionID = sessionID ?? latestGenerationSessionID
         let preferredModel = settingsState.defaultUpscaleModelID
         if preferredModel == "auto" || ModelRegistry.model(named: preferredModel) != nil {
             viewModel.selectedModelName = preferredModel

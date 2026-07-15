@@ -1005,6 +1005,12 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(app.buttons["generatedSaveAs"].isEnabled)
         XCTAssertTrue(app.buttons["generatedRetry"].isEnabled)
         XCTAssertTrue(app.buttons["generatedReveal"].isEnabled)
+
+        // Rebuilding Generate after a mode change must not lose the history linkage.
+        app.staticTexts["modeSettings"].click()
+        XCTAssertTrue(element(identifier: "settingsWorkspace").waitForExistence(timeout: 5))
+        app.staticTexts["modeGenerate"].click()
+        XCTAssertTrue(sendToUpscale.waitForExistence(timeout: 5))
         sendToUpscale.click()
 
         XCTAssertTrue(waitForUpscaleComplete())

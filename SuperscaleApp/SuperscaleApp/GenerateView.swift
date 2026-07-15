@@ -25,6 +25,7 @@ struct GenerateView: View {
     let reopenedSession: GenerationSessionRecord?
     let onSendToUpscale: (URL, UUID?) -> Void
     let onOpenSettings: () -> Void
+    let onSessionRecorded: (UUID) -> Void
 
     @State private var prompt = ""
     @State private var selectedPackID: String?
@@ -459,6 +460,7 @@ struct GenerateView: View {
                 secrets: [settings.generationKey, settings.accountAdministrationKey]
             )
             lastSessionID = record.id
+            onSessionRecorded(record.id)
             lastRecordedPhase = signature
         } catch {
             localError = "Could not save generation history: \(error.localizedDescription)"
