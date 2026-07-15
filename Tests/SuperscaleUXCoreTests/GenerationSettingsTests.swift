@@ -128,6 +128,38 @@ final class GenerationSettingsTests: XCTestCase {
         XCTAssertTrue(state.isAccountAdministrationConfigured)
     }
 
+    @MainActor
+    func test_settingsStateSavesAndClearsCredentialsIndependently() throws {
+        let defaults = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: defaultsSuiteName) }
+        let storage = InMemoryCredentialStorage()
+        let credentials = GenerationCredentialService(storage: storage)
+        let state = GenerationSettingsState(
+            credentials: credentials,
+            preferencesStore: GenerationPreferencesStore(defaults: defaults, folderValidator: { _ in true }),
+            promptPackCatalogue: PromptPackCatalogue(packs: [])
+        )
+
+        state.generationKey = " generation-key "
+        try state.saveGenerationCredential()
+        XCTAssertEqual(try credentials.generationKey(), "generation-key")
+        XCTAssertNil(try credentials.accountAdministrationKey())
+
+        state.accountAdministrationKey = "admin-key"
+        try state.saveAccountAdministrationCredential()
+        XCTAssertEqual(try credentials.generationKey(), "generation-key")
+        XCTAssertEqual(try credentials.accountAdministrationKey(), "admin-key")
+
+        try state.clearGenerationCredential()
+        XCTAssertEqual(state.generationKey, "")
+        XCTAssertNil(try credentials.generationKey())
+        XCTAssertEqual(try credentials.accountAdministrationKey(), "admin-key")
+
+        try state.clearAccountAdministrationCredential()
+        XCTAssertEqual(state.accountAdministrationKey, "")
+        XCTAssertNil(try credentials.accountAdministrationKey())
+    }
+
     private let defaultsSuiteName = "GenerationSettingsTests"
 
     private func isolatedDefaults() -> UserDefaults {

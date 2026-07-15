@@ -76,6 +76,7 @@ final class SessionStoreTests: XCTestCase {
         let updated = try store.associateUpscaledAsset(upscaled, withSessionID: record.id)
 
         XCTAssertNotNil(updated.upscaledAssetPath)
+        XCTAssertEqual(updated.preferredAssetURL, updated.upscaledAssetURL)
         XCTAssertEqual(updated.upscaleSource, updated.generatedAssetURL.map(GUIUpscaleSource.generatedFile))
     }
 
