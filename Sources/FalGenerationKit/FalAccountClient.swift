@@ -11,6 +11,22 @@ public struct FalBillingEvent: Codable, Equatable, Sendable {
     public let unitPrice: Double
     public let costEstimateNanoUSD: Int64
 
+    public init(
+        requestID: String,
+        endpointID: String,
+        timestamp: String,
+        outputUnits: Double,
+        unitPrice: Double,
+        costEstimateNanoUSD: Int64
+    ) {
+        self.requestID = requestID
+        self.endpointID = endpointID
+        self.timestamp = timestamp
+        self.outputUnits = outputUnits
+        self.unitPrice = unitPrice
+        self.costEstimateNanoUSD = costEstimateNanoUSD
+    }
+
     enum CodingKeys: String, CodingKey {
         case requestID = "request_id"
         case endpointID = "endpoint_id"

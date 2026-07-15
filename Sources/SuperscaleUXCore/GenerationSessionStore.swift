@@ -59,6 +59,10 @@ public struct GenerationSessionRecord: Codable, Equatable, Identifiable, Sendabl
         upscaledAssetPath.map(URL.init(fileURLWithPath:))
     }
 
+    public var preferredAssetURL: URL? {
+        upscaledAssetURL ?? generatedAssetURL
+    }
+
     public var upscaleSource: GUIUpscaleSource? {
         generatedAssetURL.map(GUIUpscaleSource.generatedFile)
     }

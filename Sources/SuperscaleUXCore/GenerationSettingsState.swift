@@ -66,17 +66,9 @@ public final class GenerationSettingsState: ObservableObject {
 
     public func save() throws {
         do {
-            try storeCredential(generationKey, slot: .generation)
-            try storeCredential(accountAdministrationKey, slot: .accountAdministration)
-            try preferencesStore.save(
-                GenerationPreferences(
-                    outputFolder: outputFolder,
-                    costThreshold: costThreshold,
-                    defaultModelID: defaultModelID,
-                    defaultUpscaleModelID: defaultUpscaleModelID,
-                    defaultPromptPackID: defaultPromptPackID
-                )
-            )
+            try saveGenerationCredential()
+            try saveAccountAdministrationCredential()
+            try savePreferences()
             lastError = nil
         } catch {
             lastError = error.localizedDescription
@@ -96,6 +88,45 @@ public final class GenerationSettingsState: ObservableObject {
 
     public func clearError() {
         lastError = nil
+    }
+
+    public func saveGenerationCredential() throws {
+        try storeCredential(generationKey, slot: .generation)
+        generationKey = generationKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        lastError = nil
+    }
+
+    public func saveAccountAdministrationCredential() throws {
+        try storeCredential(accountAdministrationKey, slot: .accountAdministration)
+        accountAdministrationKey = accountAdministrationKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        lastError = nil
+    }
+
+    public func clearGenerationCredential() throws {
+        try credentials.removeGenerationKey()
+        generationKey = ""
+        lastError = nil
+    }
+
+    public func clearAccountAdministrationCredential() throws {
+        try credentials.removeAccountAdministrationKey()
+        accountAdministrationKey = ""
+        lastError = nil
+    }
+
+    public func savePreferences() throws {
+        try preferencesStore.save(currentPreferences)
+        lastError = nil
+    }
+
+    private var currentPreferences: GenerationPreferences {
+        GenerationPreferences(
+            outputFolder: outputFolder,
+            costThreshold: costThreshold,
+            defaultModelID: defaultModelID,
+            defaultUpscaleModelID: defaultUpscaleModelID,
+            defaultPromptPackID: defaultPromptPackID
+        )
     }
 
     private func storeCredential(_ value: String, slot: CredentialSlot) throws {
