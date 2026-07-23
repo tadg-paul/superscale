@@ -130,10 +130,10 @@ make install
 
 ## Licence
 
-Superscale source code is licensed under Apache-2.0. Copyright Taḋg Paul.
+Superscale source code is licensed under Apache-2.0. Copyright Tadhg O'Brien.
 
 Bundled model weights (Real-ESRGAN) are BSD-3-Clause (Copyright Xintao Wang, 2021). See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
 
 The optional GFPGAN face model is not bundled and contains non-commercial components (StyleGAN2, DFDNet). The licence applies to the model weights, not to output images. See [model licensing](docs/model-licensing.md).
 
-Superscale and the Superscale logo are trademarks of Taḋg Paul. See [trademark policy](docs/trademark.md).
+Superscale and the Superscale logo are trademarks of Tadhg O'Brien. See [trademark policy](docs/trademark.md).

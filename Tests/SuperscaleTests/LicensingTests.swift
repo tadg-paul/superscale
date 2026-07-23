@@ -30,7 +30,7 @@ final class LicensingTests: XCTestCase {
                       "README should preserve Real-ESRGAN BSD-3-Clause model licence")
         XCTAssertTrue(readme.contains("GFPGAN") && readme.contains("non-commercial"),
                       "README should preserve GFPGAN non-commercial model notice")
-        XCTAssertFalse(readme.contains("MIT. Copyright Taḋg Paul"),
+        XCTAssertFalse(readme.contains("MIT. Copyright Tadhg O'Brien"),
                        "README should not present MIT as the current source licence")
         XCTAssertTrue(readme.contains("docs/sslogo.svg") || readme.contains("docs/sslogo.png"),
                       "README should reference the Superscale logo asset")

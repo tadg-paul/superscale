@@ -4,7 +4,7 @@
 
 ## Summary
 
-Superscale and the Superscale logo are trademarks of Taḋg Paul.
+Superscale and the Superscale logo are trademarks of Tadhg O'Brien.
 
 The Apache-2.0 source licence grants copyright and patent permissions for the
 Superscale source code. It does not grant trademark rights, except as required
@@ -31,6 +31,6 @@ their own product identity without written permission. This includes:
 - naming a fork or derived product Superscale
 - using the Superscale logo as a fork's app icon, logo, or product mark
 - presenting a modified build as the official Superscale app
-- implying endorsement by the Superscale project or Taḋg Paul
+- implying endorsement by the Superscale project or Tadhg O'Brien
 
 Substantial forks should use a distinct product name and branding.

@@ -49,7 +49,7 @@ struct AboutView: View {
                 Link("github.com/tigger04/superscale",
                      destination: URL(string: "https://github.com/tigger04/superscale")!)
                     .font(.caption)
-                Text("By Taḋg Paul")
+                Text("By Tadhg O'Brien")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Text("Source code: Apache-2.0")

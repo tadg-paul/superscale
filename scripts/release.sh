@@ -64,7 +64,7 @@ fi
 
 echo "Updating version in source..."
 TMPFILE=$(mktemp)
-sed "s/v${CURRENT_VERSION} Superscale by Taḋg Paul/v${NEW_VERSION} Superscale by Taḋg Paul/" "${SOURCE_FILE}" > "${TMPFILE}"
+sed "s/v${CURRENT_VERSION} Superscale by Tadhg O'Brien/v${NEW_VERSION} Superscale by Tadhg O'Brien/" "${SOURCE_FILE}" > "${TMPFILE}"
 mv "${TMPFILE}" "${SOURCE_FILE}"
 
 # Verify the change took effect

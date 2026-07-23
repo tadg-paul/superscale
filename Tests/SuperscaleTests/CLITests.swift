@@ -242,10 +242,10 @@ final class CLITests: XCTestCase {
         let result = try runCLI(["--version"])
         XCTAssertEqual(result.exitCode, 0, "Expected exit code 0 for --version")
         let pattern = try NSRegularExpression(
-            pattern: #"^v\d+\.\d+\.\d+ Superscale by Taḋg Paul\s*$"#)
+            pattern: #"^v\d+\.\d+\.\d+ Superscale by Tadhg O'Brien\s*$"#)
         let range = NSRange(result.stdout.startIndex..., in: result.stdout)
         XCTAssertTrue(pattern.firstMatch(in: result.stdout, range: range) != nil,
-                      "Expected 'v{semver} Superscale by Taḋg Paul', got: \(result.stdout)")
+                      "Expected 'v{semver} Superscale by Tadhg O'Brien', got: \(result.stdout)")
     }
 
     // RT-069: wdn model file exists in models directory
@@ -703,7 +703,7 @@ final class CLITests: XCTestCase {
 
         XCTAssertTrue(result.stdout.contains("Apache-2.0"),
                       "Help should report Apache-2.0 source licensing")
-        XCTAssertFalse(result.stdout.contains("MIT. Copyright Taḋg Paul"),
+        XCTAssertFalse(result.stdout.contains("MIT. Copyright Tadhg O'Brien"),
                        "Help should not report MIT as the current source licence")
         XCTAssertTrue(result.stdout.contains("Real-ESRGAN") &&
                       result.stdout.contains("BSD-3-Clause"),

@@ -773,7 +773,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(sheet.waitForExistence(timeout: 5))
 
         let authorText = sheet.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'Taḋg Paul'")).firstMatch
+            NSPredicate(format: "value CONTAINS 'Tadhg O'Brien'")).firstMatch
         XCTAssertTrue(authorText.exists,
                       "Author should be visible in About panel")
     }
