@@ -1,4 +1,11 @@
+<!-- Version: 1.0 | Last updated: 2026-08-05 -->
+
 # Pix UX Proposal
+
+> **Historical proposal.** The accepted product direction now lives in
+> [`docs/VISION.md`](../VISION.md), with interaction design in
+> [`docs/E2E_DESIGN.md`](../E2E_DESIGN.md). This proposal is retained as design
+> provenance.
 
 ## Summary
 
