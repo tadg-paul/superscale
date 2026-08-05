@@ -1,8 +1,67 @@
-# Superscale UX v2 Wireframes
+<!-- Version: 1.0 | Last updated: 2026-08-05 -->
 
-These wireframes describe the first-pass v2 GUI shape before implementation.
-They are intentionally low fidelity: the goal is to settle layout, navigation,
-and workflow boundaries before writing SwiftUI.
+# Superscale v2 End-to-End Design
+
+This document defines the end-to-end interaction model for Superscale v2. Its
+wireframes are intentionally low fidelity: they establish user journeys,
+information architecture and workflow boundaries while leaving visual detail
+open for iterative design.
+
+## Product Boundary
+
+Superscale is the native GUI and local-upscaling product. Cloud generation and
+transformation are implemented directly in Swift against provider APIs. Pix
+remains the companion CLI for scripted generation and transformations beyond
+upscaling; Superscale does not execute Pix at runtime.
+
+## End-to-End Journeys
+
+### Local Upscale
+
+1. An image is dropped, pasted or selected in Upscale.
+2. The app resolves the local model and scale.
+3. Processing runs through the existing Core ML pipeline.
+4. The result can be compared, revealed or saved.
+
+### Text-To-Image
+
+1. Generate opens with the default model and optional prompt pack.
+2. The user enters or adapts a prompt.
+3. The app shows model identity, price state and relevant warnings.
+4. Generation runs through the native Swift FAL client.
+5. The downloaded image and session details become available together.
+6. The result can be saved, retried, revealed or sent to Upscale.
+
+### Reference-Image Transformation
+
+1. Up to three reference images are added to Generate.
+2. The selected model or handler explains incompatible options before payment.
+3. The app submits the references and prompt through the model's edit path.
+4. The resulting image follows the same output, history and upscale flow as a
+   text-generated image.
+
+### Generate-To-Upscale
+
+1. A generated result is sent to Upscale with one action.
+2. The same local coordinator used by dropped files processes the image.
+3. The upscaled asset remains linked to its originating generation session.
+4. The user can compare and save the final result without managing temporary
+   files.
+
+### History Recovery
+
+1. History exposes generated, upscaled, failed and cancelled sessions.
+2. Search and status filters narrow the session list.
+3. Selection reveals safe metadata, outputs and available actions.
+4. A prior session can return to Generate or send an available image to Upscale.
+
+### Credentials And Degraded Cloud State
+
+1. Settings manages generation and account-administration keys independently.
+2. Missing generation credentials block paid generation with a path to Settings.
+3. Missing or unauthorized account credentials affect account visibility only.
+4. Unavailable pricing remains visible and follows the configured confirmation
+   policy rather than silently presenting an estimate.
 
 ## Design Direction
 
@@ -181,3 +240,21 @@ The first implementation batch should build toward these visible UX paths:
 
 Anything outside those paths should be deferred unless it blocks the core
 workflow.
+
+## Human Design Validation
+
+The MVP presentation should place each journey in a representative, ready-to-
+inspect state. Human review determines whether:
+
+- navigation presents one coherent image workspace;
+- generation controls communicate intent, references, model and cost clearly;
+- output actions make the local-upscale handoff obvious;
+- History supports recovery without resembling a full asset manager;
+- Settings distinguishes credential roles and defaults;
+- warnings and degraded cloud states are understandable without being alarmist;
+- the structure is suitable for iterative visual and interaction design.
+
+## Changelog
+
+- **1.0 (2026-08-05):** Promoted the v2 wireframes and added canonical
+  end-to-end journeys, product boundaries and human-validation outcomes.

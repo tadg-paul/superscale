@@ -122,10 +122,12 @@ make install
 
 | Document | Description |
 |---|---|
-| [Vision](docs/VISION.md) | Project goals, non-goals, and design philosophy |
-| [Architecture](docs/architecture.md) | System design, data flow, component overview |
-| [Testing](docs/testing.md) | Test strategy, coverage, and conventions |
-| [Implementation plan](docs/implementation-plan.md) | Phased delivery plan |
+| [Vision](docs/VISION.md) | Superscale v2 end state, MVP, boundaries, and design principles |
+| [Architecture](docs/ARCHITECTURE.md) | v2 system design, data flow, and component boundaries |
+| [End-to-end design](docs/E2E_DESIGN.md) | v2 journeys, wireframes, and human-validation outcomes |
+| [Implementation plan](docs/IMPLEMENTATION_PLAN.md) | Phased v2 delivery plan |
+| [Release checklist](docs/RELEASE_CHECKLIST.md) | Automated and human v2 release evidence |
+| [Legacy v1 documentation](docs/v1/) | Original vision, architecture, implementation plan, and testing strategy |
 | [Model licensing](docs/model-licensing.md) | Licence status of bundled model weights |
 
 ## Licence

@@ -1,4 +1,6 @@
-# Superscale UX v2 Architecture
+<!-- Version: 1.0 | Last updated: 2026-08-05 -->
+
+# Superscale v2 Architecture
 
 Superscale UX v2 extends the existing SwiftUI app with a GUI-only generation
 workspace. The CLI remains focused on local upscaling and must not import the
@@ -359,3 +361,8 @@ Recommended coverage:
 Manual release checks should include one real FAL text-to-image generation, one
 image-to-image generation, one pricing/account display check, and one generated
 image upscaled locally.
+
+## Changelog
+
+- **1.0 (2026-08-05):** Promoted the v2 architecture to the canonical project
+  documentation set.

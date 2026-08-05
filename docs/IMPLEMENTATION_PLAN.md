@@ -1,4 +1,6 @@
-# Superscale UX v2 Implementation Plan
+<!-- Version: 1.0 | Last updated: 2026-08-05 -->
+
+# Superscale v2 Implementation Plan
 
 This plan describes how to build the Superscale GUI into a v2 image generation
 and upscaling workspace. It does not add image generation to the `superscale`
@@ -31,8 +33,8 @@ distribution, entitlements, or support needs materially diverge from the CLI.
 Deliverables:
 
 - updated v2 docs;
-- dependency boundary decision recorded in `docs/v2/ARCHITECTURE.md`;
-- wireframes recorded in `docs/v2/WIREFRAMES.md`;
+- dependency boundary decision recorded in `docs/ARCHITECTURE.md`;
+- end-to-end design recorded in `docs/E2E_DESIGN.md`;
 - first cut of model and prompt-pack inventory.
 
 ## Phase 1: Prepare The Existing App For Handoff
@@ -197,7 +199,7 @@ Use these defaults when drafting or implementing the first batch of tickets:
   threshold set to `0.05`.
 - Use fixture-backed tests for FAL integration; never require paid FAL calls in
   automated tests.
-- Build the visible UX paths in `docs/v2/WIREFRAMES.md` before adding advanced
+- Build the visible UX paths in `docs/E2E_DESIGN.md` before adding advanced
   model-management features.
 
 Remaining product choices that can wait until after the first implementation
@@ -207,3 +209,8 @@ batch:
 - whether user prompt packs are edited in-app or imported from files;
 - whether future provider support needs public plugin-style APIs;
 - how much failed-generation history to retain by default.
+
+## Changelog
+
+- **1.0 (2026-08-05):** Promoted the v2 plan to the canonical documentation set
+  and updated canonical document paths.

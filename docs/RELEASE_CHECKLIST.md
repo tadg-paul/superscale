@@ -1,3 +1,5 @@
+<!-- Version: 1.0 | Last updated: 2026-08-05 -->
+
 # Superscale v2.0 Release Checklist
 
 ## Provider Scope
@@ -37,3 +39,8 @@ outside automated tests.
   or Replicate support.
 
 Record manual results on issue `#78`; only the human reviewer marks user tests.
+
+## Changelog
+
+- **1.0 (2026-08-05):** Promoted the v2 release checklist to the canonical
+  documentation set.
