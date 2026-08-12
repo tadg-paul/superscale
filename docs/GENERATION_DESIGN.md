@@ -8,7 +8,9 @@ sections of the [architecture](ARCHITECTURE.md) into an implementation-ready
 specification and folds in the operational lessons learned from two prior FAL
 integrations. It is the target design; the distance between it and the current
 implementation is recorded separately in the
-[generation gap analysis](GENERATION_GAP_ANALYSIS.md).
+[generation gap analysis](GENERATION_GAP_ANALYSIS.md). The raw
+request-construction catalogue these lessons draw on is the
+[FAL request reference](FAL_REQUEST_REFERENCE.md).
 
 ## Purpose And Provenance
 

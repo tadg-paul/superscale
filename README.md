@@ -126,6 +126,7 @@ make install
 | [Architecture](docs/ARCHITECTURE.md) | v2 system design, data flow, and component boundaries |
 | [Generation design](docs/GENERATION_DESIGN.md) | Implementation-ready FAL generation subsystem design |
 | [Generation gap analysis](docs/GENERATION_GAP_ANALYSIS.md) | Built-vs-target gaps in the current generation code |
+| [FAL request reference](docs/FAL_REQUEST_REFERENCE.md) | FAL request-construction knowledge distilled from pix and storyboard-gen |
 | [End-to-end design](docs/E2E_DESIGN.md) | v2 journeys, wireframes, and human-validation outcomes |
 | [Implementation plan](docs/IMPLEMENTATION_PLAN.md) | Phased v2 delivery plan |
 | [Release checklist](docs/RELEASE_CHECKLIST.md) | Automated and human v2 release evidence |
