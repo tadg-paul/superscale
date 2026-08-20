@@ -18,15 +18,21 @@ upscaling.**
 
 Drop a photograph, choose "Film Noir", get a 4096-pixel noir print.
 
-Neither half is a product alone. The filters produce roughly 1024-pixel images,
-which are not deliverables. The upscaler is a utility with no creative intent.
-Together: cloud AI supplies the transformation, the Neural Engine supplies the
-finish.
+Each half is strong at a different thing. The filters supply artistic direction
+but return roughly 1024-pixel images, which are not finished work. Superscale
+supplies the resolution and fidelity that make an image a deliverable, and does
+it locally in seconds. Combined, a photograph becomes a print: the cloud decides
+how it looks, the Neural Engine decides how good it is.
 
-The 86 filters in `Sources/SuperscaleUXCore/Resources/PromptPacks/` are the
-product's content, owned by this repository. v2 is not an image editor, not a
-client for an image API, and not an asset manager. The v1 principle holds: do
-one thing well.
+The 86 filters in `Sources/SuperscaleUXCore/Resources/PromptPacks/` are
+**built-in**, owned by this repository. Their text is **editable at runtime,
+before the API call is made**; in the v2 MVP those edits apply to that run only
+and are **not saved**.
+
+What v2 is not: an image editor, an asset manager, or a general-purpose front
+end to an image-generation API. The curated filters are the product; arbitrary
+model selection and free-form prompting are not what is being built. The v1
+principle holds: do one thing well.
 
 ---
 
@@ -75,9 +81,12 @@ searchable by name.
 - Filters incompatible with the selected model are not shown.
 - Applying is cancellable while in flight.
 
-**The composed prompt is editable before it is sent.** The filter's text
-populates a field the user can adjust. Edits apply to that run and do not modify
-the bundled filter. This keeps the product curated without making it rigid.
+**The composed prompt is editable at runtime, before the API call is made.** The
+built-in filter's text populates a field the user can adjust. **In the v2 MVP
+edits are not saved**: they apply to that run only, they do not modify the
+built-in filter, and they do not persist across selections or sessions. Saving
+user-authored filters is deferred. This keeps the product curated without making
+it rigid.
 
 **Comparison** is available throughout, reusing the existing magnifier loupe and
 slider views: base against candidate while browsing, and pre-finish against
