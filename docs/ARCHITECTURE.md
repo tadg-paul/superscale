@@ -1,16 +1,10 @@
-<!-- Version: 1.1 | Last updated: 2026-08-05 -->
+<!-- Version: 1.0 | Last updated: 2026-08-05 -->
 
 # Superscale v2 Architecture
 
 Superscale UX v2 extends the existing SwiftUI app with a GUI-only generation
 workspace. The CLI remains focused on local upscaling and must not import the
 generation layer.
-
-The FAL generation subsystem has a dedicated, implementation-ready specification
-in the [generation design](GENERATION_DESIGN.md); the distance between that
-target and the current code is tracked in the
-[generation gap analysis](GENERATION_GAP_ANALYSIS.md). The FAL sections below
-give the architectural shape; the generation design is the authoritative detail.
 
 ## Current Shape
 
@@ -370,7 +364,5 @@ image upscaled locally.
 
 ## Changelog
 
-- **1.1 (2026-08-05):** Linked the detailed generation design and gap analysis;
-  noted the generation design as the authoritative FAL detail.
 - **1.0 (2026-08-05):** Promoted the v2 architecture to the canonical project
   documentation set.
