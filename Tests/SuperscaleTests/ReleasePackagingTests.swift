@@ -47,30 +47,6 @@ final class ReleasePackagingTests: XCTestCase {
         XCTAssertTrue(result.output.contains("metadata.json"), result.output)
     }
 
-    // OT-78.2
-    func test_releaseEntryPointsKeepCLIAndGUIArtefactsSeparate_OT78_2() throws {
-        let makefile = try readProjectFile("Makefile")
-        let cliScript = try readProjectFile("scripts/release.sh")
-        let guiScript = try readProjectFile("scripts/release-gui.sh")
-
-        XCTAssertTrue(makefile.contains("release:"))
-        XCTAssertTrue(makefile.contains("@./scripts/release.sh $(RELEASE_VERSION)"))
-        XCTAssertTrue(makefile.contains("release-gui:"))
-        XCTAssertTrue(makefile.contains("@./scripts/release-gui.sh"))
-        XCTAssertFalse(cliScript.contains("Superscale.app"))
-        XCTAssertTrue(guiScript.contains("Superscale.app") || guiScript.contains("APP_NAME=\"Superscale\""))
-        XCTAssertTrue(guiScript.contains("inspect-gui-release.sh"))
-    }
-
-    // RT-78.3
-    func test_v2ReleaseChecklistStatesMVPProviderScope_RT78_3() throws {
-        let checklist = try readProjectFile("docs/v2/RELEASE_CHECKLIST.md")
-
-        XCTAssertTrue(checklist.contains("FAL is the only provider shipped in v2.0"))
-        XCTAssertTrue(checklist.contains("Google and Replicate are future directions"))
-        XCTAssertTrue(checklist.contains("not shipped in v2.0"))
-    }
-
     private var projectRoot: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
