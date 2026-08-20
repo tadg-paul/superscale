@@ -46,7 +46,7 @@ image**, moving the app closer to what the `pix` CLI does while keeping the
 filters and the native finish as the reason to use it.
 
 The architecture below accommodates that deliberately rather than deferring it
-blindly: the filter format already declares `mode` and `requiresInput`, and the
+blindly: the filter format already declares `requiresInput`, and the
 asset model already treats a `source` as something that may be created rather
 than imported. Adding free-form generation should be a new way to produce a
 source, not a redesign.
@@ -93,28 +93,40 @@ exclusion. When it arrives it becomes an additional way to create a `source`
 asset, entering the same pipeline at the same point as an imported image, with
 conditioning, filtering and finishing unchanged downstream.
 
-### 2.3 Browsing filters
+### 2.3 Choosing and applying a filter
 
-The filter list is the primary surface --- 86 filters grouped by category
-(lighting, print, sketch, material, illustration, design, media, zeitgeist),
-searchable by name.
+Applying a filter costs money, so selecting one must not. The interaction is
+**two steps, deliberately**.
 
-- Selecting a filter applies it to the base and produces a candidate.
-- Each selection is a **paid cloud call**, so the estimated cost is shown next
-  to the action, and the running session spend is visible.
-- Filters that require an input image are not offerable without a base.
-- Filters incompatible with the selected model are not shown.
+**Step one --- select (free).** The filter list is the primary surface: 86 filters
+grouped by category (lighting, print, sketch, material, illustration, design,
+media, zeitgeist), searchable by name. Clicking one loads its text into an
+editable text area. **No API call is made.** The user can read the filter, see
+exactly what will be sent, and click through as many as they like at no cost.
+
+**Step two --- edit and execute (paid).** The text area is editable ad hoc: the
+user may adjust the wording, or send it untouched. A distinct **Apply** button
+executes the API call and produces the candidate. The estimated cost sits beside
+that button, and running session spend is visible.
+
+There is no auto-apply on selection. It would turn an exploratory session into
+an expensive one. Auto-apply may be offered later as an explicit opt-in, but it
+is not the default and is not in the MVP.
+
+**Edits are not saved in the v2 MVP.** They apply to that execution only, do not
+modify the built-in filter, and do not persist across selections or sessions.
+Saving user-authored filters is deferred.
+
+Other rules:
+
+- Filters declaring `requiresInput` are not applicable without a base.
+- The **model** must accept a reference image. Only reference-capable models are
+  selectable for filtering. This is a property of the model, not the filter --- a
+  filter is plain prompt text and works with any model that takes an image.
 - Applying is cancellable while in flight.
 
-**The composed prompt is editable at runtime, before the API call is made.** The
-built-in filter's text populates a field the user can adjust. **In the v2 MVP
-edits are not saved**: they apply to that run only, they do not modify the
-built-in filter, and they do not persist across selections or sessions. Saving
-user-authored filters is deferred. This keeps the product curated without making
-it rigid.
-
 **Comparison** is available throughout, reusing the existing magnifier loupe and
-slider views: base against candidate while browsing, and pre-finish against
+slider views: base against candidate after applying, and pre-finish against
 finished afterwards.
 
 ### 2.4 Lock
@@ -266,7 +278,7 @@ pointer, and is the only place these rules live:
 |---|---|
 | **I1** | A `finished` asset is never input to any stage. |
 | **I2** | Filters read the base --- never the candidate, never a finished asset. |
-| **I3** | Switching filters re-derives from the base. Results never chain implicitly. |
+| **I3** | Every filter application reads the base and replaces the candidate. Results never chain implicitly. |
 | **I4** | Only an explicit lock moves the base, and never to a finished asset. |
 | **I5** | Finishing derives from the working asset and writes a new file. It never consumes or overwrites a previous finished output. |
 | **I6** | A finished asset is attributed to a session only if it descends from that session's lineage. Never by timing. |
@@ -331,7 +343,6 @@ self-contained:
 id: lighting-film-noir
 name: Film Noir
 category: Lighting
-mode: imageToImage
 requiresInput: true
 aspect: preserve
 ---
@@ -340,7 +351,15 @@ Preserve the subject's identity, pose, expression, clothing, camera angle...
 ```
 
 This replaces deriving metadata by splitting filenames, which has nowhere to
-record whether a filter needs an input image or which model suits it.
+record whether a filter needs an input image.
+
+The fields are deliberately few. **A filter is prompt text, not a
+configuration.** It carries no model list and no compatibility declaration,
+because there is no such thing as a filter that suits one image-edit model and
+not another --- any model that accepts a reference image can run any filter.
+`requiresInput` is the one real constraint, and it distinguishes a transform
+("Transform the input image...") from a filter whose body is a pure style
+description and could seed generation once that path exists.
 
 **Body convention**, following the strongest existing filters: transform
 instruction, preserve clause, style direction, intended feel, avoid clause. No
@@ -457,7 +476,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 | 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock. Enforce I1--I6. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
 | 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. |
 | 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
-| 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, compatibility filtering, editable prompt field. Closes D4. |
+| 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
 | 5 | **Reference upload** | FAL storage upload returning URLs, in `FalGenerationKit`, replacing base64. |
 | 6 | **Registry and handlers** | Declarative per-family handlers, edit-sibling map, safety and required fields, argument precedence, aspect snapping. |
 | 7 | **Conditioning** | Automatic pre-upscale below model resolution, with the resolution caps applied and reported. |
