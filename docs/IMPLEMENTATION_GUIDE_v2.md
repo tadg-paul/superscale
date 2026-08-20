@@ -64,10 +64,11 @@ What v2 is still not: an image editor, or an asset manager.
 2. If it is smaller than the filter model's working resolution, the app
    **conditions** it: a quiet local upscale to roughly 1024 pixels, so the filter
    has enough to work with. No user action, but the app says it happened.
-3. The user browses filters. Selecting one applies it to the base and shows the
-   result as the **candidate**, beside or against the base for comparison.
-4. Selecting a different filter **replaces** the candidate, re-derived from the
-   base. Filters are browsed, not stacked.
+3. The user clicks a filter. Its text loads into an editable area --- **no API
+   call, no cost**. They can read it, adjust it, or click through others freely.
+4. **Apply** executes the call and produces the **candidate**, shown beside or
+   against the base for comparison. Applying again, with any filter, reads the
+   base and replaces the candidate. Filters do not stack by accident.
 5. When the user likes a result they can **lock** it, making it the new base so
    further filters build on it, or go straight to finishing.
 6. **Finish** runs the local upscaler at the chosen scale and model. This is the
