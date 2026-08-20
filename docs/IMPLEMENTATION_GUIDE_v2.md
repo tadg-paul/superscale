@@ -114,9 +114,12 @@ target dimensions, and optional face enhancement.
 - Output above 4096 pixels on the long edge warns; above 8192 it is refused.
   The reason is memory, quantified in section 3.8.
 
-Face enhancement uses GFPGAN, which carries a non-commercial licence. When the
-working image is a filter output rather than a photograph, the app says so
-before applying it rather than doing it silently.
+**Face enhancement is unchanged from v1.** GFPGAN is not bundled, because of its
+non-commercial licence. It is present only if the user deliberately downloaded
+it through the licence-acceptance flow, or it is already on the system. When it
+is absent the option is simply unavailable, and the pipeline skips the stage.
+The toggle's default follows installation state, and the pipeline guards on both
+the toggle and installation. v2 changes none of this.
 
 ### 2.6 Saving and history
 
@@ -404,9 +407,8 @@ is called. Section 3.2 revives it.
 | **D4** | medium | 3 of 86 filters begin with a markdown header containing their filename, which is sent to the provider as prompt text. |
 | **D5** | medium | Kit errors are not `LocalizedError`, so the GUI shows "The operation couldn't be completed. (SuperscaleKit.ImageIOError error 0.)" |
 | **D6** | medium | The upscale has no cancellation at any level, though it is the long local operation. |
-| **D7** | medium | GFPGAN, non-commercially licensed, is applied to synthetic faces silently. |
-| **D8** | low | `pendingSessionID` is never cleared on mode switch or new drop. |
-| **D9** | low | `defaultUpscaleModelID` is honoured on the handoff path but not on drop. |
+| **D7** | low | `pendingSessionID` is never cleared on mode switch or new drop. |
+| **D8** | low | `defaultUpscaleModelID` is honoured on the handoff path but not on drop. |
 
 ---
 
@@ -416,7 +418,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 
 | | Slice | Content |
 |---|---|---|
-| 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock. Enforce I1--I6. Revive the dead provenance API. Closes D1, D2, D8. First, because it stops active data loss. |
+| 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock. Enforce I1--I6. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
 | 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. |
 | 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, compatibility filtering, editable prompt field. Closes D4. |
@@ -424,7 +426,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 | 6 | **Registry and handlers** | Declarative per-family handlers, edit-sibling map, safety and required fields, argument precedence, aspect snapping. |
 | 7 | **Conditioning** | Automatic pre-upscale below model resolution, with the resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
-| 9 | **Pricing and account** | Independent best-effort fetches, session caching including negatives, non-fatal degradation. Closes D7, D9. |
+| 9 | **Pricing and account** | Independent best-effort fetches, session caching including negatives, non-fatal degradation. Closes D8. |
 
 Excluded and following separately: the interface change (3.9), output fidelity
 polish, and release hardening.
