@@ -61,23 +61,25 @@ What v2 is still not: an image editor, or an asset manager.
 
 1. The user brings in an image --- drag and drop, open, or paste. It becomes the
    **base**.
-2. If it is smaller than the filter model's working resolution, the app
-   **conditions** it: a quiet local upscale to roughly 1024 pixels, so the filter
-   has enough to work with. No user action, but the app says it happened.
+2. **It upscales immediately**, using the selected upscale model and scale: 2x,
+   4x, 8x or a custom resolution. This is v1 behaviour and it is the default.
+   Deselecting the scale turns it off (2.5).
 3. The user clicks a filter. Its text loads into an editable area --- **no API
    call, no cost**. They can read it, adjust it, or click through others freely.
-4. **Apply** executes the call and produces the **candidate**, shown beside or
-   against the base for comparison. Applying again, with any filter, reads the
-   base and replaces the candidate. Filters do not stack by accident.
+4. **Apply** executes the call and produces the **candidate**. If a scale is
+   selected the upscale re-runs on it, so the user sees a finished result.
+   Applying again, with any filter, reads the base and replaces the candidate.
+   Filters do not stack by accident.
 5. When the user likes a result they can **lock** it, making it the new base so
-   further filters build on it, or go straight to finishing.
-6. **Finish** runs the local upscaler at the chosen scale and model. This is the
-   terminal stage.
-7. **Save** writes the finished image where the user chooses.
+   further filters build on it.
+6. **Save** writes the finished image where the user chooses.
 
-Steps 2 to 5 are optional. Drop an image with a scale selected and it upscales
-immediately, exactly as v1 does, with nothing in the way. Deselect the scale and
-it waits, which is what a filter-first session wants (see 2.5).
+**Finishing is reactive, not a step the user takes.** v1 already works this way:
+changing the scale or model re-runs the upscale. v2 extends it --- the upscale
+re-runs whenever the working image changes or the scale or model changes, and
+does nothing at all when the scale is deselected. A user who only wants v1 drops
+an image and it upscales, exactly as before. A filter-first user deselects the
+scale, explores filters, and selects a scale when ready.
 
 ### 2.2 Bringing in an image
 
@@ -151,12 +153,16 @@ Finishing runs the existing local pipeline: content-based model auto-selection
 or an explicit choice from the seven Real-ESRGAN models, a scale factor or
 target dimensions, and optional face enhancement.
 
+**It is reactive.** The user does not invoke it; it runs whenever there is a
+scale selected and something to run on, which is how v1 already behaves.
+
 - It reads the working image --- the candidate if one exists, otherwise the base.
-- It **produces an output without advancing state**, so the user can finish,
-  look, and carry on browsing filters.
-- Changing scale or model re-derives from the working image and writes a **new**
-  file. It never re-processes its own output and never overwrites a previous
-  result.
+- It re-runs when the working image changes (a filter applied, a candidate
+  locked) or when the scale or model changes.
+- It **produces an output without advancing state**, so the user can look at a
+  finished result and carry on trying filters.
+- Each run derives from the working image and writes a **new** file. It never
+  re-processes its own output and never overwrites a previous result.
 - Progress is reported per stage, and it is **cancellable** --- it is the long
   local operation.
 - Output above 4096 pixels on the long edge warns; above 8192 it is refused.
@@ -185,6 +191,24 @@ pressed.
 Correctness does not depend on this. The invariants already guarantee a filter
 reads the base, so even an auto-finished image is never filtered. The toggle is
 about wasted work and user control, not safety.
+
+#### Minimum resolution for filtering
+
+An **edge case**, not a step in the journey. If the image the filter would
+receive is below the filter model's working resolution, it is too small to
+transform well.
+
+The app handles it automatically: it upscales to the minimum required and shows
+an unobtrusive message saying it did so. The user is not asked and not blocked.
+
+The user may still change the upscale model and amount freely. **Whenever a
+change would drop the image below the minimum, it is raised again and the
+message is shown again.** The floor is enforced continuously, not just on
+import.
+
+This is a distinct operation from finishing: it targets the model's working
+resolution rather than the user's chosen output size, and its result is valid
+filter input where a finished image is not.
 
 **Face enhancement is unchanged from v1.** GFPGAN is not bundled, because of its
 non-commercial licence. It is present only if the user deliberately downloaded
