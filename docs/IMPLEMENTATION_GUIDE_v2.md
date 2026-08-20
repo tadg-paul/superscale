@@ -18,21 +18,40 @@ upscaling.**
 
 Drop a photograph, choose "Film Noir", get a 4096-pixel noir print.
 
-Each half is strong at a different thing. The filters supply artistic direction
-but return roughly 1024-pixel images, which are not finished work. Superscale
-supplies the resolution and fidelity that make an image a deliverable, and does
-it locally in seconds. Combined, a photograph becomes a print: the cloud decides
-how it looks, the Neural Engine decides how good it is.
+Superscale v2 is **a creative tool built on an image-generation API client**.
+The client is not the product; the value added on top of it is.
+
+That value is two things. **The curated filters** carry the artistic intent ---
+86 of them, each a considered piece of direction rather than a blank prompt box.
+**The native finish** turns a roughly 1024-pixel API response into a deliverable
+at full resolution, locally, in seconds. A cloud filter alone gives you
+something too small to use. An upscaler alone gives you a bigger version of what
+you already had. Together a photograph becomes a print.
+
+Creative intent runs through the whole app, not just the cloud half: choosing
+the filter, adjusting its wording, deciding what to lock, selecting the upscale
+model and scale, and judging the result are all creative decisions the app
+exists to serve.
 
 The 86 filters in `Sources/SuperscaleUXCore/Resources/PromptPacks/` are
 **built-in**, owned by this repository. Their text is **editable at runtime,
 before the API call is made**; in the v2 MVP those edits apply to that run only
 and are **not saved**.
 
-What v2 is not: an image editor, an asset manager, or a general-purpose front
-end to an image-generation API. The curated filters are the product; arbitrary
-model selection and free-form prompting are not what is being built. The v1
-principle holds: do one thing well.
+### Direction of travel
+
+The MVP is **filter-first**: every journey starts from an image the user brings
+in. The next version adds **generation from a named prompt with no source
+image**, moving the app closer to what the `pix` CLI does while keeping the
+filters and the native finish as the reason to use it.
+
+The architecture below accommodates that deliberately rather than deferring it
+blindly: the filter format already declares `mode` and `requiresInput`, and the
+asset model already treats a `source` as something that may be created rather
+than imported. Adding free-form generation should be a new way to produce a
+source, not a redesign.
+
+What v2 is still not: an image editor, or an asset manager.
 
 ---
 
@@ -64,9 +83,15 @@ Accepts PNG, JPEG, TIFF and HEIC via drag and drop, the open panel, or paste.
 One image at a time; this is not a batch tool. The image's true pixel dimensions
 are read and shown, and it becomes the base with role `source`.
 
-There is no separate "generate from a prompt" entry. Text-to-image is deferred:
-60 of the 86 filters carry preserve clauses and 50 explicitly transform "the
-input image". The product starts from a photograph.
+The MVP has no "generate from a prompt" entry, because the filter corpus is
+built for transformation: 60 of the 86 carry preserve clauses and 50 explicitly
+transform "the input image". Every MVP journey therefore starts from an image
+the user brings in.
+
+Generation from a named prompt is the **next version**, not a permanent
+exclusion. When it arrives it becomes an additional way to create a `source`
+asset, entering the same pipeline at the same point as an imported image, with
+conditioning, filtering and finishing unchanged downstream.
 
 ### 2.3 Browsing filters
 
@@ -326,7 +351,9 @@ markdown headers --- validated at load.
 Detail is in the [FAL request reference](FAL_REQUEST_REFERENCE.md). Design
 points:
 
-- **Image-to-image is the primary path.** Text-to-image is deferred.
+- **Image-to-image is the primary path** for the MVP. The text-to-image path is
+  the next version, so handlers and the model registry carry both modes from the
+  start rather than being retrofitted.
 - **The base is uploaded to FAL storage and passed as a URL.** This replaces the
   base64 data-URI encoding currently in a view. Upload belongs in
   `FalGenerationKit`. Uploaded URLs expire at the provider's discretion and are
