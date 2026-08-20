@@ -140,36 +140,77 @@ the resolved model endpoint, the composed prompt, reference asset identifiers,
 the cost estimate, and non-secret request diagnostics. It never contains
 credentials.
 
+### Base, candidate, and lock
+
+Filters are explored, not accumulated. A user tries Film Noir, dislikes it,
+tries Japanese Woodblock, and expects the second filter to apply to their
+photograph, not to the noir version of it. Stacking is occasionally wanted, but
+it must be deliberate.
+
+The graph therefore holds two pointers rather than one:
+
+- **Base** --- the fixed starting point for filter application. Initially the
+  source, or the conditioned source. It does not move on its own.
+- **Candidate** --- the result of applying the currently selected filter to the
+  base. Transient. Selecting a different filter discards the previous candidate
+  and re-derives from the base.
+
+**Lock** is the only operation that promotes a candidate to become the new base.
+After locking, subsequent filters apply on top of the locked result, which is
+how deliberate stacking is expressed.
+
+```
+  base ──filter A──▶ candidate A          switch filter: discard candidate A
+  base ──filter B──▶ candidate B          re-derived from base, not from A
+  base ──lock B────▶ base' (= B)          now filters apply on top of B
+```
+
+The base is never a `finished` asset. Locking captures the filtered result at
+model resolution, before any upscaling, so the base that filters consume is
+always suitable input for a filter.
+
 ### Invariants
 
 These are the contract. Each is independently testable.
 
 - **I1 --- Terminal finish.** An asset with role `finished` is never the input to
   any stage. It may be saved, revealed, and compared, and nothing else.
-- **I2 --- Filter input.** The filter stage consumes the current working asset,
-  whose role is `source`, `conditioned`, or `filtered`. Never `finished`.
-- **I3 --- Re-finish derives from the working asset.** Changing finish settings
-  (scale, model, face enhancement) re-derives from the working asset. It never
-  consumes the previous finished output, and it never overwrites it in place.
-- **I4 --- One writer per output.** A finished asset is written to a path derived
+- **I2 --- Filter input is the base.** The filter stage consumes the base asset,
+  whose role is `source`, `conditioned`, or `filtered`. Never the candidate, and
+  never a `finished` asset.
+- **I3 --- Filter switching re-derives from the base.** Selecting a different
+  filter replaces the candidate by re-deriving from the base. Filter results
+  never chain implicitly.
+- **I4 --- Lock is the only promotion.** The base changes only by an explicit
+  lock, which requires an existing candidate, and never adopts a `finished`
+  asset.
+- **I5 --- Re-finish derives from the working asset** (the candidate if one
+  exists, otherwise the base). Changing finish settings re-derives from it. It
+  never consumes the previous finished output, and it never overwrites it in
+  place.
+- **I6 --- One writer per output.** A finished asset is written to a path derived
   from its own identity. Re-finishing produces a new file; it does not clobber a
   previous result.
-- **I5 --- Session attribution is explicit.** A finished asset is associated with
+- **I7 --- Session attribution is explicit.** A finished asset is associated with
   a session only when it descends from that session's lineage. Attribution is
   never inferred from timing or from "whatever finished most recently".
 
-I1 through I4 close the defects recorded in section 5. I5 closes the
-cross-session contamination defect.
+I1, I5, and I6 close the data-loss defect. I7 closes the cross-session
+contamination defect. I2, I3, and I4 give the exploration behaviour above.
 
-### The working asset
+### Consequences
 
-The app holds exactly one **working asset** at a time, plus the derived outputs
-of that asset. Applying a filter advances the working asset. Finishing produces
-an output from it without advancing it.
-
-This makes the sequence "filter, finish, filter again" well defined: the second
-filter consumes the filtered working asset, not the finished output, and the
-user is never asked to understand why.
+- **Every filter switch is a new paid call**, because each re-derives from the
+  base. This is inherent to exploration and must be visible in the cost
+  presentation, not hidden.
+- **The base is re-sent on every filter application.** Uploaded reference URLs
+  expire at the provider's discretion and are not cached (see the FAL request
+  reference). A short-lived reuse of an upload for an unchanged base, falling
+  back to re-upload when the provider rejects it, is a permissible optimization
+  but not a correctness assumption.
+- **Finishing does not disturb exploration.** A user may finish a candidate to
+  inspect it at full resolution, then continue trying filters, because
+  finishing never advances base or candidate.
 
 ## 4. What Exists Today
 
@@ -288,7 +329,7 @@ Storage location policy belongs in `SuperscaleUXCore`.
 ### 6.2 The asset graph
 
 `SuperscaleUXCore` gains an `AssetGraph` that owns assets, their lineage, and
-the working-asset pointer. It is the single place invariants I1 through I5 are
+the base and candidate pointers. It is the single place invariants I1 to I7 are
 enforced, and the single source of truth for what the user is looking at.
 
 Stage coordinators become uniform. Each takes an input asset, performs work,
@@ -454,10 +495,20 @@ Studio presents the working asset on a canvas, with:
 - a source affordance (drop, open, or generate from a prompt);
 - a filter picker over the 86 filters, categorized and searchable, filtered to
   what is applicable to the working state;
+- a **lock** control that promotes the current candidate to become the base;
 - finish controls (scale, model, face enhancement) carried over from the current
   Upscale toolbar;
-- a lineage indicator showing what has been applied;
-- comparison available between any two points in the lineage.
+- a lineage indicator showing the base, what filter is currently applied, and
+  what has been locked;
+- comparison available between any two points in the lineage, with base against
+  candidate as the default pairing while exploring.
+
+Filter switching is the primary interaction and must feel like browsing. Each
+selection re-derives from the base, so the user compares filters against their
+photograph rather than against each other's output. The lock control is what
+turns an accepted result into the new starting point, and it is the only way the
+base moves. It must be unmistakable, because it is the one action that changes
+what subsequent filters consume.
 
 This makes the value proposition legible in the interface: an image comes in, a
 filter is chosen, a finished result comes out. It also removes the shuttling
@@ -483,7 +534,8 @@ Ordered slices, each independently testable and each a candidate ticket. Order
 reflects dependency and risk, not estimated size.
 
 **Slice 1 --- Asset graph and invariants.** Introduce `Asset`, `AssetRole`,
-lineage, and the working-asset pointer in `SuperscaleUXCore`. Enforce I1 to I5.
+lineage, and the base/candidate pointers with lock in `SuperscaleUXCore`.
+Enforce I1 to I7.
 Revive the dead provenance API by extending `GUIUpscaleSource` to carry an asset
 identifier and making `UpscaleViewModel` read `GUIUpscaleResult.source`. Closes
 D1, D2, D3. This slice is first because every later slice depends on it, and
@@ -540,7 +592,7 @@ honest release wording, README correction, and the manual provider checks.
 
 The v1 approach is sound and extends naturally.
 
-- **Invariants are unit-tested directly.** I1 to I5 are pure logic over the
+- **Invariants are unit-tested directly.** I1 to I7 are pure logic over the
   asset graph and require no network and no Core ML. Attempting to filter a
   finished asset must be impossible to express or must throw.
 - **Request construction is unit-tested without the network.** The handler
