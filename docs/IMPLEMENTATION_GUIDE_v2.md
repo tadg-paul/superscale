@@ -303,7 +303,7 @@ independent of the new design and several cause data loss today.
 | D10 | low | `HistoryView.saveSelected` ignores the configured output folder, unlike the other two save paths. |
 | D11 | low | `dimensionCapWarning` is declared and never read or written. |
 | D12 | low | An output path whose extension is neither png nor jpg silently receives PNG bytes under the wrong extension. |
-| D13 | unverified | `Tiler.blendWeight` returns zero on the outermost row and column, which would leave a one-pixel transparent border. Inferred from code, not observed. Requires a deliberate check. |
+| D13 | **confirmed, medium** | Every pipeline output carries a **one-pixel black border on all four sides**. `Tiler.blendWeight` returns `min(left, right, top, bottom)`, and at `x = 0` the term `min(Float(0)/o, 1.0)` is zero, so the outermost pixels accumulate zero weight, the `weightAccum[i] > 0` guard at `Tiler.swift:156` never fires, and they retain their initialized zero. Measured on `Tests/visual_output/remy1_4x.png`: outermost row and column 100% black across their full length, inner rows 0%, source image 0%. Undetected because RT-087 samples 20 pixels inside the edge. Affects every image the app has produced. |
 
 ## 6. Target Architecture
 
@@ -586,6 +586,15 @@ cancellation checks in the tile loop, and an actor-confined reusable `Pipeline`.
 Conform kit errors to `LocalizedError`. Closes D6, D7, and removes the string
 sniffing. This is a change to the tested v1 core and must not regress the SSIM
 gate.
+
+*Proposed addition, pending confirmation:* fix **D13**, the one-pixel black
+border, here rather than in the excluded slice 11. It is a `SuperscaleKit`
+defect in `Tiler`, it falls inside this slice's authorized scope, and it affects
+every image the application produces. The fix is to give edge pixels a non-zero
+weight (clamping the blend weight to a small positive floor, or treating the
+outer image boundary as not requiring a blend), plus a regression test that
+samples the outermost row and column --- the coverage RT-087 was written to
+avoid.
 
 **Slice 4 --- Filter catalogue.** Add frontmatter to all 86 filters, replace the
 filename-splitting metadata derivation with a frontmatter parser, validate at
