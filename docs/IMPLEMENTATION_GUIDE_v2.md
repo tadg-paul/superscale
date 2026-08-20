@@ -75,8 +75,9 @@ What v2 is still not: an image editor, or an asset manager.
    terminal stage.
 7. **Save** writes the finished image where the user chooses.
 
-Steps 2 to 5 are optional. A user who drops an image and hits Finish gets
-exactly the v1 experience, at v1 speed, with nothing in the way.
+Steps 2 to 5 are optional. Drop an image with a scale selected and it upscales
+immediately, exactly as v1 does, with nothing in the way. Deselect the scale and
+it waits, which is what a filter-first session wants (see 2.5).
 
 ### 2.2 Bringing in an image
 
@@ -160,6 +161,30 @@ target dimensions, and optional face enhancement.
   local operation.
 - Output above 4096 pixels on the long edge warns; above 8192 it is refused.
   The reason is memory, quantified in section 3.8.
+
+#### Automatic finishing, and turning it off
+
+In v1, dropping an image **upscales it immediately** at whatever scale is
+selected, and changing the scale or model re-runs it. That immediacy is the v1
+experience and is kept.
+
+It needs an off switch in v2. In a filter-first session the user usually wants
+to filter before finishing, and auto-finishing on import spends roughly three
+seconds of model load plus processing on an output they are about to set aside.
+
+**Toggling off is done by deselecting the active scale button.** The scale
+control (2x, 4x, 8x, custom) becomes a proper toggle group: clicking the
+selected button clears it, and with nothing selected there is no finish. Drop an
+image with scale off and it simply becomes the base, ready to filter. Select a
+scale later and finishing runs then.
+
+This needs an **off state in `ScaleMode`**, which today is only `.preset(Int)`
+or `.custom`, and buttons that clear rather than re-select when the active one is
+pressed.
+
+Correctness does not depend on this. The invariants already guarantee a filter
+reads the base, so even an auto-finished image is never filtered. The toggle is
+about wasted work and user control, not safety.
 
 **Face enhancement is unchanged from v1.** GFPGAN is not bundled, because of its
 non-commercial licence. It is present only if the user deliberately downloaded
@@ -475,7 +500,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 | | Slice | Content |
 |---|---|---|
 | 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock. Enforce I1--I6. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
-| 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. |
+| 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. Adds the off state to `ScaleMode` and makes the scale buttons a true toggle group, so automatic finishing on import can be turned off (2.5). |
 | 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
 | 5 | **Reference upload** | FAL storage upload returning URLs, in `FalGenerationKit`, replacing base64. |
