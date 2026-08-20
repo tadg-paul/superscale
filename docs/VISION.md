@@ -197,9 +197,10 @@ boundaries. It refines:
 - keyboard access, accessibility and native Mac interaction conventions.
 
 The starting interaction model is recorded in
-[the end-to-end design](E2E_DESIGN.md). The [architecture](ARCHITECTURE.md) and
-[implementation plan](IMPLEMENTATION_PLAN.md) are revised after the MVP vision is
-accepted and before a structured implementation programme is chosen.
+[the end-to-end design](E2E_DESIGN.md). The
+[implementation guide](IMPLEMENTATION_GUIDE_v2.md) is the current design of
+record and supersedes the earlier implementation plan; the
+[architecture](ARCHITECTURE.md) is revised to follow it.
 
 ## Design Principles
 
