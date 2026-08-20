@@ -1,4 +1,4 @@
-<!-- Version: 1.2 | Last updated: 2026-08-05 -->
+<!-- Version: 1.1 | Last updated: 2026-08-05 -->
 
 # Superscale v2 Architecture
 
@@ -137,23 +137,8 @@ sequenceDiagram
 
 ## FAL Client Layer
 
-The FAL layer is a native Swift service. Its architecture follows the more
-sophisticated, battle-tested design in `storyboard-gen`: a provider abstraction,
-declarative model-family handlers, a session-cached pricing chain, and
-cancellable long-running work. Its concrete FAL wire protocol (the `fal.run`
-request shape, the `Authorization: Key` header, per-family payloads, and the
-multi-envelope error parser) follows `pix`, which, being SDK-free Go, is the
-better reference for the raw HTTP the Swift port writes by hand; `storyboard-gen`
-delegates that transport to the `fal-client` SDK, which has no Swift equivalent.
-Generation concurrency uses Swift structured concurrency, improving on both
-references.
-
-The client sits behind a provider abstraction (an `ImageProvider` protocol
-modelled on `storyboard-gen`'s `providers/base.py`), with FAL as the only MVP
-implementation. Any future Google or Replicate provider conforms to the same
-protocol rather than reshaping the client, and views never construct
-provider-specific payloads. The [generation design](GENERATION_DESIGN.md) is the
-authoritative detail; this section gives the shape.
+The FAL layer should be a small Swift service modelled on the working behaviour
+in `pix`.
 
 Generation client responsibilities:
 
@@ -245,12 +230,6 @@ The GUI stores secrets in Keychain:
 
 - FAL generation key;
 - FAL account/admin key.
-
-The two-key split follows a standing least-privilege principle applied across
-the project's API integrations, not a FAL-specific choice: an everyday key used
-constantly (and therefore the most exposed) is kept separate from a privileged
-account or billing key; the privileged key never falls back to the everyday key;
-and account features degrade independently when it is absent.
 
 ~~Import from `pix` configuration may be offered as a convenience.~~ This was
 removed from v2 scope. Users provide credentials directly through the GUI, and
@@ -391,10 +370,6 @@ image upscaled locally.
 
 ## Changelog
 
-- **1.2 (2026-08-05):** Reframed the FAL layer to follow `storyboard-gen`'s
-  architecture with `pix` as the wire-protocol reference; introduced the
-  provider abstraction; recorded the two-key split as a project-wide
-  least-privilege principle.
 - **1.1 (2026-08-05):** Linked the detailed generation design and gap analysis;
   noted the generation design as the authoritative FAL detail.
 - **1.0 (2026-08-05):** Promoted the v2 architecture to the canonical project
