@@ -424,21 +424,51 @@ candidates for revision, which is authorial work and belongs to the human.
 The body must contain no markdown headers. D4 is fixed by cleaning the three
 affected files, and prevented by validating at load.
 
-### 7.3 Where metadata lives
+### 7.3 Ownership and metadata location
 
-Two options, and this is a decision recorded in section 12 rather than settled
-here, because the corpus is authored content maintained outside this repository.
+**The filter corpus is vendored into this repository wholesale.** The 86 files
+under `Sources/SuperscaleUXCore/Resources/PromptPacks/` are the canonical
+source. No path, build step, or runtime behaviour refers to an external
+authoring directory. Filters are project content and are versioned with the
+project.
 
-- **Frontmatter in each `.md`.** Self-contained and travels with the file.
-  Diverges the bundled copies from the authoring source unless that source
-  adopts frontmatter too.
-- **A separate manifest in the repository.** Keeps the `.md` files exactly as
-  authored, so syncing is a plain copy. Requires two edits to add a filter.
+Because the repository owns the corpus, **metadata lives in frontmatter in each
+`.md` file**:
 
-Recommendation: the manifest, because it preserves the authoring workflow and
-keeps an app concern out of creative source files.
+```markdown
+---
+id: lighting-film-noir
+name: Film Noir
+category: Lighting
+mode: imageToImage
+requiresInput: true
+aspect: preserve
+---
+Transform the input image using film noir lighting.
+...
+```
 
-### 7.4 Compatibility
+A separate manifest was considered and rejected. Its only advantage was keeping
+the `.md` files byte-identical to an external authoring source, which ownership
+of the corpus removes. Frontmatter keeps a filter self-contained, makes adding
+one a single-file operation, and cannot drift out of sync with its body.
+
+### 7.4 Editable filter text
+
+Free-form text-to-image generation is deferred, but a filter's prompt text is
+**not** fixed at the point of use. The composed prompt is presented in an
+editable field before application, and the user may adjust it.
+
+- The filter body populates the field; edits apply to that application.
+- Editing does not modify the bundled filter.
+- The distinction from deferred user-authored filters is persistence: this is
+  adjustment in flight, not creating a new saved filter.
+
+This is the escape hatch that keeps the product curated without making it
+rigid. It also means the composed prompt sent to the provider is whatever the
+field contains, not the filter body read fresh from disk.
+
+### 7.5 Compatibility
 
 The filter picker must reflect the working state. A filter with
 `requiresInput: true` is not offerable when there is no working asset, and the
@@ -533,6 +563,10 @@ Whichever is chosen, these hold:
 Ordered slices, each independently testable and each a candidate ticket. Order
 reflects dependency and risk, not estimated size.
 
+**Slices 1 to 9 are the confirmed scope of this delivery.** Slices 10 to 12 are
+recorded for continuity and are explicitly excluded; they follow as separate
+work once the spine is proven.
+
 **Slice 1 --- Asset graph and invariants.** Introduce `Asset`, `AssetRole`,
 lineage, and the base/candidate pointers with lock in `SuperscaleUXCore`.
 Enforce I1 to I7.
@@ -553,10 +587,11 @@ Conform kit errors to `LocalizedError`. Closes D6, D7, and removes the string
 sniffing. This is a change to the tested v1 core and must not regress the SSIM
 gate.
 
-**Slice 4 --- Filter catalogue.** The metadata specification, the manifest or
-frontmatter decision, loader validation rejecting headers, compatibility
-filtering in the picker, and cleaning the three affected filter bodies. Closes
-D4. This slice makes the product's content first-class.
+**Slice 4 --- Filter catalogue.** Add frontmatter to all 86 filters, replace the
+filename-splitting metadata derivation with a frontmatter parser, validate at
+load (rejecting markdown headers in bodies), clean the three polluted bodies,
+add compatibility filtering to the picker, and present the composed prompt in an
+editable field. Closes D4. This slice makes the product's content first-class.
 
 **Slice 5 --- Reference upload.** Move reference encoding out of the view and into
 `FalGenerationKit` as a FAL storage upload returning URLs, with no caching.
@@ -577,15 +612,18 @@ classes, redaction, and one error presentation surface replacing four.
 **Slice 9 --- Pricing and account resilience.** Independent best-effort fetches,
 session caching including negative results, and confirmed non-fatal degradation.
 
-**Slice 10 --- Workspace.** The interface change selected in section 12, plus
+**Slice 10 --- Workspace.** *(Excluded from this delivery.)* The interface change
+left open in section 12, plus
 making comparison reachable from every stage and recording local finishes in
 History.
 
-**Slice 11 --- Output fidelity and hygiene.** Surface all returned images, honour
+**Slice 11 --- Output fidelity and hygiene.** *(Excluded from this delivery.)*
+Surface all returned images, honour
 the output folder consistently, honour the default upscale model on drop,
 correct auto-detect scale, and address D5, D8, D9, D10, D11, D12. Verify D13.
 
-**Slice 12 --- Release hardening.** Resource bundling, credential exclusion,
+**Slice 12 --- Release hardening.** *(Excluded from this delivery.)* Resource
+bundling, credential exclusion,
 honest release wording, README correction, and the manual provider checks.
 
 ## 11. Testing Strategy
@@ -612,27 +650,41 @@ The v1 approach is sound and extends naturally.
   applied to a real image, one text-to-image generation, one pricing or account
   check, and one finished output saved.
 
-## 12. Decisions Required
+## 12. Decisions Taken
 
-These are product decisions. They are recorded here rather than settled, and
-each blocks a specific slice.
+Settled. Each was a product decision and each is now closed.
 
-1. **Workspace structure** (blocks slice 10). Merge Upscale and Generate into a
-   single Studio workspace, or retain four modes with a corrected model beneath.
-   Recommendation: merge, for the reasons in section 9.
-2. **Filter metadata location** (blocks slice 4). Frontmatter in each `.md`, or
-   a separate manifest. Recommendation: manifest, to preserve the authoring
-   workflow.
-3. **Filter corpus revision** (informs slice 4). 26 of 86 filters lack a
-   preserve clause and read as text-to-image style prompts. Whether to revise
-   them is authorial work and belongs to the human.
-4. **Output resolution cap** (blocks slice 7). Given roughly 36 bytes per output
-   pixel in the stitcher, what maximum finished resolution is supported, and is
-   exceeding it a warning or a refusal.
-5. **Text-to-image scope** (informs slices 4 and 10). Whether generating from a
-   prompt with no source image is in the first release, or whether the release
-   is filter-only.
-6. **Existing ticket disposition** (blocks all slices). See section 13.
+1. **Delivery scope: slices 1 to 9.** Slices 10 (workspace), 11 (output fidelity
+   and hygiene) and 12 (release hardening) are excluded from this delivery and
+   follow separately.
+2. **Filter corpus is vendored.** The repository owns the 86 filters; nothing
+   refers to an external authoring directory. See section 7.3.
+3. **Filter metadata lives in frontmatter.** Ownership of the corpus removes the
+   only argument for a separate manifest. See section 7.3.
+4. **Filter text is editable in flight.** The composed prompt is presented in an
+   editable field before application. Persisting user-authored filters remains
+   deferred. See section 7.4.
+5. **Text-to-image is deferred.** The release is filter-first. Generating from a
+   bare prompt with no source image is out of scope.
+6. **Output resolution cap.** Finished output is warned above 4096 pixels on the
+   long edge and refused above 8192. The stitcher costs roughly 36 bytes per
+   output pixel, all resident: 4096 squared is about 600 MB, 8192 squared about
+   2.4 GB. The natural design point is a 1024-pixel filter output finished at
+   4x, which lands at 4096.
+7. **`SuperscaleKit` public API changes are authorized** for slice 3, covering
+   structured progress, cancellation, an actor-confined reusable `Pipeline`, and
+   `LocalizedError` conformance. This authorization is recorded here because
+   such changes would otherwise require a mandatory architecture stop.
+8. **Existing v2 tickets are closed and replaced.** See section 13.
+
+### Still open, not blocking this delivery
+
+- **Workspace structure** (slice 10, excluded from scope). Merge Upscale and
+  Generate into a single Studio workspace, or retain four modes with a corrected
+  model beneath. Recommendation stands: merge, for the reasons in section 9.
+- **Filter corpus revision.** 26 of 86 filters lack a preserve clause and read
+  as text-to-image style prompts. Revising them is authorial work and sits
+  outside any delivery scope.
 
 ## 13. Existing Tickets
 
@@ -642,13 +694,15 @@ specifications are misframed. Four legacy tickets (#14, #46, #47, #48) use an
 obsolete acceptance-criteria format, #47 is redundant with #73, and three (#15,
 #16, #17) are outside the v2 scope.
 
-Recommendation: close #70 to #78 as superseded, with a comment linking this
-guide, and generate a fresh coherent ticket tree from section 10. Patching nine
+**Decision: #70 to #78 are closed as superseded**, each with a comment linking
+this guide, and a fresh ticket tree is generated from section 10. Patching nine
 misframed specifications is more work than replacing them, and the implemented
-code is not discarded by doing so --- slices 1 to 12 build on it.
+code is not discarded by doing so --- slices 1 to 9 build on it.
 
-Closing issues requires explicit human direction under the governing process.
-No ticket is closed on the basis of this document alone.
+The legacy tickets are unaffected by this delivery. #55 (signing), #57
+(XCUITest), #66 (divider contrast) and #69 (Apache-2.0) remain valid and are
+untouched. #14, #46, #47 and #48 need rewriting or retirement, and #15, #16 and
+#17 remain out of scope; none is addressed here.
 
 ## 14. Risks
 
