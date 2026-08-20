@@ -124,9 +124,9 @@ make install
 |---|---|
 | [Vision](docs/VISION.md) | Superscale v2 end state, MVP, boundaries, and design principles |
 | [Architecture](docs/ARCHITECTURE.md) | v2 system design, data flow, and component boundaries |
+| [Implementation guide v2](docs/IMPLEMENTATION_GUIDE_v2.md) | The v2 design: value proposition, pipeline model, lineage, defects, and delivery slices |
 | [FAL request reference](docs/FAL_REQUEST_REFERENCE.md) | FAL request-construction knowledge distilled from pix and storyboard-gen |
-| [End-to-end design](docs/E2E_DESIGN.md) | v2 journeys, wireframes, and human-validation outcomes |
-| [Implementation plan](docs/IMPLEMENTATION_PLAN.md) | Phased v2 delivery plan |
+| [End-to-end design](docs/E2E_DESIGN.md) | v2 journeys and wireframes (superseded in part by the implementation guide) |
 | [Release checklist](docs/RELEASE_CHECKLIST.md) | Automated and human v2 release evidence |
 | [Legacy v1 documentation](docs/v1/) | Original vision, architecture, implementation plan, and testing strategy |
 | [Model licensing](docs/model-licensing.md) | Licence status of bundled model weights |
