@@ -108,6 +108,7 @@ make install
 |---|---|
 | `make build` | Download models (if needed) + build release binary |
 | `make test` | Run regression tests (excludes slow SSIM quality gate) |
+| `make test-one-off` | Run one-off tests, which live in the separate `OneOff/` package and are never run by `make test` |
 | `make test-ssim` | Run SSIM quality regression against PyTorch references (~2.5 min) |
 | `make install` | Build + symlink to `~/.local/bin` |
 | `make release` | Tag, build CLI, push, update Homebrew formula (runs both test packs) |

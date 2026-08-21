@@ -39,7 +39,12 @@ fetch-licences: ## Download licence texts for face model download flow
 	@curl -sL https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.txt \
 		-o SuperscaleApp/SuperscaleApp/Resources/LICENCE_CC_BY_NC_SA.txt
 
+# Package the test-layout guard inspects. Overridable so the guard's wiring can
+# be exercised against a synthetic package without touching the real one.
+GUARD_PACKAGE_PATH ?= .
+
 test: ## Run regression tests (excludes slow SSIM quality gate)
+	@./scripts/check-test-layout.sh --package-path $(GUARD_PACKAGE_PATH)
 	swift test --skip SSIM_RT064
 
 test-gui: ## Run GUI UI tests via XCUITest
@@ -48,11 +53,11 @@ test-gui: ## Run GUI UI tests via XCUITest
 test-ssim: ## Run SSIM quality regression against PyTorch references (~2.5 min)
 	swift test --filter SSIM_RT064
 
-test-one-off: ## Run one-off tests
+test-one-off: ## Run one-off tests (separate package; never run by `make test`)
 ifdef ISSUE
-	swift test --filter "OT.*$(ISSUE)"
+	@./scripts/run-one-off.sh "$(ISSUE)"
 else
-	swift test --filter "OT"
+	swift test --package-path OneOff
 endif
 
 test-visual: build-debug ## Upscale test images for visual inspection (UT-002)

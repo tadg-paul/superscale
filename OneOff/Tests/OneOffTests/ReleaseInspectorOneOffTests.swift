@@ -1,20 +1,18 @@
-// ABOUTME: Verifies v2 GUI release packaging and documented provider scope.
-// ABOUTME: Uses local synthetic app bundles so no paid services or credentials are involved.
+// ABOUTME: One-off verification that the GUI release inspector rejects sensitive artefacts.
+// ABOUTME: Builds a synthetic app bundle in a temporary directory; no credentials are involved.
 
 import Foundation
 import XCTest
 
-final class ReleasePackagingTests: XCTestCase {
+final class ReleaseInspectorOneOffTests: XCTestCase {
+
     private var fixtureRoot: URL!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
         fixtureRoot = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-            .appendingPathComponent("superscale-release-packaging-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(
-            at: fixtureRoot,
-            withIntermediateDirectories: true
-        )
+            .appendingPathComponent("superscale-release-inspector-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: fixtureRoot, withIntermediateDirectories: true)
     }
 
     override func tearDownWithError() throws {
@@ -24,22 +22,19 @@ final class ReleasePackagingTests: XCTestCase {
         try super.tearDownWithError()
     }
 
-    // RT-78.1
-    func test_guiReleaseInspectorAcceptsCompletePromptPackBundle_RT78_1() throws {
+    // OT-78.1
+    func test_guiReleaseInspectorRejectsSessionAndSensitiveArtefacts_OT78_1() throws {
         let app = try makeAppFixture(promptPackCount: 86)
+        let metadata = app.appendingPathComponent("Contents/Resources/metadata.json")
+        try Data("{\"prompt\":\"private\"}".utf8).write(to: metadata)
 
         let result = try inspect(app)
 
-        XCTAssertEqual(result.status, 0, result.output)
-        XCTAssertTrue(result.output.contains("86 prompt packs"), result.output)
+        XCTAssertNotEqual(result.status, 0, result.output)
+        XCTAssertTrue(result.output.contains("metadata.json"), result.output)
     }
 
-    private var projectRoot: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-    }
+    // MARK: - Helpers
 
     private func makeAppFixture(promptPackCount: Int) throws -> URL {
         let app = fixtureRoot.appendingPathComponent("Superscale.app")
@@ -65,9 +60,21 @@ final class ReleasePackagingTests: XCTestCase {
         process.standardOutput = output
         process.standardError = output
         try process.run()
-        process.waitUntilExit()
         let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
         return (process.terminationStatus, String(decoding: data, as: UTF8.self))
     }
 
+    /// The repository root, four levels above this file.
+    ///
+    /// This package lives at `<root>/OneOff`, so the path is
+    /// `OneOffTests/ -> Tests/ -> OneOff/ -> <root>`. The depth differs from the
+    /// main package's test targets, which sit two levels below the root.
+    private var projectRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // OneOffTests/
+            .deletingLastPathComponent()  // Tests/
+            .deletingLastPathComponent()  // OneOff/
+            .deletingLastPathComponent()  // repository root
+    }
 }
