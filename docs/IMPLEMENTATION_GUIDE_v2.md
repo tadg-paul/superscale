@@ -123,12 +123,17 @@ is not the default and is not in the MVP.
 modify the built-in filter, and do not persist across selections or sessions.
 Saving user-authored filters is deferred.
 
+**The MVP ships one model: `xai/grok-imagine-image`.** There is no model picker
+to reason about. Every filter runs against it, using its edit endpoint
+(`xai/grok-imagine-image/edit`) because every MVP filter takes an input image.
+
 Other rules:
 
 - Filters declaring `requiresInput` are not applicable without a base.
-- The **model** must accept a reference image. Only reference-capable models are
-  selectable for filtering. This is a property of the model, not the filter --- a
-  filter is plain prompt text and works with any model that takes an image.
+- Any model offered for filtering must accept a reference image. That is a
+  property of the model, not the filter --- a filter is plain prompt text and
+  works with any model that takes an image. It becomes a real constraint only
+  when a second model is added.
 - Applying is cancellable while in flight.
 
 **Comparison** is available throughout, reusing the existing magnifier loupe and
@@ -353,7 +358,7 @@ flowchart LR
 | Module | Owns |
 |---|---|
 | `SuperscaleKit` | Tiling, Core ML inference, model registry and cache, alpha, face enhancement, image I/O. No knowledge of the cloud. |
-| `FalGenerationKit` | FAL transport, model registry, per-family request handlers, reference upload, pricing, account, error parsing, fixtures. |
+| `FalGenerationKit` | FAL transport, model registry, request handlers, reference upload, pricing, account, error parsing, fixtures. |
 | `SuperscaleUXCore` | The asset graph, the two stages, the filter catalogue, session history, settings, storage policy. |
 | `SuperscaleApp` | SwiftUI views and platform integration only. |
 | `Superscale` | The CLI. Local upscaling only, with no dependency on the two cloud-facing modules. Verified by test. |
@@ -538,9 +543,12 @@ points:
   base64 data-URI encoding currently in a view. Upload belongs in
   `FalGenerationKit`. Uploaded URLs expire at the provider's discretion and are
   **never cached**.
-- **Model-family differences live in declarative handlers** with an explicit
-  edit-sibling map, not a naive `<model>/edit` rule, which 404s for several
-  families.
+- **One model in the MVP: `xai/grok-imagine-image`.** Its edit endpoint is the
+  plain `/edit` suffix, which is correct for this family, and its edit endpoint
+  rejects sizing parameters. **No edit-sibling map is needed to ship**: that map
+  exists for kontext, glm, seedream and emu, none of which are in scope. The
+  handler is declarative so a second model is a data change, but the family
+  matrix in the FAL reference is knowledge held for later, not work to do now.
 - **Errors are parsed through the multi-envelope parser** --- gateway shape,
   top-level message, FastAPI `detail` as string or list --- then mapped to the
   taxonomy, redacted, and truncated so an echoed payload cannot flood a
@@ -639,7 +647,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 | 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
 | 5 | **Reference upload** | FAL storage upload returning URLs, in `FalGenerationKit`, replacing base64. |
-| 6 | **Registry and handlers** | Declarative per-family handlers, edit-sibling map, safety and required fields, argument precedence, aspect snapping. |
+| 6 | **Model handling** | One handler for `xai/grok-imagine-image`: plural `image_urls`, `aspect_ratio` sizing, `/edit` suffix for the edit endpoint, sizing params omitted on edit. Argument merge precedence and aspect snapping. The registry keeps the shape that admits more models; it does not populate them. |
 | 7 | **Minimum resolution** | Raise an undersized import to the assumed minimum long edge, from a single documented constant, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
 | 9 | **Pricing and account** | Independent best-effort fetches, session caching including negatives, non-fatal degradation. Closes D8. |
@@ -659,7 +667,7 @@ are not.
 | Surface | Approach |
 |---|---|
 | Invariants I1--I7 | Direct unit tests over the asset graph. Attempting to filter an upscaled asset must be impossible or must throw. No network, no Core ML. |
-| Request construction | Pure functions --- handler selection, edit-sibling resolution, aspect snapping, prompt composition --- tested with no network. The highest-value surface in both reference implementations. |
+| Request construction | Pure functions --- handler payload construction, endpoint resolution, aspect snapping, prompt composition --- tested with no network. The highest-value surface in both reference implementations. |
 | Transport | Stubbed with `URLProtocol`: response parsing, pricing, account, upload, and every error envelope. **No test calls a paid endpoint.** |
 | Stage behaviour | Through `GUIUpscaleProcessing` with a stub processor, so lineage and handoff are verified without Core ML. |
 | Pipeline output | Image assertions on real output, including the outermost row and column. |
