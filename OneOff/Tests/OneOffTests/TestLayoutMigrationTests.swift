@@ -196,13 +196,13 @@ final class TestLayoutMigrationTests: XCTestCase {
 
     /// Enumerate a package's tests.
     ///
-    /// SwiftPM locks its build directory. Enumerating the package that is
-    /// currently running these tests would contend for that lock and deadlock,
-    /// so that one case is given its own scratch directory. Other packages have
-    /// their own build directories already and reuse them, which keeps this
-    /// fast: a fresh scratch path forces a full rebuild every time.
+    /// SwiftPM locks its build directory, so enumerating the package that is
+    /// currently running these tests would contend for that lock and deadlock.
+    /// That case is redirected to the suite's shared scratch directory, which is
+    /// shared rather than per-call so the package is built once for the whole
+    /// suite. Other packages have their own build directories and use them.
     private func listTests(packagePath: String) throws -> [String] {
-        var arguments = ["swift", "test", "--list-tests", "--package-path", packagePath]
+        var arguments = ["swift", "test", "list", "--package-path", packagePath]
 
         if URL(fileURLWithPath: packagePath).standardizedFileURL == oneOffPackage.standardizedFileURL {
             arguments.append(contentsOf: ["--scratch-path", Self.sharedScratch.path])
@@ -251,18 +251,18 @@ final class TestLayoutMigrationTests: XCTestCase {
 
     /// Build a minimal main package and a sibling one-off package in the fixture root.
     private func makeSyntheticPair(includingOneOffTest: Bool) throws -> SyntheticPair {
-        let mainPackage = fixtureRoot.appendingPathComponent("Main", isDirectory: true)
-        let oneOffPackage = fixtureRoot.appendingPathComponent("OneOff", isDirectory: true)
+        let syntheticMain = fixtureRoot.appendingPathComponent("Main", isDirectory: true)
+        let syntheticOneOff = fixtureRoot.appendingPathComponent("OneOff", isDirectory: true)
 
-        try makePackage(at: mainPackage, named: "FixtureMain", testTarget: "FixtureMainTests")
-        try addTest(named: "test_ordinary_RT12_1", to: mainPackage)
+        try makePackage(at: syntheticMain, named: "FixtureMain", testTarget: "FixtureMainTests")
+        try addTest(named: "test_ordinary_RT12_1", to: syntheticMain)
 
-        try makePackage(at: oneOffPackage, named: "FixtureOneOff", testTarget: "FixtureOneOffTests")
+        try makePackage(at: syntheticOneOff, named: "FixtureOneOff", testTarget: "FixtureOneOffTests")
         if includingOneOffTest {
-            try addTest(named: "test_synthetic_OT99_1", to: oneOffPackage)
+            try addTest(named: "test_synthetic_OT99_1", to: syntheticOneOff)
         }
 
-        return SyntheticPair(mainPackage: mainPackage, oneOffPackage: oneOffPackage)
+        return SyntheticPair(mainPackage: syntheticMain, oneOffPackage: syntheticOneOff)
     }
 
     private func makePackage(at root: URL, named name: String, testTarget: String) throws {
@@ -298,7 +298,10 @@ final class TestLayoutMigrationTests: XCTestCase {
             throw SyntheticFixtureError.noTestTarget(packageRoot.path)
         }
 
-        let className = "Generated\(abs(testName.hashValue))Tests"
+        // Derived from the test name so the fixture is identical on every run.
+        // The name only has to be a valid, unique Swift identifier inside a
+        // freshly created package.
+        let className = testName.prefix(1).uppercased() + testName.dropFirst() + "Container"
         let source = """
         import XCTest
 
