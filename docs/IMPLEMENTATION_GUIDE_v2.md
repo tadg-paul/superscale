@@ -38,6 +38,18 @@ The 86 filters in `Sources/SuperscaleUXCore/Resources/PromptPacks/` are
 before the API call is made**; in the v2 MVP those edits apply to that run only
 and are **not saved**.
 
+### What the MVP is for
+
+**To put a coherent, working UX in front of human eyes so it can be refined.**
+Not to be feature-complete.
+
+That purpose decides the scope. One model (`xai/grok-imagine-image/edit`), no
+generation from a bare prompt, no user-saved filters, no interface rebuild.
+Each is deferred not because it is hard but because none of them is needed to
+judge whether the core loop --- bring in an image, try filters, lock what works,
+upscale, save --- feels right. Anything that does not serve that judgement is
+work done before it can be evaluated.
+
 ### Direction of travel
 
 The MVP is **filter-first**: every journey starts from an image the user brings
