@@ -152,7 +152,7 @@ upscale is a deterministic local derivation: given the same image, model and
 scale it can be reproduced at any time in seconds. There is nothing to preserve
 by locking it, and locking it would put oversized pixels in front of the next
 filter. So what is locked is the filter's own output, or --- in the
-minimum-resolution case --- the source raised to the model's working resolution.
+minimum-resolution case --- the source raised to the assumed minimum.
 
 This is why the base is always valid filter input, and it is the whole reason
 the invariants in 3.2 hold without special cases.
@@ -234,8 +234,29 @@ about wasted work and user control, not safety.
 
 #### Minimum resolution for filtering
 
-An **edge case**, not a step in the journey. If an imported image is below the
-filter model's working resolution, it is too small to transform well.
+An **edge case**, not a step in the journey. An image can be too small to give a
+filter enough to work with.
+
+**We cannot ask the provider what "too small" is.** FAL does not publish a
+minimum input size per model, and it varies. So this is a **documented
+assumption**, held in one named constant rather than scattered through the code,
+and revisable when real usage says otherwise.
+
+**Assumption: a minimum long edge of 1024 pixels.** Aspect-agnostic, so it works
+for portrait, landscape and square alike without baking in a ratio.
+
+The evidence is indirect and worth stating as such:
+
+- `pix` maps its aspect presets to pixel sizes in the region of `1536x1024`,
+  so the models it drives operate around that scale.
+- `storyboard-gen` normalizes megapixel pricing on an assumption of roughly one
+  megapixel per image, which `1024x1024` (1.05 MP) matches closely.
+
+Neither is a published input floor; both indicate the scale these models work
+at. 1024 on the long edge sits at that scale without over-claiming precision.
+
+A per-model override belongs in the model registry if a provider ever documents
+a real figure. Until then one constant, one assumption, written down.
 
 It needs no special machinery. The app performs the sequence the user could have
 performed by hand:
@@ -355,7 +376,7 @@ in section 2 structural rather than remembered.
 ```swift
 public enum AssetRole: String, Sendable {
     case source        // brought in by the user
-    case raisedToMinimum  // upscaled only to reach the filter model's working resolution
+    case raisedToMinimum  // raised only to the assumed minimum long edge
     case filtered      // output of a filter
     case upscaled      // output of an upscale targeting the user's chosen size
 }
@@ -394,7 +415,7 @@ upscales at lock time safe rather than lossy.
 **Why two upscale roles.** Both come from one `UpscaleStage`; the target decides
 which:
 
-- `raisedToMinimum` targets the filter model's working resolution. Nothing is
+- `raisedToMinimum` targets the assumed minimum long edge (2.5). Nothing is
   wasted by sending it, because that is the size the model wants. It is valid
   filter input and it is what lock captures in the minimum-resolution case.
 - `upscaled` targets the size the user asked for. Sending it to a filter would
@@ -625,7 +646,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
 | 5 | **Reference upload** | FAL storage upload returning URLs, in `FalGenerationKit`, replacing base64. |
 | 6 | **Registry and handlers** | Declarative per-family handlers, edit-sibling map, safety and required fields, argument precedence, aspect snapping. |
-| 7 | **Minimum resolution** | Raise an undersized import to the filter model's working resolution, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
+| 7 | **Minimum resolution** | Raise an undersized import to the assumed minimum long edge, from a single documented constant, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
 | 9 | **Pricing and account** | Independent best-effort fetches, session caching including negatives, non-fatal degradation. Closes D8. |
 
