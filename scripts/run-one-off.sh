@@ -6,33 +6,66 @@ set -eo pipefail
 usage() {
     cat <<'USAGE'
 Usage:
-  run-one-off.sh ISSUE
+  run-one-off.sh ISSUE [--package-path DIR] [--scratch-path DIR]
 
-Runs the one-off tests for the given issue number from the OneOff package.
+Runs the one-off tests for the given issue number.
 
 `swift test --filter` exits successfully when its pattern matches nothing, which
 would let an empty run look like a passing one. This checks for matches first
 and reports their absence instead.
+
+Options:
+  --package-path DIR   One-off package to run (default: OneOff)
+  --scratch-path DIR   Build directory to use. Needed only when invoking this
+                       against a package whose own test run is in progress,
+                       since SwiftPM locks its build directory.
+  -h, --help           Show this help
 USAGE
 }
 
-if [[ $# -ne 1 ]]; then
+issue=""
+package_path="OneOff"
+scratch_path=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --package-path)
+            package_path="$2"
+            shift 2
+            ;;
+        --scratch-path)
+            scratch_path="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            if [[ -n "$issue" ]]; then
+                printf 'run-one-off: unexpected argument: %s\n' "$1" >&2
+                usage >&2
+                exit 2
+            fi
+            issue="$1"
+            shift
+            ;;
+    esac
+done
+
+if [[ -z "$issue" ]]; then
     usage >&2
     exit 2
 fi
 
-case "$1" in
-    -h|--help)
-        usage
-        exit 0
-        ;;
-esac
-
-readonly issue="$1"
-readonly package_path="OneOff"
 readonly pattern="OT${issue}_"
 
-if ! listing="$(swift test list --package-path "$package_path")"; then
+scratch_args=()
+if [[ -n "$scratch_path" ]]; then
+    scratch_args=(--scratch-path "$scratch_path")
+fi
+
+if ! listing="$(swift test list --package-path "$package_path" "${scratch_args[@]}")"; then
     printf 'run-one-off: could not enumerate tests in %s\n' "$package_path" >&2
     exit 2
 fi
@@ -45,4 +78,4 @@ if ! printf '%s\n' "$listing" | grep -qF -- "$pattern"; then
     exit 1
 fi
 
-swift test --package-path "$package_path" --filter "$pattern"
+swift test --package-path "$package_path" "${scratch_args[@]}" --filter "$pattern"

@@ -6,6 +6,25 @@ import XCTest
 
 final class TestLayoutMigrationTests: XCTestCase {
 
+    /// Build directory shared by every invocation that targets the one-off
+    /// package while this suite is running.
+    ///
+    /// SwiftPM locks its build directory, so those invocations cannot use the
+    /// package's own. Sharing one scratch directory across the suite means the
+    /// package is built once rather than once per test.
+    private static let sharedScratch: URL = {
+        let url = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
+            .appendingPathComponent("superscale-oneoff-scratch-\(ProcessInfo.processInfo.processIdentifier)",
+                                    isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }()
+
+    override class func tearDown() {
+        try? FileManager.default.removeItem(at: sharedScratch)
+        super.tearDown()
+    }
+
     private var fixtureRoot: URL!
 
     override func setUpWithError() throws {
@@ -70,11 +89,10 @@ final class TestLayoutMigrationTests: XCTestCase {
 
     // OT-80.4: the relocated one-off test passes in its new home
     func test_relocatedOneOffTestPassesInNewHome_OT80_4() throws {
-        let scratch = fixtureRoot.appendingPathComponent("scratch-relocated", isDirectory: true)
         let result = try run(executable: "/usr/bin/env",
                              arguments: ["swift", "test",
                                          "--package-path", oneOffPackage.path,
-                                         "--scratch-path", scratch.path,
+                                         "--scratch-path", Self.sharedScratch.path,
                                          "--filter", "OT78_"],
                              workingDirectory: projectRoot)
 
@@ -120,7 +138,9 @@ final class TestLayoutMigrationTests: XCTestCase {
     // entry point has to detect that itself. This exercises the entry point.
     func test_oneOffFilterWithNoMatchesReportsAbsence_OT80_9() throws {
         let result = try run(executable: "/bin/bash",
-                             arguments: [runOneOffScript.path, "99999"],
+                             arguments: [runOneOffScript.path, "99999",
+                                         "--package-path", oneOffPackage.path,
+                                         "--scratch-path", Self.sharedScratch.path],
                              workingDirectory: projectRoot)
 
         XCTAssertNotEqual(result.status, 0,
@@ -131,11 +151,10 @@ final class TestLayoutMigrationTests: XCTestCase {
 
     // OT-80.11: an issue filter matching a one-off test selects it
     func test_oneOffFilterSelectsMatchingTest_OT80_11() throws {
-        let scratch = fixtureRoot.appendingPathComponent("scratch-filter", isDirectory: true)
         let result = try run(executable: "/usr/bin/env",
                              arguments: ["swift", "test",
                                          "--package-path", oneOffPackage.path,
-                                         "--scratch-path", scratch.path,
+                                         "--scratch-path", Self.sharedScratch.path,
                                          "--filter", "OT78_"],
                              workingDirectory: projectRoot)
 
@@ -186,8 +205,7 @@ final class TestLayoutMigrationTests: XCTestCase {
         var arguments = ["swift", "test", "--list-tests", "--package-path", packagePath]
 
         if URL(fileURLWithPath: packagePath).standardizedFileURL == oneOffPackage.standardizedFileURL {
-            let scratch = fixtureRoot.appendingPathComponent("scratch", isDirectory: true)
-            arguments.append(contentsOf: ["--scratch-path", scratch.path])
+            arguments.append(contentsOf: ["--scratch-path", Self.sharedScratch.path])
         }
 
         let result = try run(executable: "/usr/bin/env",

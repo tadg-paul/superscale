@@ -24,6 +24,7 @@ USAGE
 # a sequence number, at the end of the test name. Digits are required and the
 # match is anchored so that a name merely containing the letters cannot fire it.
 readonly ONE_OFF_PATTERN='_OT[0-9][0-9]*_[0-9][0-9]*$'
+readonly VERSION='1.0'
 
 package_path="."
 listing_file=""
@@ -40,6 +41,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -h|--help)
             usage
+            exit 0
+            ;;
+        --version)
+            printf 'check-test-layout.sh %s\n' "$VERSION"
             exit 0
             ;;
         *)
