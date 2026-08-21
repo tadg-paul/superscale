@@ -147,9 +147,29 @@ the user's photograph rather than against each other's output. Lock is
 unmistakable in the interface, because it is the one action that changes what
 subsequent filters consume.
 
-The base is never an image upscaled to the user's chosen output size, so it is
-always valid filter input. An image raised only to the model's working
-resolution is a different matter and may be locked; see 2.5 and 3.2.
+**Lock always captures the image at model resolution, never its upscale.** The
+upscale is a deterministic local derivation: given the same image, model and
+scale it can be reproduced at any time in seconds. There is nothing to preserve
+by locking it, and locking it would put oversized pixels in front of the next
+filter. So what is locked is the filter's own output, or --- in the
+minimum-resolution case --- the source raised to the model's working resolution.
+
+This is why the base is always valid filter input, and it is the whole reason
+the invariants in 3.2 hold without special cases.
+
+#### Locked iterations
+
+Locking does not discard what came before. Each lock extends a chain, and the
+user can **scroll back through previously locked iterations**, view any of them,
+and **save any of them**.
+
+Saving an earlier iteration upscales it on demand at the current settings,
+because the upscale is deterministic and need not have been kept. This is what
+makes discarding upscales at lock time safe rather than lossy.
+
+The chain is the lineage the asset graph already records, so this needs no
+separate history structure: walking back through locked iterations is walking
+the parent chain of the current base.
 
 ### 2.5 Upscaling
 
@@ -358,25 +378,36 @@ pointer, and is the only place these rules live:
 | **I1** | An `upscaled` asset is never input to any stage. |
 | **I2** | Filters read the base --- never the candidate, never an upscaled asset. |
 | **I3** | Every filter application reads the base and replaces the candidate. Results never chain implicitly. |
-| **I4** | Only an explicit lock moves the base, and never to an upscaled asset. |
+| **I4** | Lock captures the working image at model resolution, never its upscale. Only lock moves the base. |
 | **I5** | Upscaling derives from the working asset and writes a new file. It never consumes or overwrites a previous upscaled output. |
 | **I6** | An upscaled asset is attributed to a session only if it descends from that session's lineage. Never by timing. |
+| **I7** | The lineage of a locked asset is retained and reachable, so any prior iteration can be viewed and saved. |
 
 Each is pure logic over the graph, testable with no network and no Core ML.
 
-**Why two upscale roles.** The user-visible minimum-resolution flow (2.5) is
-"upscale, then lock", which would otherwise collide with I1 and I4. It does not,
-because the two upscales differ in *target*, and the role records which was
+**Upscales are derivations, not state.** An upscale is deterministic: the same
+image, model and scale reproduce it in seconds. It is therefore never locked,
+never part of the base chain, and never needs to be preserved. That single fact
+is what makes I1, I2 and I4 hold without exceptions, and what makes discarding
+upscales at lock time safe rather than lossy.
+
+**Why two upscale roles.** Both come from one `UpscaleStage`; the target decides
 which:
 
 - `raisedToMinimum` targets the filter model's working resolution. Nothing is
   wasted by sending it, because that is the size the model wants. It is valid
-  filter input and it is lockable.
+  filter input and it is what lock captures in the minimum-resolution case.
 - `upscaled` targets the size the user asked for. Sending it to a filter would
-  discard everything the Neural Engine produced. It is terminal.
+  discard everything the Neural Engine produced. It is terminal and is never
+  locked.
 
 The harm the invariants prevent is *exceeding* model resolution, not upscaling
-as such. One `UpscaleStage` produces both; the target decides the role.
+as such.
+
+**The base chain is the lock history.** Each lock creates an asset whose
+`parentID` is the previous base, so walking that chain gives the locked
+iterations in order. Scrolling back (2.4) is a read of the graph, not a separate
+history store; saving an earlier iteration re-derives its upscale on demand.
 
 ### 3.3 Stages
 
@@ -588,7 +619,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 
 | | Slice | Content |
 |---|---|---|
-| 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock. Enforce I1--I6. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
+| 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock, and the lock chain with scroll-back. Enforce I1--I7. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
 | 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. Adds the off state to `ScaleMode` and makes the scale buttons a true toggle group, so automatic upscaling on import can be turned off (2.5). |
 | 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
@@ -612,7 +643,7 @@ are not.
 
 | Surface | Approach |
 |---|---|
-| Invariants I1--I6 | Direct unit tests over the asset graph. Attempting to filter an upscaled asset must be impossible or must throw. No network, no Core ML. |
+| Invariants I1--I7 | Direct unit tests over the asset graph. Attempting to filter an upscaled asset must be impossible or must throw. No network, no Core ML. |
 | Request construction | Pure functions --- handler selection, edit-sibling resolution, aspect snapping, prompt composition --- tested with no network. The highest-value surface in both reference implementations. |
 | Transport | Stubbed with `URLProtocol`: response parsing, pricing, account, upload, and every error envelope. **No test calls a paid endpoint.** |
 | Stage behaviour | Through `GUIUpscaleProcessing` with a stub processor, so lineage and handoff are verified without Core ML. |
