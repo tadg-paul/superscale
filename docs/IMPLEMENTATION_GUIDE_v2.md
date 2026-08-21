@@ -124,8 +124,12 @@ exactly what will be sent, and click through as many as they like at no cost.
 
 **Step two --- edit and execute (paid).** The text area is editable ad hoc: the
 user may adjust the wording, or send it untouched. A distinct **Apply** button
-executes the API call and produces the candidate. The estimated cost sits beside
-that button, and running session spend is visible.
+executes the API call and produces the candidate. The cost sits beside that
+button, and running session spend is visible.
+
+Cost is a **known flat rate** for the MVP --- grok is 2c per image --- held as a
+documented constant. There is no pricing API call. A live pricing client returns
+when a second model makes a flat rate untenable.
 
 There is no auto-apply on selection. It would turn an exploratory session into
 an expensive one. Auto-apply may be offered later as an explicit opt-in, but it
@@ -298,34 +302,37 @@ is absent the option is simply unavailable, and the pipeline skips the stage.
 The toggle's default follows installation state, and the pipeline guards on both
 the toggle and installation. v2 changes none of this.
 
-### 2.6 Saving and history
+### 2.6 Saving and session history
 
 Save writes to the configured output folder with a descriptive filename derived
-from the source and the operation.
+from the source and the operation. Any locked iteration can be saved, not only
+the current one (2.4).
 
-History records sessions --- the source, the filters applied, the upscaled
-outputs, model and cost metadata, and timestamps. It exists for recovery and
-audit, not asset management. From history a user can reopen a session, or save
-and reveal an output. Secrets are never written to it.
+**There is no History workspace.** What a user wants mid-session is the locked
+iterations, and those live in the sidebar. Reaching an older piece of work is
+what **`File > Open Recent`** is for --- the native Mac answer, and enough.
 
-**Local-only upscales are recorded too.** Today only cloud sessions are, which
-is why History claims to show local upscales but never does.
+A session record still exists on disk for recovery and audit: the source, the
+filters applied, the outputs, model metadata and timestamps. Secrets are never
+written to it. **Local-only upscales are recorded too**, which today they are
+not.
 
 ### 2.7 Settings
 
-Two FAL credentials with separate lifecycles, both in the Keychain:
+Settings is a real macOS `Settings` scene on `Cmd+,`, not a workspace.
 
-- a **generation key** for filters, upload and pricing;
-- a separate **account key** for balance and billing, which never falls back to
-  the generation key.
+One FAL credential is required for the MVP: a **generation key**, held in the
+Keychain, used for filters and upload.
 
-This is a standing least-privilege principle across the project's API
-integrations, not a FAL-specific choice: the key used constantly is the most
-exposed, so it must not also read billing.
+A separate **account key** for balance and billing exists in the codebase and is
+retained, but no MVP feature uses it, because pricing and account visibility are
+paused (see 6). When they return, the standing rule applies: the privileged key
+never falls back to the everyday one. That is a least-privilege principle across
+the project's API integrations, not a FAL-specific choice --- the key used
+constantly is the most exposed, so it must not also read billing.
 
-Non-secret settings: default upscale model, default filter model, output folder,
-and the cost-confirmation threshold. The default upscale model applies to every
-upscale, including a plain dropped file.
+Non-secret settings: default upscale model and output folder. The default
+upscale model applies to every upscale, including a plain dropped file.
 
 ### 2.8 Degraded states
 
@@ -334,8 +341,6 @@ The app must remain useful when parts are unavailable.
 | Condition | Behaviour |
 |---|---|
 | No generation key | Filters unavailable with a route to Settings. **Local upscaling works fully.** |
-| No or unauthorized account key | Balance hidden. Filters and pricing unaffected. |
-| Pricing unavailable | Filter still offered; cost shown as unavailable and the confirmation policy applies rather than a guessed figure. |
 | Network failure | Reported against the filter stage. The base and any candidate survive. |
 | Provider rejects the request | The provider's reason is surfaced in readable form, secrets redacted. |
 | Local pipeline failure | Reported against the upscale stage; the working image survives. |
@@ -565,9 +570,10 @@ points:
   top-level message, FastAPI `detail` as string or list --- then mapped to the
   taxonomy, redacted, and truncated so an echoed payload cannot flood a
   diagnostic.
-- **Pricing and account are best-effort and independent.** Neither blocks a
-  filter; a failure in one does not suppress the other. Results are cached for
-  the session, including negatives.
+- **Pricing and account are out of MVP scope.** Cost is a flat documented
+  constant (2c per image). When live pricing returns, the rule is best-effort
+  and independent: neither blocks a filter, a failure in one does not suppress
+  the other, and results are cached for the session including negatives.
 - **Edit endpoints often ignore the requested aspect ratio**, so filter output
   is centre-cropped back to the base's aspect with a small tolerance.
 
@@ -601,13 +607,38 @@ They are authorized.
 
 ### 3.9 Interface
 
-The pipeline implies a workspace rather than four peer modes: a canvas showing
-the working image, the filter list, a lock control, upscale controls, and a
-lineage indicator.
+**There is one workspace.** The v1 upscale workspace, extended. Not four modes.
 
-**Merging Upscale and Generate into one Studio surface is the recommendation**,
-with History and Settings retained separately. It is **out of scope below** and
-remains open --- the defects are data-model defects and are fixed either way.
+A previous iteration introduced `AppMode` with `upscale`, `generate`, `history`
+and `settings` as peer surfaces, and built Generate and History as separate
+workspaces. That framing goes. It made the user shuttle images between modes
+that are stages of one pipeline, and it is the root of the cross-mode state
+defects in section 5.
+
+Everything else is a panel, a sidebar or a sheet around that single canvas:
+
+| Surface | Form |
+|---|---|
+| Working image | The canvas. Base, candidate, and the upscaled rendering. |
+| Locked iterations | **Sidebar.** The lock chain (2.4), scrollable, each entry saveable. |
+| Filter catalogue | **Sidebar or sheet** --- open question below. 86 filters, categorized, searchable, with the editable prompt area. |
+| Upscale model | **Sheet.** Exactly as v1 already does it. |
+| Scale | Toolbar toggle group, as v1, now with an off state. |
+| Settings | A real macOS `Settings` scene on `Cmd+,`, not a mode. |
+| Prior sessions | **`File > Open Recent`.** No separate History surface. |
+
+Two consequences worth stating:
+
+- **History as a workspace is removed.** What a user actually wants mid-session
+  is the locked iterations, which the sidebar gives them. Reaching an older
+  piece of work is what Open Recent is for, and it is the native Mac answer.
+- **Settings must become a `Settings` scene.** It is currently a mode, so
+  removing modes forces it. That is the correct destination anyway.
+
+**Open question:** the filter catalogue as a persistent sidebar or an invoked
+sheet. A sidebar suits browsing 86 items and keeps the prompt area beside the
+canvas; a sheet keeps the workspace uncluttered but makes flicking between
+filters heavier. This is a layout judgement best made against something running.
 
 ---
 
@@ -662,9 +693,15 @@ Nine slices. Each is independently testable and becomes a ticket.
 | 6 | **Model handling** | One handler for `xai/grok-imagine-image`: plural `image_urls`, `aspect_ratio` sizing, `/edit` suffix for the edit endpoint, sizing params omitted on edit. Argument merge precedence and aspect snapping. The registry keeps the shape that admits more models; it does not populate them. |
 | 7 | **Minimum resolution** | Raise an undersized import to the assumed minimum long edge, from a single documented constant, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
-| 9 | **Pricing and account** | Independent best-effort fetches, session caching including negatives, non-fatal degradation. Closes D8. |
+| 9 | **Single workspace** | Collapse the four modes into one workspace: remove Generate and History as surfaces, locked iterations to a sidebar, filter catalogue to a sidebar or sheet, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene. Closes D8, and removes the cross-mode state that causes D2 and D7. |
 
-Excluded and following separately: the interface change (3.9), output fidelity
+**Pricing and account are paused for the MVP.** Grok is a known 2c per image, so
+the cost beside Apply is a documented flat rate, not an API call. That removes
+the pricing client, the account client, the session cache and the
+cost-confirmation policy from scope. They return when a second model makes a
+flat rate untenable.
+
+Excluded and following separately: output fidelity
 polish, and release hardening.
 
 ## 7. Testing
@@ -695,8 +732,8 @@ suite passes.
 
 Open, not blocking:
 
-- **Interface structure** (3.9). Merge into one Studio workspace, or keep four
-  modes with a corrected model beneath. Recommendation: merge.
+- **Filter catalogue as sidebar or sheet** (3.9). The only layout question left,
+  and one better answered against something running.
 - **Filter corpus revision.** 26 of 86 filters lack a preserve clause and read as
   style prompts rather than transforms. Authorial work.
 - **The README** states images never leave the machine. True of local upscaling,
