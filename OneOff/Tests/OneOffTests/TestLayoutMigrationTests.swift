@@ -12,13 +12,14 @@ final class TestLayoutMigrationTests: XCTestCase {
     /// SwiftPM locks its build directory, so those invocations cannot use the
     /// package's own. Sharing one scratch directory across the suite means the
     /// package is built once rather than once per test.
-    private static let sharedScratch: URL = {
-        let url = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-            .appendingPathComponent("superscale-oneoff-scratch-\(ProcessInfo.processInfo.processIdentifier)",
-                                    isDirectory: true)
-        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-        return url
-    }()
+    /// SwiftPM creates this directory when it is given as a scratch path, so
+    /// this only computes the location and cannot fail.
+    private static let sharedScratch: URL = URL(
+        fileURLWithPath: NSTemporaryDirectory(),
+        isDirectory: true
+    )
+    .appendingPathComponent("superscale-oneoff-scratch-\(ProcessInfo.processInfo.processIdentifier)",
+                            isDirectory: true)
 
     override class func tearDown() {
         try? FileManager.default.removeItem(at: sharedScratch)
