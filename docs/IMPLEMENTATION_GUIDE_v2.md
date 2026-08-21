@@ -66,11 +66,12 @@ What v2 is still not: an image editor, or an asset manager.
    Deselecting the scale turns it off (2.5).
 3. The user clicks a filter. Its text loads into an editable area --- **no API
    call, no cost**. They can read it, adjust it, or click through others freely.
-4. **Apply** executes the call. The **candidate** is shown **the moment the API
-   returns**, before any upscaling. The local upscale then starts, and the view
-   refreshes to the upscaled version when it completes. Applying again, with any
-   filter, reads the base and replaces the candidate. Filters do not stack by
-   accident.
+4. **Apply** sends **the base** --- the image as it stands, never an upscaled
+   version of it --- to the API. The **candidate** comes back and is shown **the
+   moment the API returns**, before any upscaling. The local upscale then starts
+   on it, and the view refreshes to the upscaled version when it completes.
+   Applying again, with any filter, sends the base again and replaces the
+   candidate. Filters do not stack by accident.
 5. When the user likes a result they can **lock** it, making it the new base so
    further filters build on it.
 6. **Save** writes the upscaled image where the user chooses.
@@ -96,7 +97,7 @@ the user brings in.
 Generation from a named prompt is the **next version**, not a permanent
 exclusion. When it arrives it becomes an additional way to create a `source`
 asset, entering the same pipeline at the same point as an imported image, with
-conditioning, filtering and upscaling unchanged downstream.
+filtering and upscaling unchanged downstream.
 
 ### 2.3 Choosing and applying a filter
 
@@ -146,7 +147,9 @@ the user's photograph rather than against each other's output. Lock is
 unmistakable in the interface, because it is the one action that changes what
 subsequent filters consume.
 
-The base is never an upscaled image, so it is always valid filter input.
+The base is never an image upscaled to the user's chosen output size, so it is
+always valid filter input. An image raised only to the model's working
+resolution is a different matter and may be locked; see 2.5 and 3.2.
 
 ### 2.5 Upscaling
 
@@ -211,21 +214,30 @@ about wasted work and user control, not safety.
 
 #### Minimum resolution for filtering
 
-An **edge case**, not a step in the journey. If the image the filter would
-receive is below the filter model's working resolution, it is too small to
-transform well.
+An **edge case**, not a step in the journey. If an imported image is below the
+filter model's working resolution, it is too small to transform well.
 
-The app handles it automatically: it upscales to the minimum required and shows
-an unobtrusive message saying it did so. The user is not asked and not blocked.
+It needs no special machinery. The app performs the sequence the user could have
+performed by hand:
+
+1. **Import** the small image.
+2. **Upscale** it to the minimum required.
+3. **Lock** that result, so it becomes the base.
+4. **Turn the upscale toggle off.**
+
+An unobtrusive message says the image was raised to the minimum size for
+filtering. From that point the session is completely ordinary: the base is a
+normal base, filters read it as usual, and the user can turn the scale back on
+whenever they want a final upscale.
+
+Turning the toggle off matters. Without it the app would keep re-upscaling an
+image that is already at the size the filter wants, spending time on work that
+is immediately discarded.
 
 The user may still change the upscale model and amount freely. **Whenever a
 change would drop the image below the minimum, it is raised again and the
-message is shown again.** The floor is enforced continuously, not just on
+message is shown again.** The floor is enforced continuously, not only on
 import.
-
-This is a distinct operation from upscaling: it targets the model's working
-resolution rather than the user's chosen output size, and its result is valid
-filter input where an upscaled image is not.
 
 **Face enhancement is unchanged from v1.** GFPGAN is not bundled, because of its
 non-commercial licence. It is present only if the user deliberately downloaded
@@ -307,7 +319,7 @@ flowchart LR
 |---|---|
 | `SuperscaleKit` | Tiling, Core ML inference, model registry and cache, alpha, face enhancement, image I/O. No knowledge of the cloud. |
 | `FalGenerationKit` | FAL transport, model registry, per-family request handlers, reference upload, pricing, account, error parsing, fixtures. |
-| `SuperscaleUXCore` | The asset graph, the three stages, the filter catalogue, session history, settings, storage policy. |
+| `SuperscaleUXCore` | The asset graph, the two stages, the filter catalogue, session history, settings, storage policy. |
 | `SuperscaleApp` | SwiftUI views and platform integration only. |
 | `Superscale` | The CLI. Local upscaling only, with no dependency on the two cloud-facing modules. Verified by test. |
 
@@ -323,9 +335,9 @@ in section 2 structural rather than remembered.
 ```swift
 public enum AssetRole: String, Sendable {
     case source        // brought in by the user
-    case conditioned   // pre-upscaled to reach model resolution
+    case raisedToMinimum  // upscaled only to reach the filter model's working resolution
     case filtered      // output of a filter
-    case upscaled      // output of the terminal upscale
+    case upscaled      // output of an upscale targeting the user's chosen size
 }
 
 public struct Asset: Identifiable, Sendable {
@@ -352,6 +364,20 @@ pointer, and is the only place these rules live:
 
 Each is pure logic over the graph, testable with no network and no Core ML.
 
+**Why two upscale roles.** The user-visible minimum-resolution flow (2.5) is
+"upscale, then lock", which would otherwise collide with I1 and I4. It does not,
+because the two upscales differ in *target*, and the role records which was
+which:
+
+- `raisedToMinimum` targets the filter model's working resolution. Nothing is
+  wasted by sending it, because that is the size the model wants. It is valid
+  filter input and it is lockable.
+- `upscaled` targets the size the user asked for. Sending it to a filter would
+  discard everything the Neural Engine produced. It is terminal.
+
+The harm the invariants prevent is *exceeding* model resolution, not upscaling
+as such. One `UpscaleStage` produces both; the target decides the role.
+
 ### 3.3 Stages
 
 Local and cloud work take the same shape, so the app has one progress model, one
@@ -365,9 +391,14 @@ protocol Stage {
 }
 ```
 
-`ConditionStage` and `UpscaleStage` wrap `SuperscaleKit`; `FilterStage` wraps
-`FalGenerationKit`. Today the cloud path has a phase enum and cancellation while
-the local path has a boolean and none; this collapses that asymmetry.
+**Two stages, not three.** `UpscaleStage` wraps `SuperscaleKit` and serves both
+upscale targets; `FilterStage` wraps `FalGenerationKit`. There is no separate
+stage for the minimum-resolution case --- raising an image to the minimum is the
+same stage with a
+different target, which is why the user-visible flow is just upscale and lock.
+
+Today the cloud path has a phase enum and cancellation while the local path has
+a boolean and none; this collapses that asymmetry.
 
 The graph publishes each stage's result as it lands, so the view can show a
 candidate while its upscale is still running. `UpscaleStage` is therefore
@@ -493,7 +524,7 @@ These shape the design and are not discovered late.
 - **No in-memory entry point** --- the pipeline is URL to URL, which suits the
   asset graph since it persists assets anyway.
 - **Model load costs about 3.2s per call**, because `Pipeline` is not `Sendable`
-  and a fresh one is built each time. Conditioning plus upscaling would pay it
+  and a fresh one is built each time. Raising to minimum and then upscaling would pay it
   twice.
 - **Progress is unstructured strings**, and the GUI currently parses face counts
   out of message text.
@@ -563,7 +594,7 @@ Nine slices. Each is independently testable and becomes a ticket.
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
 | 5 | **Reference upload** | FAL storage upload returning URLs, in `FalGenerationKit`, replacing base64. |
 | 6 | **Registry and handlers** | Declarative per-family handlers, edit-sibling map, safety and required fields, argument precedence, aspect snapping. |
-| 7 | **Conditioning** | Automatic pre-upscale below model resolution, with the resolution caps applied and reported. |
+| 7 | **Minimum resolution** | Raise an undersized import to the filter model's working resolution, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
 | 9 | **Pricing and account** | Independent best-effort fetches, session caching including negatives, non-fatal degradation. Closes D8. |
 
