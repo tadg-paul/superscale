@@ -681,10 +681,13 @@ is called. Section 3.2 revives it.
 
 ## 6. Delivery
 
-Nine slices. Each is independently testable and becomes a ticket.
+Ten slices. Each is independently testable and becomes a ticket. Slice 0 comes
+first and lands in its own commit, because a trustworthy regression baseline is
+a precondition for everything after it.
 
 | | Slice | Content |
 |---|---|---|
+| 0 | **Test layout** | Move one-off tests into their own test target so they are **structurally unreachable** from `make test`. `make test` selects regression targets **by inclusion**, never by excluding one-off tests by name. Its own commit, before any other work. |
 | 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock, and the lock chain with scroll-back. Enforce I1--I7. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
 | 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. Adds the off state to `ScaleMode` and makes the scale buttons a true toggle group, so automatic upscaling on import can be turned off (2.5). |
 | 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
@@ -712,6 +715,33 @@ breaks when a file moves, and stays green while the system misbehaves. Eight
 such tests have been removed. CLI stdout and stderr are a legitimate assertion
 target, because they are the CLI's interface; documents, Makefiles and scripts
 are not.
+
+### Test layout
+
+`make test` runs **regression tests only**. One-off tests are invoked
+separately, through `make test-one-off`.
+
+This is enforced **by location, not by exclusion**. One-off tests live in their
+own test target, and `make test` selects the regression targets by name. A new
+one-off test is therefore excluded because of where it lives, not because
+someone remembered to add it to a skip list.
+
+The distinction matters because the two failure modes are not equal. A forgotten
+inclusion means regression tests do not run, which shows up immediately as a
+smaller test count. A forgotten exclusion means a one-off test runs inside the
+regression pack silently, and nothing reveals it. Only the first is
+self-announcing, so the design must fail that way.
+
+`TESTING.md` expresses this as `tests/regression/` and `tests/one_off/`
+directories. SwiftPM resolves test targets to `Tests/<TargetName>/` and
+`swift test` filters on `<test-target>.<test-case>` rather than on paths, so the
+same guarantee is delivered through target separation. The structural property
+the standard requires --- one-off tests cannot be reached by the regression
+command --- holds either way.
+
+The existing `--skip SSIM_RT064` in `make test` is unrelated and stays: it
+excludes a *regression* test that is slow, and `make test-ssim` runs it. That is
+a speed trade-off within regression, not a category boundary.
 
 | Surface | Approach |
 |---|---|
