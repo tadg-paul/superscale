@@ -237,26 +237,20 @@ about wasted work and user control, not safety.
 An **edge case**, not a step in the journey. An image can be too small to give a
 filter enough to work with.
 
-**We cannot ask the provider what "too small" is.** FAL does not publish a
-minimum input size per model, and it varies. So this is a **documented
-assumption**, held in one named constant rather than scattered through the code,
-and revisable when real usage says otherwise.
+**The minimum is 1024 pixels on the long edge.**
 
-**Assumption: a minimum long edge of 1024 pixels.** Aspect-agnostic, so it works
-for portrait, landscape and square alike without baking in a ratio.
+This is an assumption, not a published figure: FAL does not document a minimum
+input size per model, and it varies. It is held in **one named constant**, and
+is revisable if real usage says otherwise. Long edge rather than a fixed
+width and height, so portrait, landscape and square are all covered without
+baking in an aspect ratio.
 
-The evidence is indirect and worth stating as such:
-
-- `pix` maps its aspect presets to pixel sizes in the region of `1536x1024`,
-  so the models it drives operate around that scale.
-- `storyboard-gen` normalizes megapixel pricing on an assumption of roughly one
-  megapixel per image, which `1024x1024` (1.05 MP) matches closely.
-
-Neither is a published input floor; both indicate the scale these models work
-at. 1024 on the long edge sits at that scale without over-claiming precision.
+The supporting evidence is indirect: `pix` maps its aspect presets to sizes
+around `1536x1024`, and `storyboard-gen` prices on roughly one megapixel per
+image, which `1024x1024` matches. Both indicate the scale these models work at.
 
 A per-model override belongs in the model registry if a provider ever documents
-a real figure. Until then one constant, one assumption, written down.
+a real figure.
 
 It needs no special machinery. The app performs the sequence the user could have
 performed by hand:
