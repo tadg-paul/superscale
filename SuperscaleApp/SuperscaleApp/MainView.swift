@@ -16,7 +16,6 @@ struct MainView: View {
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
     @State private var reopenedSession: GenerationSessionRecord?
-    @State private var latestGenerationSessionID: UUID?
 
     private let sessionStore: GenerationSessionStore
 
@@ -88,8 +87,7 @@ struct MainView: View {
                 sessionStore: sessionStore,
                 reopenedSession: reopenedSession,
                 onSendToUpscale: sendToUpscale,
-                onOpenSettings: { navigation.select(.settings) },
-                onSessionRecorded: { latestGenerationSessionID = $0 }
+                onOpenSettings: { navigation.select(.settings) }
             )
         case .history:
             HistoryView(
@@ -116,7 +114,9 @@ struct MainView: View {
         if preferredModel == "auto" || ModelRegistry.model(named: preferredModel) != nil {
             viewModel.selectedModelName = preferredModel
         }
-        viewModel.handleGeneratedImage(source.associating(sessionID: source.sessionID ?? latestGenerationSessionID))
+        // The source carries its own attribution. Substituting the most recent session for a
+        // source that has none is attribution by timing, which is the defect this closes.
+        viewModel.upscale(source)
         navigation.select(.upscale)
     }
 

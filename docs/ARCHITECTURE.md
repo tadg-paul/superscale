@@ -1,4 +1,4 @@
-<!-- Version: 1.0 | Last updated: 2026-08-05 -->
+<!-- Version: 1.1 | Last updated: 2026-08-23 -->
 
 # Superscale v2 Architecture
 
@@ -26,8 +26,11 @@ The preferred target layout is:
 - `SuperscaleKit`: unchanged public role for local processing.
 - `FalGenerationKit`: FAL HTTP client, model registry, pricing/account clients,
   request builders, response parsers, and test fixtures.
-- `SuperscaleUXCore`: GUI-facing orchestration, prompt packs, session history,
-  settings abstractions, and handoff into `SuperscaleKit`.
+- `SuperscaleUXCore`: the asset graph, GUI-facing orchestration, prompt packs,
+  session history, settings abstractions, and handoff into `SuperscaleKit`. The
+  asset graph owns every image the application holds and the lineage between
+  them, and it is what decides which asset a stage may read; a location chosen
+  for display cannot be submitted for processing.
 - `SuperscaleApp`: SwiftUI views, view models, menus, and platform integration.
 - `Superscale`: existing CLI executable, with no dependency on
   `FalGenerationKit` or `SuperscaleUXCore`.
@@ -364,5 +367,7 @@ image upscaled locally.
 
 ## Changelog
 
+- **1.1 (2026-08-23):** Recorded the asset graph as part of the
+  `SuperscaleUXCore` module boundary, following its introduction in #81.
 - **1.0 (2026-08-05):** Promoted the v2 architecture to the canonical project
   documentation set.

@@ -279,6 +279,9 @@ public struct AssetGraph: Sendable {
     /// The upscaled output of the working asset, when one has been produced for it.
     public func currentUpscale() throws -> AssetReference? {
         guard let workingAsset else { throw AssetGraphError.noWorkingAsset }
+        // At most one upscaled asset can share a parent, because `recordUpscale` releases the
+        // outputs of that parent before allocating a new one. Without that, taking the first
+        // match from an unordered collection would be arbitrary.
         let match = assets.values.first { $0.role == .upscaled && $0.parentID == workingAsset.id }
         return match.map { AssetReference(id: $0.id) }
     }
@@ -303,10 +306,19 @@ public struct AssetGraph: Sendable {
     private mutating func discardUpscales(of parentID: UUID) throws {
         let superseded = assets.values.filter { $0.role == .upscaled && $0.parentID == parentID }
         for asset in superseded {
-            if FileManager.default.fileExists(atPath: asset.fileURL.path) {
+            if isOwned(asset.fileURL), FileManager.default.fileExists(atPath: asset.fileURL.path) {
                 try FileManager.default.removeItem(at: asset.fileURL)
             }
             assets.removeValue(forKey: asset.id)
         }
+    }
+
+    /// Whether the location is one this graph allocated.
+    ///
+    /// Every upscale is written beneath `outputDirectory`, so this is always true today. It is
+    /// checked rather than assumed because the consequence of it ever becoming false is a file
+    /// removed from somewhere the graph has no business touching.
+    private func isOwned(_ fileURL: URL) -> Bool {
+        fileURL.deletingLastPathComponent().standardizedFileURL == outputDirectory.standardizedFileURL
     }
 }

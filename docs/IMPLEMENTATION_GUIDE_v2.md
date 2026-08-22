@@ -1,4 +1,4 @@
-<!-- Version: 3.0 | Last updated: 2026-08-20 -->
+<!-- Version: 3.1 | Last updated: 2026-08-23 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -397,13 +397,20 @@ public enum AssetRole: String, Sendable {
     case upscaled      // output of an upscale targeting the user's chosen size
 }
 
-public struct Asset: Identifiable, Sendable {
+public struct Asset: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let role: AssetRole
     public let fileURL: URL
     public let pixelSize: CGSize
     public let parentID: UUID?          // lineage
-    public let provenance: Provenance?  // filter, model, prompt, cost — never secrets
+    public let provenance: Provenance?
+}
+
+public struct Provenance: Codable, Equatable, Sendable {
+    public let filterID: String?
+    public let modelID: String?
+    public let prompt: String?   // redacted of any supplied secret
+    public let sessionID: UUID?  // what session attribution walks the lineage for
 }
 ```
 
@@ -426,7 +433,13 @@ Each is pure logic over the graph, testable with no network and no Core ML.
 image, model and scale reproduce it in seconds. It is therefore never locked,
 never part of the base chain, and never needs to be preserved. That single fact
 is what makes I1, I2 and I4 hold without exceptions, and what makes discarding
-upscales at lock time safe rather than lossy.
+an upscale safe rather than lossy.
+
+An upscale is discarded when it is superseded: when a later upscale of the same
+asset takes its place. Lock discards nothing. One output is current per working
+asset, so the number retained stays proportional to the lock chain rather than
+to how many times the size was adjusted, and no output is ever overwritten in
+place.
 
 **Why two upscale roles.** Both come from one `UpscaleStage`; the target decides
 which:
@@ -775,6 +788,9 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.1 (2026-08-23):** Corrected section 3 against the asset graph as built in
+  #81: an upscale is discarded when superseded rather than at lock time, and
+  `Provenance` carries the session identifier that lineage attribution walks.
 - **3.0 (2026-08-20):** Added the functionality specification (journeys, filter
   browsing, lock, upscaling, history, settings, degraded states) and expanded
   the architecture with module responsibilities, flow, storage and the testing

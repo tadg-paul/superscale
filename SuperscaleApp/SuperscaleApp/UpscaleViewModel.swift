@@ -329,11 +329,12 @@ final class UpscaleViewModel: ObservableObject {
         processImage(source: .imported(url))
     }
 
-    /// Upscales an image that came from elsewhere in the application.
+    /// Upscales an image that came from elsewhere in the application, such as a generation
+    /// result or a history session.
     ///
     /// Takes the source rather than a location, so a caller cannot substitute the image it is
     /// displaying for the image that should be processed.
-    func handleGeneratedImage(_ source: GUIUpscaleSource) {
+    func upscale(_ source: GUIUpscaleSource) {
         processImage(source: source)
     }
 
