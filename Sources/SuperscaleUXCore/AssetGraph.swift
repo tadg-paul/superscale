@@ -318,7 +318,12 @@ public struct AssetGraph: Sendable {
     /// Every upscale is written beneath `outputDirectory`, so this is always true today. It is
     /// checked rather than assumed because the consequence of it ever becoming false is a file
     /// removed from somewhere the graph has no business touching.
+    ///
+    /// Compared as paths rather than as URLs: a file URL carries a directory flag that survives
+    /// standardization, so two URLs naming the same directory compare unequal when one was built
+    /// without `isDirectory: true`. `path` omits the trailing separator either way.
     private func isOwned(_ fileURL: URL) -> Bool {
-        fileURL.deletingLastPathComponent().standardizedFileURL == outputDirectory.standardizedFileURL
+        fileURL.standardizedFileURL.deletingLastPathComponent().path
+            == outputDirectory.standardizedFileURL.path
     }
 }

@@ -529,8 +529,18 @@ final class AssetGraphTests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// Names the output directory before creating it, which is how an application directory
+    /// usually arrives.
+    ///
+    /// A file URL built for a path that does not yet exist carries no directory flag, and an
+    /// earlier ownership check compared URLs rather than paths — so it found the graph's own
+    /// output location unequal to itself and silently stopped releasing superseded outputs.
+    /// The tests that assert releasing therefore exercise this construction.
     private func makeGraph() throws -> AssetGraph {
-        AssetGraph(outputDirectory: try makeScratch())
+        let parent = try makeScratch()
+        let output = parent.appendingPathComponent("outputs")
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        return AssetGraph(outputDirectory: output)
     }
 
     /// Applies a filter to the current base and locks the result, returning the newly locked asset.
