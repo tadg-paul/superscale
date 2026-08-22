@@ -95,7 +95,10 @@ final class GenerationCoordinatorTests: XCTestCase {
 
         await coordinator.generate(FalGenerationRequest(prompt: "Handoff"), apiKey: "fixture-key")
 
-        XCTAssertEqual(coordinator.upscaleSource, coordinator.output.map { .generatedFile($0.localURL) })
+        XCTAssertEqual(
+            coordinator.upscaleSource,
+            coordinator.output.map { GUIUpscaleSource(origin: .generatedFile, url: $0.localURL) }
+        )
     }
 
     private func temporaryDirectory() -> URL {

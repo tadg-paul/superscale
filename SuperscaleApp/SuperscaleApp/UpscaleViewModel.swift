@@ -39,6 +39,9 @@ final class UpscaleViewModel: ObservableObject {
     @Published var originalImage: NSImage?
     @Published var result: NSImage?
     @Published private(set) var resultData: Data?
+    /// The input the current result was produced from, carried through the upscale so that
+    /// attribution follows the work rather than view state that an unrelated drop can outlive.
+    @Published private(set) var resultSource: GUIUpscaleSource?
     @Published var inputURL: URL?
 
     /// Cached upscale results for instant face enhancement toggling.
@@ -251,7 +254,7 @@ final class UpscaleViewModel: ObservableObject {
 
     private func reupscaleIfNeeded() {
         guard let url = inputURL, !isProcessing else { return }
-        processImage(source: currentInputSource ?? .selectedFile(url))
+        processImage(source: currentInputSource ?? .imported(url))
     }
 
     /// Re-upscale for face enhance toggle only — preserves scale settings.
@@ -263,7 +266,7 @@ final class UpscaleViewModel: ObservableObject {
         let savedCustomH = customHeight
         let savedDefining = definingDimension
         let savedShowCustom = showCustomFields
-        processImage(source: currentInputSource ?? .selectedFile(url))
+        processImage(source: currentInputSource ?? .imported(url))
         // Restore scale state in case anything reset it
         scaleMode = savedMode
         customWidth = savedCustomW
@@ -323,11 +326,15 @@ final class UpscaleViewModel: ObservableObject {
 
     func handleDrop(urls: [URL]) {
         guard let url = urls.first else { return }
-        processImage(source: .selectedFile(url))
+        processImage(source: .imported(url))
     }
 
-    func handleGeneratedImage(at url: URL) {
-        processImage(source: .generatedFile(url))
+    /// Upscales an image that came from elsewhere in the application.
+    ///
+    /// Takes the source rather than a location, so a caller cannot substitute the image it is
+    /// displaying for the image that should be processed.
+    func handleGeneratedImage(_ source: GUIUpscaleSource) {
+        processImage(source: source)
     }
 
     func saveAs(defaultDirectory: URL? = nil) {
@@ -376,6 +383,7 @@ final class UpscaleViewModel: ObservableObject {
         progressMessage = "Loading..."
         result = nil
         resultData = nil
+        resultSource = nil
         showComparison = false
 
         // Invalidate face enhancement cache and upscale metadata
@@ -437,6 +445,9 @@ final class UpscaleViewModel: ObservableObject {
                 let faceWasEnabled = await self.faceEnhance
                 await MainActor.run {
                     self.result = image
+                    // Set before the data, so an observer of the data always sees the input it
+                    // came from rather than the input of the previous run.
+                    self.resultSource = output.source
                     self.resultData = output.imageData
                     if faceWasEnabled {
                         self.cachedWithFaces = image

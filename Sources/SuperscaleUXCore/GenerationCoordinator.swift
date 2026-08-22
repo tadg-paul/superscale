@@ -125,8 +125,10 @@ public final class GenerationCoordinator: ObservableObject {
         return output
     }
 
+    /// The input to a local upscale of the generated image, for the caller to attribute to the
+    /// session it recorded.
     public var upscaleSource: GUIUpscaleSource? {
-        output.map { .generatedFile($0.localURL) }
+        output.map { GUIUpscaleSource(origin: .generatedFile, url: $0.localURL) }
     }
 
     public func start(_ request: FalGenerationRequest, apiKey: String) {

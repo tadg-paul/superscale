@@ -15,12 +15,12 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         let coordinator = GUIUpscaleCoordinator(processor: processor)
 
         let result = try coordinator.process(
-            source: .selectedFile(fixture),
+            source: .imported(fixture),
             options: defaultOptions,
             onProgress: { _ in }
         )
 
-        XCTAssertEqual(result.source, .selectedFile(fixture))
+        XCTAssertEqual(result.source, .imported(fixture))
         XCTAssertEqual(result.imageData, Data("selected-upscaled".utf8))
         XCTAssertEqual(processor.requests.map(\.inputURL), [fixture])
     }
@@ -37,7 +37,7 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         let coordinator = GUIUpscaleCoordinator()
 
         let result = try coordinator.process(
-            source: .selectedFile(fixture),
+            source: .imported(fixture),
             options: GUIUpscaleOptions(
                 selectedModelName: "realesrgan-x2plus",
                 faceEnhance: false,
@@ -65,7 +65,7 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
             sizing: .custom(width: 1200, height: 800, stretch: true)
         )
 
-        _ = try coordinator.process(source: .selectedFile(fixture), options: options, onProgress: { _ in })
+        _ = try coordinator.process(source: .imported(fixture), options: options, onProgress: { _ in })
 
         XCTAssertEqual(processor.requests.first?.options, options)
     }
@@ -78,12 +78,12 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         let coordinator = GUIUpscaleCoordinator(processor: processor)
 
         let result = try coordinator.process(
-            source: .generatedFile(fixture),
+            source: GUIUpscaleSource(origin: .generatedFile, url: fixture),
             options: defaultOptions,
             onProgress: { _ in }
         )
 
-        XCTAssertEqual(result.source, .generatedFile(fixture))
+        XCTAssertEqual(result.source, GUIUpscaleSource(origin: .generatedFile, url: fixture))
         XCTAssertEqual(result.imageData, Data("generated-upscaled".utf8))
         XCTAssertEqual(processor.requests.count, 1)
     }
@@ -95,10 +95,10 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         let coordinator = GUIUpscaleCoordinator(processor: FailingUpscaleProcessor())
 
         let selectedError = captureError {
-            _ = try coordinator.process(source: .selectedFile(fixture), options: defaultOptions, onProgress: { _ in })
+            _ = try coordinator.process(source: .imported(fixture), options: defaultOptions, onProgress: { _ in })
         }
         let generatedError = captureError {
-            _ = try coordinator.process(source: .generatedFile(fixture), options: defaultOptions, onProgress: { _ in })
+            _ = try coordinator.process(source: GUIUpscaleSource(origin: .generatedFile, url: fixture), options: defaultOptions, onProgress: { _ in })
         }
 
         XCTAssertEqual(selectedError, "Fixture processing failed")

@@ -16,7 +16,6 @@ struct MainView: View {
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
     @State private var reopenedSession: GenerationSessionRecord?
-    @State private var pendingSessionID: UUID?
     @State private var latestGenerationSessionID: UUID?
 
     private let sessionStore: GenerationSessionStore
@@ -60,9 +59,6 @@ struct MainView: View {
         .onChange(of: viewModel.resultData) { _, data in
             associateCompletedUpscale(data)
         }
-        .onChange(of: viewModel.errorMessage) { _, message in
-            if message != nil { pendingSessionID = nil }
-        }
     }
 
     private var sidebar: some View {
@@ -102,8 +98,8 @@ struct MainView: View {
                     reopenedSession = session
                     navigation.select(.generate)
                 },
-                onSendToUpscale: { url, sessionID in
-                    sendToUpscale(url, sessionID: sessionID)
+                onSendToUpscale: { session in
+                    if let source = session.upscaleSource { sendToUpscale(source) }
                 }
             )
         case .settings:
@@ -115,25 +111,28 @@ struct MainView: View {
         }
     }
 
-    private func sendToUpscale(_ url: URL, sessionID: UUID?) {
-        pendingSessionID = sessionID ?? latestGenerationSessionID
+    private func sendToUpscale(_ source: GUIUpscaleSource) {
         let preferredModel = settingsState.defaultUpscaleModelID
         if preferredModel == "auto" || ModelRegistry.model(named: preferredModel) != nil {
             viewModel.selectedModelName = preferredModel
         }
-        viewModel.handleGeneratedImage(at: url)
+        viewModel.handleGeneratedImage(source.associating(sessionID: source.sessionID ?? latestGenerationSessionID))
         navigation.select(.upscale)
     }
 
+    /// Writes a completed upscale back to the session its input came from.
+    ///
+    /// Attribution reads the input the result was produced from rather than a session identifier
+    /// held in view state, so an unrelated image dropped in the meantime cannot be recorded as
+    /// the output of a prompt.
     private func associateCompletedUpscale(_ data: Data?) {
-        guard let data, let pendingSessionID else { return }
+        guard let data, let sessionID = viewModel.resultSource?.sessionID else { return }
         do {
             _ = try sessionStore.associateUpscaledAsset(
                 data,
                 fileExtension: "png",
-                withSessionID: pendingSessionID
+                withSessionID: sessionID
             )
-            self.pendingSessionID = nil
         } catch {
             viewModel.errorMessage = "Could not update generation history: \(error.localizedDescription)"
         }

@@ -5,15 +5,56 @@ import AppKit
 import Foundation
 import SuperscaleKit
 
-public enum GUIUpscaleSource: Equatable, Sendable {
-    case selectedFile(URL)
-    case generatedFile(URL)
+/// The input to a local upscale, together with where it came from.
+///
+/// The memberwise initializer is deliberately not public. A caller outside this module obtains a
+/// source either from the asset graph, from a generation session, or by declaring a file the user
+/// supplied directly — so a location chosen for display cannot be submitted for processing.
+public struct GUIUpscaleSource: Equatable, Sendable {
+    public enum Origin: String, Equatable, Sendable {
+        case selectedFile
+        case generatedFile
+        case graphAsset
+    }
 
-    public var url: URL {
-        switch self {
-        case let .selectedFile(url), let .generatedFile(url):
-            return url
-        }
+    public let origin: Origin
+    public let url: URL
+    /// The generation session this input belongs to, when it has one. Attribution travels with
+    /// the input rather than being held in view state alongside it.
+    public let sessionID: UUID?
+    public let assetID: UUID?
+
+    init(origin: Origin, url: URL, sessionID: UUID? = nil, assetID: UUID? = nil) {
+        self.origin = origin
+        self.url = url
+        self.sessionID = sessionID
+        self.assetID = assetID
+    }
+
+    /// A file the user supplied directly, by dropping or choosing it.
+    ///
+    /// This is the one entry point that accepts a bare location, because a file arriving from
+    /// outside the application has no asset to be resolved from.
+    public static func imported(_ url: URL) -> GUIUpscaleSource {
+        GUIUpscaleSource(origin: .selectedFile, url: url)
+    }
+
+    /// Resolves an asset held by the graph, rejecting a reference it does not hold and one that
+    /// names an upscaled output.
+    public init(resolving reference: AssetReference, in graph: AssetGraph) throws {
+        try graph.validateStageInput(reference)
+        let asset = try graph.asset(for: reference)
+        self.init(
+            origin: .graphAsset,
+            url: asset.fileURL,
+            sessionID: try graph.sessionID(associatedWith: reference),
+            assetID: asset.id
+        )
+    }
+
+    /// The same input, attributed to a generation session.
+    public func associating(sessionID: UUID?) -> GUIUpscaleSource {
+        GUIUpscaleSource(origin: origin, url: url, sessionID: sessionID, assetID: assetID)
     }
 }
 

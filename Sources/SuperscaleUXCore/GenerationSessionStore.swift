@@ -59,12 +59,17 @@ public struct GenerationSessionRecord: Codable, Equatable, Identifiable, Sendabl
         upscaledAssetPath.map(URL.init(fileURLWithPath:))
     }
 
+    /// The finished image, for display and for saving. Not an input to further processing:
+    /// sending an upscale back through the pipeline is what destroyed the original.
     public var preferredAssetURL: URL? {
         upscaledAssetURL ?? generatedAssetURL
     }
 
+    /// The input to further processing: the image the session produced, never an upscale of it.
     public var upscaleSource: GUIUpscaleSource? {
-        generatedAssetURL.map(GUIUpscaleSource.generatedFile)
+        generatedAssetURL.map { url in
+            GUIUpscaleSource(origin: .generatedFile, url: url, sessionID: id)
+        }
     }
 }
 
@@ -90,7 +95,7 @@ public struct GenerationSessionStore: Sendable {
             return destination.path
         }
         let metadataURL = directory.appendingPathComponent("metadata.json")
-        let diagnostic = draft.safeDiagnostic.map { redact($0, secrets: secrets) }
+        let diagnostic = draft.safeDiagnostic.map { Redaction.applied(to: $0, secrets: secrets) }
         let record = GenerationSessionRecord(
             id: id,
             prompt: draft.prompt,
@@ -146,7 +151,9 @@ public struct GenerationSessionStore: Sendable {
             throw GenerationSessionStoreError.sessionNotFound(sessionID)
         }
         let directory = URL(fileURLWithPath: record.metadataPath).deletingLastPathComponent()
-        let name = "upscaled.\(fileExtension.isEmpty ? "png" : fileExtension)"
+        // Each upscale occupies a location of its own. The former fixed `upscaled.<ext>` name
+        // meant a second upscale of the same session destroyed the first.
+        let name = "upscaled-\(UUID().uuidString).\(fileExtension.isEmpty ? "png" : fileExtension)"
         let destination = directory.appendingPathComponent(name)
         try data.write(to: destination, options: .atomic)
         record.upscaledAssetPath = destination.path
@@ -167,12 +174,6 @@ public struct GenerationSessionStore: Sendable {
         encoder.dateEncodingStrategy = .iso8601
         let data = try encoder.encode(record)
         try data.write(to: URL(fileURLWithPath: record.metadataPath), options: .atomic)
-    }
-
-    private func redact(_ value: String, secrets: [String]) -> String {
-        secrets.filter { !$0.isEmpty }.reduce(value) { partial, secret in
-            partial.replacingOccurrences(of: secret, with: "[REDACTED]")
-        }
     }
 }
 

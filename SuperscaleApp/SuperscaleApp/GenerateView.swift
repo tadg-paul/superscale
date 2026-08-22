@@ -23,7 +23,9 @@ struct GenerateView: View {
     @ObservedObject var pricing: GenerationPricingCoordinator
     let sessionStore: GenerationSessionStore
     let reopenedSession: GenerationSessionRecord?
-    let onSendToUpscale: (URL, UUID?) -> Void
+    /// Takes the upscale input rather than a location, so the generated image is what gets
+    /// processed regardless of what the view happens to be showing.
+    let onSendToUpscale: (GUIUpscaleSource) -> Void
     let onOpenSettings: () -> Void
     let onSessionRecorded: (UUID) -> Void
 
@@ -254,7 +256,9 @@ struct GenerateView: View {
             Divider()
             HStack {
                 Button {
-                    onSendToUpscale(generated.localURL, lastSessionID)
+                    if let source = coordinator.upscaleSource {
+                        onSendToUpscale(source.associating(sessionID: lastSessionID))
+                    }
                 } label: {
                     Label("Send to Upscale", systemImage: "arrow.up.left.and.arrow.down.right")
                 }

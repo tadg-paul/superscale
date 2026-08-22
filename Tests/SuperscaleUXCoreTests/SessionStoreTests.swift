@@ -77,7 +77,12 @@ final class SessionStoreTests: XCTestCase {
 
         XCTAssertNotNil(updated.upscaledAssetPath)
         XCTAssertEqual(updated.preferredAssetURL, updated.upscaledAssetURL)
-        XCTAssertEqual(updated.upscaleSource, updated.generatedAssetURL.map(GUIUpscaleSource.generatedFile))
+        XCTAssertEqual(
+            updated.upscaleSource,
+            updated.generatedAssetURL.map {
+                GUIUpscaleSource(origin: .generatedFile, url: $0, sessionID: updated.id)
+            }
+        )
     }
 
     // RT-77.3, RT-77.4

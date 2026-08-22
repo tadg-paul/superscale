@@ -8,7 +8,9 @@ import SwiftUI
 struct HistoryView: View {
     let store: GenerationSessionStore
     let onOpenInGenerate: (GenerationSessionRecord) -> Void
-    let onSendToUpscale: (URL, UUID) -> Void
+    /// Takes the session rather than a location. The view chooses what to display; it does not
+    /// choose what gets processed.
+    let onSendToUpscale: (GenerationSessionRecord) -> Void
 
     @State private var filter: HistoryFilter = .all
     @State private var sessions: [GenerationSessionRecord] = []
@@ -178,14 +180,12 @@ struct HistoryView: View {
                 .disabled(selectedSession == nil)
                 .accessibilityIdentifier("historyOpenInGenerate")
                 Button {
-                    if let session = selectedSession, let url = session.preferredAssetURL {
-                        onSendToUpscale(url, session.id)
-                    }
+                    if let selectedSession { onSendToUpscale(selectedSession) }
                 } label: {
                     Label("Send to Upscale", systemImage: "arrow.up.left.and.arrow.down.right")
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(selectedSession?.preferredAssetURL == nil)
+                .disabled(selectedSession?.upscaleSource == nil)
                 .accessibilityIdentifier("historySendToUpscale")
                 Button { saveSelected() } label: {
                     Label("Save As...", systemImage: "square.and.arrow.down")
