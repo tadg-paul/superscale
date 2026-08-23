@@ -101,6 +101,112 @@ final class GenerationCoordinatorTests: XCTestCase {
         )
     }
 
+    // MARK: - AC77.2, restored by #86
+    //
+    // The session identifier lives on the coordinator rather than on the Generate view, because
+    // that view is @State-backed and SwiftUI destroys it on a mode change. It used to be held by
+    // MainView; #81 removed that as dead state, which it was not.
+    //
+    // The rebuild scenario itself is test_fixtureGenerationUpscalesAndAppearsInHistory in
+    // SuperscaleAppUITests — a package test cannot rebuild a SwiftUI view. These hold where the
+    // identifier lives and what it is bound to.
+
+    // RT-86.1
+    func test_theRecordedIdentifierSurvivesIndependentlyOfAnyView_RT086_1() async throws {
+        let coordinator = try await makeSucceededCoordinator()
+        let session = UUID()
+
+        coordinator.recordSession(session)
+
+        XCTAssertEqual(
+            coordinator.upscaleSource?.sessionID, session,
+            "the identifier is held by the coordinator, which outlives the view that recorded it"
+        )
+    }
+
+    // RT-86.2
+    func test_anImportedInputCarriesNoSessionIdentifier_RT086_2() async throws {
+        let coordinator = try await makeSucceededCoordinator()
+        coordinator.recordSession(UUID())
+
+        let imported = GUIUpscaleSource.imported(URL(fileURLWithPath: "/tmp/unrelated.png"))
+
+        XCTAssertNil(
+            imported.sessionID,
+            "a file the user brought in is not the coordinator's output and carries no session"
+        )
+    }
+
+    // RT-86.3
+    func test_aNewGenerationClearsThePreviousSessionIdentifier_RT086_3() async throws {
+        let coordinator = try await makeSucceededCoordinator()
+        coordinator.recordSession(UUID())
+
+        await coordinator.generate(FalGenerationRequest(prompt: "Second"), apiKey: "fixture-key")
+
+        XCTAssertNil(coordinator.upscaleSource?.sessionID)
+    }
+
+    // RT-86.4
+    func test_theUpscaleInputCarriesTheSessionRecordedForItsOutput_RT086_4() async throws {
+        let coordinator = try await makeSucceededCoordinator()
+        let session = UUID()
+
+        coordinator.recordSession(session)
+        let source = try XCTUnwrap(coordinator.upscaleSource)
+
+        XCTAssertEqual(source.sessionID, session)
+        XCTAssertEqual(source.url, coordinator.output?.localURL)
+    }
+
+    // RT-86.5
+    //
+    // Clearing follows the output rather than the start of a generation. Clearing at each entry
+    // point is the shape of the fault being fixed: an identifier outliving what it describes
+    // because somewhere forgot.
+    func test_theRecordedIdentifierIsClearedWhenTheOutputChanges_RT086_5() async throws {
+        let coordinator = try await makeSucceededCoordinator()
+        coordinator.recordSession(UUID())
+
+        coordinator.reset()
+
+        XCTAssertNil(coordinator.upscaleSource, "no output, so nothing to attribute")
+        XCTAssertNil(coordinator.recordedSessionID)
+    }
+
+    // RT-86.6
+    func test_whenRecordingASessionFailsTheInputCarriesNoIdentifier_RT086_6() async throws {
+        let coordinator = try await makeSucceededCoordinator()
+
+        // The session store threw, so nothing was recorded. The generated image is still present
+        // and still sendable — it simply attaches to nothing.
+        let source = try XCTUnwrap(coordinator.upscaleSource)
+
+        XCTAssertNil(source.sessionID)
+        XCTAssertNotNil(source.url)
+    }
+
+    @MainActor
+    private func makeSucceededCoordinator() async throws -> GenerationCoordinator {
+        let directory = temporaryDirectory()
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let coordinator = GenerationCoordinator(
+            service: FixtureGenerationService(
+                result: .success(
+                    FalGeneratedImage(
+                        remoteURL: try XCTUnwrap(URL(string: "https://images.example/session.jpg")),
+                        data: Data("session".utf8),
+                        contentType: "image/jpeg",
+                        warnings: []
+                    )
+                )
+            ),
+            outputStore: GeneratedImageStore(directory: directory)
+        )
+        await coordinator.generate(FalGenerationRequest(prompt: "Session"), apiKey: "fixture-key")
+        return coordinator
+    }
+
     private func temporaryDirectory() -> URL {
         projectRoot
             .appendingPathComponent(".agent/tmp/package-tests", isDirectory: true)
