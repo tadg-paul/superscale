@@ -1,4 +1,4 @@
-<!-- Version: 3.3 | Last updated: 2026-08-23 -->
+<!-- Version: 3.4 | Last updated: 2026-08-23 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -202,9 +202,12 @@ target dimensions, and optional face enhancement.
 scale selected and something to run on, which is how v1 already behaves.
 
 **It never blocks the view of a filter result.** The API round trip is already
-slow, and the upscale adds roughly three seconds of model load plus processing.
-Stacking those means a long wait before the user sees anything, on the one
-decision they most want fast feedback about: did the filter work.
+slow, and the upscale adds processing on top of it --- plus roughly three seconds
+of model load, on the first run for a given model and setting. A
+`PipelineCache` actor holds the loaded pipeline afterwards, so that load is not
+paid again while it is held. Stacking even the processing means a wait before
+the user sees anything, on the one decision they most want fast feedback about:
+did the filter work.
 
 So the candidate is **displayed as soon as the API returns**, at model
 resolution. The upscale starts after that and the view **refreshes
@@ -236,8 +239,11 @@ selected, and changing the scale or model re-runs it. That immediacy is the v1
 experience and is kept.
 
 It needs an off switch in v2. In a filter-first session the user usually wants
-to filter before upscaling, and auto-upscaling on import spends roughly three
-seconds of model load plus processing on an output they are about to set aside.
+to filter before upscaling, and auto-upscaling on import spends processing --- and
+on the first run, roughly three seconds of model load --- on an output they are
+about to set aside. The cache removes the repeat cost, not the first one, so the
+argument for the switch stands: a filter-first user does not want that upscale at
+all, however cheap the second would be.
 
 **Toggling off is done by deselecting the active scale button.** The scale
 control (2x, 4x, 8x, custom) becomes a proper toggle group: clicking the
@@ -735,13 +741,21 @@ a precondition for everything after it.
 | 0 | **Test layout** | Move one-off tests into a **separate directory and a separate package**, so `make test` cannot reach them at all --- no filter, no skip list, nothing to maintain. Its own commit, before any other work. |
 | 1 | **Asset graph** | `Asset`, `AssetRole`, lineage, base/candidate/lock, and the lock chain with scroll-back. Enforce I1--I7. Revive the dead provenance API. Closes D1, D2, D7. First, because it stops active data loss. |
 | 2 | **Stages** | The `Stage` protocol and `StageProgress`; local and cloud behind one shape; one progress and cancellation model. Adds the off state to `ScaleMode` and makes the scale buttons a true toggle group, so automatic upscaling on import can be turned off (2.5). |
-| 3 | **Kit extensions** | Structured progress, cancellation in the tile loop, actor-confined reusable `Pipeline`, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
+| 3a | **Kit extensions** | Structured progress, cancellation in every loop that does per-unit work, `LocalizedError`. **Fix D3**, with a regression test sampling the outermost row and column. Closes D3, D5, D6. Must not regress the SSIM gate. |
+| 3b | **A reusable pipeline** | A `PipelineCache` actor holds loaded pipelines between runs, so the model load is paid once rather than on every scale adjustment. Must not regress the SSIM gate. |
 | 4 | **Filter catalogue** | Frontmatter across all 86, a parser replacing filename-splitting, load validation, clean the 3 polluted bodies, the two-step select-then-apply flow with its editable text area. Closes D4. |
 | 5 | **Reference upload** | FAL storage upload returning URLs, in `FalGenerationKit`, replacing base64. |
 | 6 | **Model handling** | One handler for `xai/grok-imagine-image`: plural `image_urls`, `aspect_ratio` sizing, `/edit` suffix for the edit endpoint, sizing params omitted on edit. Argument merge precedence and aspect snapping. The registry keeps the shape that admits more models; it does not populate them. |
 | 7 | **Minimum resolution** | Raise an undersized import to the assumed minimum long edge, from a single documented constant, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
 | 9 | **Single workspace** | Collapse the four modes into one workspace: remove Generate and History as surfaces, locked iterations to a sidebar, filter catalogue to a sidebar or sheet, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene. Closes D8, and removes the cross-mode state that causes D2 and D7. |
+
+**On confining the pipeline rather than converting it.** Slice 3b delivers what "actor-confined
+reusable `Pipeline`" is for --- one instance, reused, never touched by two runs at once --- by
+lending it from an actor rather than by making `Pipeline` an actor itself. Converting it would turn
+`process` into an `async` call and change the command-line tool with it, for no gain the
+confinement does not already give, and it would put a suspension point inside a synchronous
+pipeline whose behaviour is guarded by a quality gate.
 
 **Pricing and account are paused for the MVP.** Grok is a known 2c per image, so
 the cost beside Apply is a documented flat rate, not an API call. That removes
@@ -820,6 +834,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.4 (2026-08-23):** Split slice 3 into 3a and 3b in the delivery table, recorded why
+  the reusable pipeline is confined to an actor rather than made one, and noted in
+  section 2.5 that the model load is paid on the first run for a given model and
+  setting rather than on every run.
 - **3.3 (2026-08-23):** Recorded the defect statuses, closing D1, D2 and D7 against #81
   and D3, D5 and D6 against #83, and updated section 3.3 for the kit reporting its
   own phases as `PipelineProgress` rather than as sentences the stage parses.

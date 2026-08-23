@@ -59,7 +59,7 @@ public actor PipelineCache {
     private var recency: [PipelineSettings] = []
 
     public init(
-        load: @escaping @Sendable (PipelineSettings) throws -> Pipeline = PipelineCache.loadPipeline
+        load: @escaping @Sendable (PipelineSettings) throws -> Pipeline = { try PipelineCache.loadPipeline($0) }
     ) {
         self.load = load
     }
@@ -86,6 +86,13 @@ public actor PipelineCache {
         _ settings: PipelineSettings,
         _ body: @Sendable (Pipeline) throws -> T
     ) throws -> T {
+        // A run can wait: while one body executes — three seconds for a real upscale — every
+        // other call queues behind it, and that queue is where superseded runs accumulate. One
+        // already cancelled should not reach the point of being lent a pipeline. The tile loop
+        // would stop it a moment later, but that check belongs to another component and was
+        // added for another reason.
+        try Task.checkCancellation()
+
         let pipeline = try pipeline(for: settings)
         defer {
             // The observer does not outlive its run. Left set, it holds whatever the caller
