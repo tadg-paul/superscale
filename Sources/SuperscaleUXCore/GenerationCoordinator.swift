@@ -105,7 +105,15 @@ public struct GeneratedImageStore: Sendable {
 
 @MainActor
 public final class GenerationCoordinator: ObservableObject {
-    @Published public private(set) var phase: GenerationPhase = .idle
+    @Published public private(set) var phase: GenerationPhase = .idle {
+        didSet {
+            // Any change of phase changes the output, and a new output has no session recorded
+            // for it yet. Clearing here rather than at each entry point is what makes "the
+            // identifier belongs to this output" structural: the fault this replaced was an
+            // identifier outliving what it described because somewhere forgot to clear it.
+            recordedSessionID = nil
+        }
+    }
 
     private let service: any GenerationServing
     private let outputStore: GeneratedImageStore
@@ -125,10 +133,27 @@ public final class GenerationCoordinator: ObservableObject {
         return output
     }
 
-    /// The input to a local upscale of the generated image, for the caller to attribute to the
-    /// session it recorded.
+    /// The generation session recorded for the current output, if one was.
+    ///
+    /// Held here rather than in the view that records it, because that view is `@State`-backed and
+    /// SwiftUI destroys it on a mode change — so a user who generated an image, visited Settings,
+    /// came back and sent it to upscale lost the association entirely. The coordinator is a
+    /// `@StateObject` on the window's root view and outlives the rebuild.
+    ///
+    /// This is not attribution by timing. The identifier belongs to *this* output: an input from
+    /// anywhere else is not the coordinator's output and carries nothing.
+    public private(set) var recordedSessionID: UUID?
+
+    /// Records the session written for the current output.
+    public func recordSession(_ id: UUID) {
+        recordedSessionID = id
+    }
+
+    /// The input to a local upscale of the generated image, carrying the session it belongs to.
     public var upscaleSource: GUIUpscaleSource? {
-        output.map { GUIUpscaleSource(origin: .generatedFile, url: $0.localURL) }
+        output.map {
+            GUIUpscaleSource(origin: .generatedFile, url: $0.localURL, sessionID: recordedSessionID)
+        }
     }
 
     public func start(_ request: FalGenerationRequest, apiKey: String) {

@@ -36,7 +36,6 @@ struct GenerateView: View {
     @State private var showCostConfirmation = false
     @State private var localError: String?
     @State private var lastRecordedPhase: String?
-    @State private var lastSessionID: UUID?
     @State private var didLoadDefaults = false
 
     private let aspects = ["1:1", "16:9", "9:16", "4:3", "3:4"]
@@ -255,8 +254,9 @@ struct GenerateView: View {
             Divider()
             HStack {
                 Button {
+                    // The source already carries the session recorded for this output.
                     if let source = coordinator.upscaleSource {
-                        onSendToUpscale(source.associating(sessionID: lastSessionID))
+                        onSendToUpscale(source)
                     }
                 } label: {
                     Label("Send to Upscale", systemImage: "arrow.up.left.and.arrow.down.right")
@@ -407,7 +407,7 @@ struct GenerateView: View {
                 referenceImageURLs: referenceValues
             )
             lastRecordedPhase = nil
-            lastSessionID = nil
+            // The coordinator clears its own recorded session when the phase moves.
             coordinator.start(request, apiKey: settings.generationKey)
         } catch {
             localError = error.localizedDescription
@@ -462,7 +462,10 @@ struct GenerateView: View {
                 generatedAsset: generatedAsset,
                 secrets: [settings.generationKey, settings.accountAdministrationKey]
             )
-            lastSessionID = record.id
+            // Recorded on the coordinator, not in this view's state: SwiftUI destroys this view
+            // on a mode change, and the session must survive that. The coordinator is a
+            // @StateObject on the root view and outlives the rebuild.
+            coordinator.recordSession(record.id)
             lastRecordedPhase = signature
         } catch {
             localError = "Could not save generation history: \(error.localizedDescription)"

@@ -508,8 +508,10 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(heightBefore.isEmpty || heightBefore == "H",
                       "Height should be empty/placeholder without image, got: \(heightBefore)")
 
-        // Load image — this resets to preset scale, so custom fields get cleared
-        // The AC tests that height populates AFTER image is loaded and custom is re-selected
+        // Load the image. Importing adopts the model's native scale only when a *preset* is
+        // selected (AC82.8), so a custom selection survives the import and the fields stay open.
+        // This test previously re-clicked the custom button here, which under AC82.7's toggle
+        // group now clears the selection instead of re-entering it.
         guard loadTestImage() else {
             XCTFail("Could not load test image")
             return
@@ -519,12 +521,13 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        // Re-enter custom mode and type width again
-        let customAgain = app.buttons["scaleCustom"]
-        customAgain.click()
+        // Custom is still the active choice, so the width field is still editable.
+        let customButton = app.buttons["scaleCustom"]
+        XCTAssertTrue(customButton.exists)
         let widthAgain = app.textFields["customWidth"]
         XCTAssertTrue(widthAgain.waitForExistence(timeout: 3))
         widthAgain.click()
+        widthAgain.typeKey("a", modifierFlags: .command)
         widthAgain.typeText("800")
         sleep(1)
 
