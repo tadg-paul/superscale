@@ -63,9 +63,15 @@ public struct CoreMLInference {
 }
 
 /// Errors specific to the Superscale inference pipeline.
-public enum SuperscaleError: Error, CustomStringConvertible {
+public enum SuperscaleError: LocalizedError, CustomStringConvertible {
     case noModelOutput
     case modelNotFound(String)
+
+    /// What the user is shown. The `switch` below has no `default` arm deliberately: a case added
+    /// without a description does not compile.
+    public var errorDescription: String? {
+        description
+    }
 
     public var description: String {
         switch self {

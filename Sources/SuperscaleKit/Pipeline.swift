@@ -16,8 +16,11 @@ public class Pipeline {
     public let faceEnhance: Bool
     public let inference: CoreMLInference
 
-    /// Callback for progress reporting. Called with human-readable messages.
-    public var onProgress: ((String) -> Void)?
+    /// Callback for progress reporting. Called with the phase the work is in.
+    ///
+    /// A phase carries its own counts, so a caller does not have to recover them from wording.
+    /// Its `description` is the text this reported before, for a caller that wants the sentence.
+    public var onProgress: ((PipelineProgress) -> Void)?
 
     /// Create a pipeline for a given model.
     ///
@@ -60,71 +63,33 @@ public class Pipeline {
         onPreFaceEnhance: ((CGImage) -> Void)? = nil
     ) throws {
         // 1. Load image
-        report("Loading \(input.lastPathComponent)...")
+        report(.loading(fileName: input.lastPathComponent))
         let loaded = try ImageLoader.load(from: input)
         let scale = modelInfo.scale
 
-        report("Input: \(loaded.image.width)×\(loaded.image.height), scale: \(scale)×")
+        report(.inspecting(width: loaded.image.width, height: loaded.image.height, scale: scale))
 
         // 2. Split into tiles
         let tiles = Tiler.split(
             image: loaded.image, tileSize: tileSize, overlap: overlap)
         let totalTiles = tiles.count
-        report("Split into \(totalTiles) tile\(totalTiles == 1 ? "" : "s") " +
-               "(tile size: \(tileSize), overlap: \(overlap))")
+        report(.split(tiles: totalTiles, tileSize: tileSize, overlap: overlap))
 
         // 3. Run inference on each tile
-        var upscaledTiles: [Tile] = []
-        for (index, tile) in tiles.enumerated() {
-            report("Processing tile \(index + 1) of \(totalTiles)...")
-
-            // Pad undersized tiles to tileSize before inference.
-            // VNCoreMLRequest.scaleFill stretches undersized tiles to the model's
-            // expected input, distorting content. Reflection padding preserves
-            // content integrity; the padded region is cropped from the output.
-            let needsPadding = tile.image.width < tileSize || tile.image.height < tileSize
-            let inferenceInput: CGImage
-            if needsPadding {
-                inferenceInput = try padToSize(
-                    tile.image, width: tileSize, height: tileSize)
-            } else {
-                inferenceInput = tile.image
-            }
-
-            let upscaledImage = try inference.upscale(inferenceInput)
-
-            // Crop away the upscaled padding region to get the correct output tile.
-            let croppedImage: CGImage
-            if needsPadding {
-                let cropW = tile.image.width * scale
-                let cropH = tile.image.height * scale
-                let cropRect = CGRect(x: 0, y: 0, width: cropW, height: cropH)
-                guard let cropped = upscaledImage.cropping(to: cropRect) else {
-                    throw ImageIOError.contextCreationFailed
-                }
-                croppedImage = cropped
-            } else {
-                croppedImage = upscaledImage
-            }
-
-            let upscaledTile = Tile(
-                image: croppedImage,
-                origin: CGPoint(
-                    x: tile.origin.x * CGFloat(scale),
-                    y: tile.origin.y * CGFloat(scale)),
-                size: CGSize(
-                    width: CGFloat(croppedImage.width),
-                    height: CGFloat(croppedImage.height))
-            )
-            upscaledTiles.append(upscaledTile)
-        }
+        let upscaledTiles = try Tiler.processTiles(
+            tiles,
+            scale: scale,
+            tileSize: tileSize,
+            report: report,
+            upscale: inference.upscale
+        )
 
         // 4. Stitch tiles
         let nativeWidth = loaded.image.width * scale
         let nativeHeight = loaded.image.height * scale
         let scaledOverlap = overlap * scale
 
-        report("Stitching output (\(nativeWidth)×\(nativeHeight))...")
+        report(.stitching(width: nativeWidth, height: nativeHeight))
         var stitched = try Tiler.stitch(
             tiles: upscaledTiles,
             outputWidth: nativeWidth,
@@ -135,7 +100,7 @@ public class Pipeline {
         // 5. Upscale alpha channel (needed for pre-face callback and final output)
         var upscaledAlpha: CGImage?
         if let alphaChannel = loaded.alphaChannel {
-            report("Upscaling alpha channel...")
+            report(.upscalingAlpha)
             upscaledAlpha = try upscaleAlpha(
                 alphaChannel, toWidth: nativeWidth, height: nativeHeight)
         }
@@ -155,7 +120,7 @@ public class Pipeline {
         if faceEnhance && FaceModelRegistry.isInstalled {
             let faces = try FaceDetector.detect(in: stitched)
             if !faces.isEmpty {
-                report("Enhancing \(faces.count) face\(faces.count == 1 ? "" : "s")...")
+                report(.enhancingFaces(count: faces.count))
                 let enhancer = try FaceEnhancer()
                 stitched = try enhancer.enhance(image: stitched, faceRects: faces)
             }
@@ -179,30 +144,32 @@ public class Pipeline {
         if finalWidth != nativeWidth || finalHeight != nativeHeight {
             let effectiveScale = Double(finalWidth) / Double(loaded.image.width)
             if effectiveScale > Double(scale) {
-                report("Warning: Target scale \(String(format: "%.1f", effectiveScale))× " +
-                       "exceeds model's native \(scale)× — standard interpolation " +
-                       "will be used for the remaining " +
-                       "\(String(format: "%.1f", effectiveScale / Double(scale)))×. " +
-                       "Some pixellation may be visible.")
+                report(.warning(
+                    "Warning: Target scale \(String(format: "%.1f", effectiveScale))× " +
+                    "exceeds model's native \(scale)× — standard interpolation " +
+                    "will be used for the remaining " +
+                    "\(String(format: "%.1f", effectiveScale / Double(scale)))×. " +
+                    "Some pixellation may be visible."))
             }
-            report("Resizing to \(finalWidth)×\(finalHeight)...")
+            report(.resizing(width: finalWidth, height: finalHeight))
             stitched = try resizeImage(
                 stitched, toWidth: finalWidth, height: finalHeight)
         }
 
         // 8. Write output
         let format = OutputFormat.from(extension: output.pathExtension) ?? .png
-        report("Writing \(output.lastPathComponent)...")
+        report(.writing(fileName: output.lastPathComponent))
         try ImageWriter.write(stitched, to: output, format: format,
                               colorSpace: loaded.colorSpace)
 
-        report("Done: \(finalWidth)×\(finalHeight) → \(output.lastPathComponent)")
+        report(.finished(
+            width: finalWidth, height: finalHeight, fileName: output.lastPathComponent))
     }
 
     // MARK: - Private
 
-    private func report(_ message: String) {
-        onProgress?(message)
+    private func report(_ progress: PipelineProgress) {
+        onProgress?(progress)
     }
 
     /// Compute final target dimensions from user-requested scale or dimensions.
@@ -281,7 +248,11 @@ public class Pipeline {
     /// system confusion (bottom-left origin vs top-left CGImage convention).
     /// Renders the source to a pixel buffer, copies rows into a larger
     /// target buffer with reflected edges, and creates a CGImage from it.
-    private func padToSize(
+    /// Pads a tile to the model's expected input with reflected edges.
+    ///
+    /// Internal to the module rather than private to `Pipeline`, because the tile loop that needs
+    /// it moved to `Tiler` so its cancellation and reporting are testable without Core ML.
+    static func padToSize(
         _ image: CGImage, width targetW: Int, height targetH: Int
     ) throws -> CGImage {
         guard let colorSpace = image.colorSpace ?? CGColorSpace(name: CGColorSpace.sRGB) else {

@@ -170,8 +170,10 @@ struct Superscale: ParsableCommand {
         let pipeline = try Pipeline(
             modelName: resolvedModelName, tileSize: tileSize,
             faceEnhance: useFaceEnhance)
-        pipeline.onProgress = { message in
-            fputs("\(message)\n", stderr)
+        // The phase's own description, and the only formatting of one in this executable, so the
+        // printed line stays exactly what it was while everything producing it is rewritten.
+        pipeline.onProgress = { progress in
+            fputs("\(progress)\n", stderr)
         }
 
         // Process each input file, accumulating errors

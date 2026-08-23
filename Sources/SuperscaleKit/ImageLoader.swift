@@ -162,13 +162,22 @@ public enum ImageLoader {
 }
 
 /// Errors from image loading and writing operations.
-public enum ImageIOError: Error, CustomStringConvertible {
+public enum ImageIOError: LocalizedError, CustomStringConvertible {
     case cannotReadFile(String)
     case cannotDecodeImage(String)
     case cannotWriteFile(String)
     case unsupportedFormat(String)
     case dimensionMismatch(String)
     case contextCreationFailed
+
+    /// What the user is shown. Without this, `localizedDescription` falls back to the type name
+    /// and a code — "The operation couldn't be completed. (SuperscaleKit.ImageIOError error 0.)"
+    ///
+    /// The `switch` below has no `default` arm deliberately: a case added without a description
+    /// does not compile, which is the guarantee a test cannot hold and whose absence caused this.
+    public var errorDescription: String? {
+        description
+    }
 
     public var description: String {
         switch self {

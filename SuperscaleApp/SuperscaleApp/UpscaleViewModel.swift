@@ -505,8 +505,8 @@ final class UpscaleViewModel: ObservableObject {
                 // superseded, because the pipeline does not check for cancellation yet; what
                 // stops is the result reaching anything, which `activeRun` decides.
                 let output = try await Task.detached(priority: .userInitiated) {
-                    try coordinator.process(source: source, options: options) { message in
-                        continuation.yield(UpscaleProgressReader.progress(for: message))
+                    try coordinator.process(source: source, options: options) { progress in
+                        continuation.yield(UpscaleProgressReader.progress(for: progress))
                     }
                 }.value
                 continuation.finish()

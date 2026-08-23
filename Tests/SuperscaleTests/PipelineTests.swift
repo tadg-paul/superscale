@@ -64,8 +64,8 @@ final class PipelineTests: XCTestCase {
         // Capture progress messages
         var progressMessages: [String] = []
         let pipeline = try Pipeline(modelName: "realesrgan-x2plus", tileSize: 256)
-        pipeline.onProgress = { message in
-            progressMessages.append(message)
+        pipeline.onProgress = { progress in
+            progressMessages.append(progress.description)
         }
 
         try pipeline.process(input: inputURL, output: outputURL)

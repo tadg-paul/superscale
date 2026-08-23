@@ -3,6 +3,7 @@
 
 import AppKit
 import Foundation
+import SuperscaleKit
 import XCTest
 @testable import SuperscaleUXCore
 
@@ -144,7 +145,7 @@ private final class RecordingUpscaleProcessor: GUIUpscaleProcessing, @unchecked 
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping @Sendable (String) -> Void
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) throws -> GUIUpscaleProcessedImage {
         requests.append(Request(inputURL: inputURL, options: options))
         let input = try Data(contentsOf: inputURL)
@@ -161,7 +162,7 @@ private struct FailingUpscaleProcessor: GUIUpscaleProcessing {
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping @Sendable (String) -> Void
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) throws -> GUIUpscaleProcessedImage {
         throw Failure.fixture
     }

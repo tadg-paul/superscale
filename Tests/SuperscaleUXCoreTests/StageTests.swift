@@ -3,6 +3,7 @@
 
 import CoreGraphics
 import Foundation
+import SuperscaleKit
 import XCTest
 @testable import SuperscaleUXCore
 
@@ -12,19 +13,20 @@ final class StageTests: XCTestCase {
 
     // RT-82.1
     //
-    // The reports are the pipeline's own wording, taken from Pipeline.swift. Inventing plausible
-    // messages here would let the mapping pass while failing against the kit it maps.
+    // Rewritten against `PipelineProgress` now that the kit reports phases rather than sentences.
+    // The criterion is unchanged: a phase is identified as a value, and none of the phases the
+    // kit reports is absorbed by the catch-all.
     func test_eachReportedPhaseArrivesAsADistinctCase() {
-        let reports = [
-            "Loading remy1.png...",
-            "Input: 1024×768, scale: 4×",
-            "Processing tile 3 of 12...",
-            "Stitching output (4096×3072)...",
-            "Upscaling alpha channel...",
-            "Enhancing 2 faces...",
-            "Resizing to 2000×1500...",
-            "Writing remy1_4x.png...",
-            "Done: 2000×1500 → remy1_4x.png",
+        let reports: [PipelineProgress] = [
+            .loading(fileName: "remy1.png"),
+            .inspecting(width: 1024, height: 768, scale: 4),
+            .tiling(completed: 3, total: 12),
+            .stitching(width: 4096, height: 3072),
+            .upscalingAlpha,
+            .enhancingFaces(count: 2),
+            .resizing(width: 2000, height: 1500),
+            .writing(fileName: "remy1_4x.png"),
+            .finished(width: 2000, height: 1500, fileName: "remy1_4x.png"),
         ]
 
         let phases = reports.map { UpscaleProgressReader.phase(for: $0) }
@@ -42,28 +44,74 @@ final class StageTests: XCTestCase {
 
     // RT-82.2
     func test_theFaceCountIsAvailableWithoutReadingMessageText() {
-        XCTAssertEqual(UpscaleProgressReader.phase(for: "Enhancing 3 faces..."), .enhancingFaces(count: 3))
-        XCTAssertEqual(UpscaleProgressReader.phase(for: "Enhancing 1 face..."), .enhancingFaces(count: 1))
+        XCTAssertEqual(
+            UpscaleProgressReader.phase(for: .enhancingFaces(count: 3)),
+            .enhancingFaces(count: 3)
+        )
+        XCTAssertEqual(
+            UpscaleProgressReader.phase(for: .enhancingFaces(count: 1)),
+            .enhancingFaces(count: 1)
+        )
     }
 
     // RT-82.3
     func test_tileProgressArrivesAsCompletedAndTotalCounts() {
         XCTAssertEqual(
-            UpscaleProgressReader.phase(for: "Processing tile 5 of 16..."),
+            UpscaleProgressReader.phase(for: .tiling(completed: 5, total: 16)),
             .tiling(completed: 5, total: 16)
         )
         XCTAssertEqual(
-            UpscaleProgressReader.phase(for: "Split into 16 tiles of 512×512"),
+            UpscaleProgressReader.phase(for: .split(tiles: 16, tileSize: 512, overlap: 16)),
             .tiling(completed: 0, total: 16)
         )
     }
 
     // RT-82.26
+    //
+    // A warning is a diagnostic rather than a phase, so it has no case of its own — and it must
+    // still reach the caller with its text rather than vanishing.
     func test_anUnrecognizedReportStillReachesTheCallerWithItsText() {
-        let progress = UpscaleProgressReader.progress(for: "Reticulating splines")
+        let progress = UpscaleProgressReader.progress(for: .warning("Reticulating splines"))
 
         XCTAssertEqual(progress.phase, .unclassified)
         XCTAssertEqual(progress.detail, "Reticulating splines")
+    }
+
+    // MARK: - AC82.1, extended by #83
+
+    // RT-83.20
+    func test_everyPhaseTheKitReportsMapsToADistinctCase_RT083_20() {
+        let reports: [PipelineProgress] = [
+            .loading(fileName: "a.png"),
+            .inspecting(width: 1, height: 1, scale: 1),
+            .split(tiles: 4, tileSize: 512, overlap: 16),
+            .tiling(completed: 1, total: 4),
+            .stitching(width: 1, height: 1),
+            .upscalingAlpha,
+            .enhancingFaces(count: 1),
+            .resizing(width: 1, height: 1),
+            .writing(fileName: "a.png"),
+            .finished(width: 1, height: 1, fileName: "a.png"),
+        ]
+
+        for report in reports {
+            XCTAssertNotEqual(
+                UpscaleProgressReader.phase(for: report),
+                .unclassified,
+                "\(report.kind) falls through the mapping"
+            )
+        }
+    }
+
+    // RT-83.21
+    func test_aKitPhaseTheStageDoesNotMapReachesTheCallerAsUnclassified_RT083_21() {
+        let progress = UpscaleProgressReader.progress(for: .warning("something new"))
+
+        XCTAssertEqual(progress.phase, .unclassified)
+        XCTAssertEqual(
+            progress.detail, "something new",
+            "an unmapped phase must keep its text rather than being dropped"
+        )
     }
 
     // MARK: - AC82.2 one run-state model

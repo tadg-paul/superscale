@@ -66,7 +66,7 @@ public struct FaceEnhancer {
         }
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
 
-        for faceRect in faceRects {
+        try Self.forEachFace(faceRects) { faceRect in
             // Expand face rect with padding
             let expandedRect = FaceDetector.expandRect(
                 faceRect, by: Self.expandFactor,
@@ -79,13 +79,14 @@ public struct FaceEnhancer {
                 width: Int(expandedRect.width),
                 height: Int(expandedRect.height))
 
-            guard let faceCrop = image.cropping(to: cropRect) else { continue }
+            // `return` skips this face, as `continue` did when this was an inline loop.
+            guard let faceCrop = image.cropping(to: cropRect) else { return }
 
             // Resize to 512×512 for GFPGAN
             guard let resized = resize(
                 faceCrop,
                 to: CGSize(width: Self.faceInputSize, height: Self.faceInputSize)
-            ) else { continue }
+            ) else { return }
 
             // Run GFPGAN inference
             let enhanced = try inference.upscale(resized)
@@ -95,14 +96,14 @@ public struct FaceEnhancer {
             if isBlack(enhanced) {
                 fputs("warning: GFPGAN output is black — skipping face enhancement. " +
                       "Re-download the face model: superscale --download-face-model\n", stderr)
-                continue
+                return
             }
 
             // Resize enhanced face back to original crop size
             guard let resizedBack = resize(
                 enhanced,
                 to: CGSize(width: Int(cropRect.width), height: Int(cropRect.height))
-            ) else { continue }
+            ) else { return }
 
             // Blend enhanced face back into the image with feathered edges
             blendFace(
@@ -277,8 +278,32 @@ public struct FaceEnhancer {
 }
 
 /// Errors from face enhancement operations.
-public enum FaceEnhancerError: Error, CustomStringConvertible {
+extension FaceEnhancer {
+    /// Runs `body` for each face, stopping when the surrounding task is cancelled.
+    ///
+    /// The per-face work is a closure so the loop's behaviour is verifiable without Core ML. It
+    /// matters because this loop runs *after* the stitch — several seconds on a group photograph,
+    /// each face costing a crop, a resize, an inference and a feathered composite — and it is the
+    /// phase on screen when someone is most likely to press cancel.
+    static func forEachFace(
+        _ faceRects: [CGRect],
+        _ body: (CGRect) throws -> Void
+    ) throws {
+        for faceRect in faceRects {
+            try Task.checkCancellation()
+            try body(faceRect)
+        }
+    }
+}
+
+public enum FaceEnhancerError: LocalizedError, CustomStringConvertible {
     case modelNotInstalled
+
+    /// What the user is shown. The `switch` below has no `default` arm deliberately: a case added
+    /// without a description does not compile.
+    public var errorDescription: String? {
+        description
+    }
 
     public var description: String {
         switch self {

@@ -106,7 +106,7 @@ public protocol GUIUpscaleProcessing: Sendable {
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping @Sendable (String) -> Void
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) throws -> GUIUpscaleProcessedImage
 }
 
@@ -120,7 +120,7 @@ public struct GUIUpscaleCoordinator: Sendable {
     public func process(
         source: GUIUpscaleSource,
         options: GUIUpscaleOptions,
-        onProgress: @escaping @Sendable (String) -> Void
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) throws -> GUIUpscaleResult {
         let processed = try processor.process(
             inputURL: source.url,
@@ -143,7 +143,7 @@ public struct SuperscaleGUIUpscaleProcessor: GUIUpscaleProcessing {
     public func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping @Sendable (String) -> Void
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) throws -> GUIUpscaleProcessedImage {
         let wasAutoDetect = options.selectedModelName == "auto"
         let modelName = try resolvedModelName(inputURL: inputURL, selectedModelName: options.selectedModelName)

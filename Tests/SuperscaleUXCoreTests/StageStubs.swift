@@ -3,17 +3,18 @@
 
 import CoreGraphics
 import Foundation
+import SuperscaleKit
 @testable import SuperscaleUXCore
 
 /// A local upscale processor whose behaviour each test chooses.
 final class StubUpscaleProcessor: GUIUpscaleProcessing, @unchecked Sendable {
-    let reports: [String]
+    let reports: [PipelineProgress]
     private let failure: String?
     private let cancels: Bool
     private let failsAfterProducing: Bool
 
     init(
-        reports: [String] = [],
+        reports: [PipelineProgress] = [],
         failure: String? = nil,
         cancels: Bool = false,
         failsAfterProducing: Bool = false
@@ -27,7 +28,7 @@ final class StubUpscaleProcessor: GUIUpscaleProcessing, @unchecked Sendable {
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
-        onProgress: @escaping @Sendable (String) -> Void
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) throws -> GUIUpscaleProcessedImage {
         for report in reports {
             onProgress(report)

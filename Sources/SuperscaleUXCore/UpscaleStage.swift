@@ -1,9 +1,10 @@
 // ABOUTME: The local upscale as a stage, wrapping SuperscaleKit through the existing seam.
-// ABOUTME: Recovers structured phases from the kit's wording in one place rather than at each caller.
+// ABOUTME: Maps the kit's reported phases to the shape both stages share.
 
 import CoreGraphics
 import Foundation
 import ImageIO
+import SuperscaleKit
 
 public struct UpscaleStageOptions: Equatable, Sendable {
     public let modelName: String
@@ -17,57 +18,44 @@ public struct UpscaleStageOptions: Equatable, Sendable {
     }
 }
 
-/// Turns the pipeline's progress sentences into phases.
+/// Maps what the kit reports to what a stage observer sees.
 ///
-/// The kit reports progress as text, and structured progress inside it is a later change. Until
-/// then the coupling to its wording lives here, in one place, rather than in every caller that
-/// wants a face count or a tile position.
+/// The kit used to report sentences, and this recovered the structure by matching prefixes and
+/// splitting on spaces — so rewording "Enhancing 3 faces..." silently broke the face count. The
+/// kit now reports phases, and the mapping is case to case with no wording involved.
 public enum UpscaleProgressReader {
-    public static func progress(for message: String) -> StageProgress {
-        StageProgress(phase: phase(for: message), detail: message)
+    public static func progress(for progress: PipelineProgress) -> StageProgress {
+        StageProgress(phase: phase(for: progress), detail: progress.description)
     }
 
-    public static func phase(for message: String) -> StagePhase {
-        if message.hasPrefix("Loading ") { return .loading }
-        if message.hasPrefix("Input: ") { return .inspecting }
-        if message.hasPrefix("Split into ") { return splitPhase(message) }
-        if message.hasPrefix("Processing tile ") { return tilePhase(message) }
-        if message.hasPrefix("Stitching output") { return .stitching }
-        if message.hasPrefix("Upscaling alpha channel") { return .upscalingAlpha }
-        if message.hasPrefix("Enhancing ") { return facePhase(message) }
-        if message.hasPrefix("Resizing to ") { return .resizing }
-        if message.hasPrefix("Writing ") { return .writing }
-        if message.hasPrefix("Done: ") { return .finished }
-        return .unclassified
-    }
-
-    /// "Split into 12 tiles ..." announces the work without having completed any of it.
-    private static func splitPhase(_ message: String) -> StagePhase {
-        guard let total = firstNumber(in: message) else { return .unclassified }
-        return .tiling(completed: 0, total: total)
-    }
-
-    /// "Processing tile 3 of 12..."
-    private static func tilePhase(_ message: String) -> StagePhase {
-        let numbers = allNumbers(in: message)
-        guard numbers.count >= 2 else { return .unclassified }
-        return .tiling(completed: numbers[0], total: numbers[1])
-    }
-
-    /// "Enhancing 2 faces..."
-    private static func facePhase(_ message: String) -> StagePhase {
-        guard let count = firstNumber(in: message) else { return .unclassified }
-        return .enhancingFaces(count: count)
-    }
-
-    private static func firstNumber(in message: String) -> Int? {
-        allNumbers(in: message).first
-    }
-
-    private static func allNumbers(in message: String) -> [Int] {
-        message
-            .split(whereSeparator: { !$0.isNumber })
-            .compactMap { Int($0) }
+    public static func phase(for progress: PipelineProgress) -> StagePhase {
+        switch progress {
+        case .loading:
+            return .loading
+        case .inspecting:
+            return .inspecting
+        case let .split(tiles, _, _):
+            // The split announces the work without having completed any of it.
+            return .tiling(completed: 0, total: tiles)
+        case let .tiling(completed, total):
+            return .tiling(completed: completed, total: total)
+        case .stitching:
+            return .stitching
+        case .upscalingAlpha:
+            return .upscalingAlpha
+        case let .enhancingFaces(count):
+            return .enhancingFaces(count: count)
+        case .resizing:
+            return .resizing
+        case .writing:
+            return .writing
+        case .finished:
+            return .finished
+        case .warning:
+            // A warning is a diagnostic rather than a phase. It reaches the caller with its text
+            // so the user still sees it, which is what the unclassified case is for.
+            return .unclassified
+        }
     }
 }
 
