@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC84.6 from #84 on 2026-08-23
+Last migrated: AC85.9 from #85 on 2026-08-23, with AC74.1 and AC74.2 brought forward from #74
 
 ---
 
@@ -348,3 +348,140 @@ Last migrated: AC84.6 from #84 on 2026-08-23
   the cache calls the loader zero times, which an "at most once" assertion would accept.
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
+
+---
+
+## The filter catalogue
+
+### AC74.1 - The GUI can load prompt packs with stable identifiers, display names, categories, prompt bodies, and model compatibility metadata.
+- Introduced: #74 (closed, pre-cutover)
+- Migrated: 2026-08-23, cited by #85
+- Tests:
+  - ✅ RT-74.1: valid bundled resources load
+  - ✅ RT-74.2: identifier stability, declared name, declared category, and default FAL compatibility
+- Note: the mechanism changed in #85 and the criterion did not. Names and categories are read
+  from each filter's frontmatter rather than split out of its filename, and RT-74.2 is rewritten
+  against that while keeping its identifier. The model compatibility clause survives because
+  `compatibleModelIDs` was never file metadata: the loader supplies the one MVP model, as it
+  always did.
+
+### AC74.2 - The prompt-pack loader rejects invalid or incomplete resources with actionable diagnostics and no secret leakage.
+- Introduced: #74 (closed, pre-cutover)
+- Migrated: 2026-08-23, extended by #85
+- Tests:
+  - ✅ RT-74.3: an unsupported model reference is rejected
+  - ✅ RT-74.4: a diagnostic names the resource and carries no prompt body
+  - ✅ RT-85.20: a corpus with two filters declaring the same identifier is reported, naming it
+  - ✅ RT-85.21: the bundled corpus contains no duplicate identifier
+- Note: duplicate rejection is not new. What changed in #85 is why duplicates are possible at
+  all --- they were prevented by the filesystem, one identifier per filename, and frontmatter
+  removes that guarantee at the moment 86 files are hand-edited. `pack(id:)` uses
+  `first(where:)`, so a duplicate would make one filter permanently unreachable with no error
+  and no way to notice but by counting.
+
+### AC85.1 - A filter's identity, name and category come from its own frontmatter rather than from its filename.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.1: a filter's name and category are those its frontmatter declares
+  - ✅ RT-85.2: a filter whose frontmatter disagrees with its filename presents what the frontmatter says
+  - ✅ RT-85.3: every filter in the bundled corpus loads with a name and category
+- Note: RT-85.2 is what separates this from a loader that reads frontmatter *and* falls back to
+  the filename. Only disagreement can tell them apart.
+
+### AC85.2 - Loading a corpus containing a file that cannot supply valid metadata fails, naming the file and the reason, and yields no filters.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.4: a file with no frontmatter is reported, naming the file
+  - ✅ RT-85.5: a file whose frontmatter is malformed, or carries a field of the wrong type, is reported, naming the file
+  - ✅ RT-85.6: a file whose frontmatter omits a required field is reported, naming the field
+  - ✅ RT-85.7: a file whose body is empty after its frontmatter is reported
+  - ✅ RT-85.26: a file whose frontmatter carries a required field as an empty or whitespace-only value is reported, naming the field
+- Note: the failure is of the corpus rather than of the file. A catalogue quietly short by one is
+  not something anybody counts, whereas a build that will not start is noticed at once. RT-85.26
+  is the case a decoder cannot catch: `"name": ""` decodes into a `String` perfectly well and
+  ships a blank row in the list. Its assertions match the *quoted* field name, because
+  "invalid" contains "id".
+
+### AC85.3 - The text a filter sends is its body verbatim, with the frontmatter no part of it, and no filter in the corpus carries its filename or a heading standing in for one.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.8: a loaded filter's text contains no frontmatter delimiter
+  - ✅ RT-85.9: no bundled filter's text begins with a markdown heading
+  - ✅ RT-85.10: no filter's text contains its resource name
+  - ✅ RT-85.11: the three filters that carried a filename heading load without it
+  - ✅ RT-85.24: a filter whose body contains a horizontal rule loads with that body intact
+  - ✅ RT-85.32: a filter whose body begins with a markdown heading loads with that heading intact
+- Note: this closes D4, where three of 86 filters sent their own filename to the provider as
+  prompt text. RT-85.32 is what makes the corpus the only place the fix can live: a loader that
+  discarded a leading `#` line would satisfy RT-85.9 to RT-85.11 with the three files untouched,
+  and would silently truncate the first filter that legitimately opened with a heading. RT-85.24
+  covers the other direction, `---` being a horizontal rule as well as a delimiter.
+
+### AC85.4 - Choosing a filter yields its text for editing and sends nothing, replacing whatever the field held.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.12: choosing a filter yields that filter's text
+  - ✅ RT-85.13: choosing a filter issues no request
+  - ✅ RT-85.14: choosing a second filter replaces the text rather than appending to it
+  - ✅ RT-85.25: choosing the filter already chosen yields its text afresh, discarding any edit
+  - ✅ RT-85.29: choosing a filter replaces hand-written text entered with no filter chosen
+- Note: RT-85.13 is the point of the two-step flow --- selecting must be free, so a user can read
+  eighty-six filters at no cost. RT-85.25 is how a user reverts an edit they have decided
+  against; without it the only way back to the built-in wording is to choose something else and
+  return, which works by accident rather than by design.
+
+### AC85.5 - What a filter sends is the text as it stands when it is applied, edited or not.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.15: applying an unedited filter sends its body
+  - ✅ RT-85.16: applying an edited filter sends the edited text
+  - ✅ RT-85.17: an edit is discarded when another filter is chosen, so the built-in filter is unchanged
+- Note: supersedes AC74.3. The composition it specified --- pack body joined to user text at send
+  time --- is what the two-step flow removes; the half that survives, *without mutating the
+  bundled resource*, is this criterion's third condition, and RT-74.5 and RT-74.6 are rewritten
+  into RT-85.17 rather than left calling a `PromptComposer` that no longer exists.
+
+### AC85.6 - A filter identifier stored by a previous version still resolves to its filter.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.18: an identifier in the form the previous version stored resolves to a filter
+  - ✅ RT-85.19: every identifier in the bundled corpus matches the resource name the previous version derived
+- Note: exists because of AC73.2, which requires the prompt-pack selection to persist outside
+  secret storage. A prettier identifier on one file among 86 would make that saved default
+  resolve to nothing, with no error and no message.
+
+### AC85.8 - What is applied is the text as it stands, whether it came from a filter or was written by hand, and applying with no text to send is refused.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.22: applying with text entered and no filter chosen sends that text
+  - ✅ RT-85.23: applying with neither text nor a filter chosen issues no request, and the apply action is unavailable
+  - ✅ RT-85.27: applying with a filter chosen and its text cleared issues no request, and the apply action is unavailable
+  - ✅ RT-85.28: applying with text consisting only of whitespace issues no request, and the apply action is unavailable
+- Note: supersedes AC74.4's half about editing controls. The refusal belongs to the text rather
+  than to the pair of (text, filter): a filter sitting chosen beside an empty box is still
+  nothing to send, and an empty prompt reaches a paid edit endpoint and returns something
+  arbitrary. It lives in the model that builds the request, so the disabled button and the send
+  path cannot disagree.
+
+### AC85.9 - A corpus that fails to load leaves the application with no filters and with the reason available, and leaves local upscaling unaffected.
+- Introduced: #85 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-85.30: after a corpus fails to load, the filter list is empty and the failure's reason is available rather than discarded
+  - ✅ RT-85.31: after a corpus fails to load, the upscale action remains available and its settings are unaffected
+- Note: section 2.8 of `IMPLEMENTATION_GUIDE_v2.md` rules that when filters are unavailable,
+  local upscaling works fully. A corpus that will not load is that condition reached by another
+  route, and the route should not change what the user gets. The handling lives in
+  `GenerationSettingsState` rather than in the app's entry point so that it is the same code the
+  tests drive.
+
+### AC85.7 - removed before sign-off
+- 🚫 Removed: it duplicated AC74.2. RT-85.20 and RT-85.21 extend that criterion's coverage
+  instead. The identifier is not reused.
