@@ -190,7 +190,7 @@ struct GenerateView: View {
             ContentUnavailableView(
                 "Ready to generate",
                 systemImage: "sparkles",
-                description: Text("Enter a prompt or choose a prompt pack. Add reference images for an edit.")
+                description: Text("Choose a filter or write your own instruction. Add reference images for an edit.")
             )
         case .generating:
             VStack(spacing: 12) {

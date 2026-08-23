@@ -114,7 +114,9 @@ final class PromptPackTests: XCTestCase {
                     resourceName: "image-design-partial",
                     text: "---\n{\(json)}\n---\n\nBody.\n"
                 )],
-                naming: ["image-design-partial", omitted]
+                // Quoted, because "invalid" contains "id": an unquoted match would let a
+                // report that named no field at all pass for the field most likely to be missing.
+                naming: ["image-design-partial", "'\(omitted)'"]
             )
         }
     }
@@ -134,11 +136,11 @@ final class PromptPackTests: XCTestCase {
     func test_aRequiredFieldPresentButEmptyIsReportedNamingTheField_RT085_26() {
         assertLoadFails(
             [source("image-design-blank", id: "image-design-blank", name: "")],
-            naming: ["image-design-blank", "name"]
+            naming: ["image-design-blank", "'name'"]
         )
         assertLoadFails(
             [source("image-design-spaces", id: "image-design-spaces", category: "   ")],
-            naming: ["image-design-spaces", "category"]
+            naming: ["image-design-spaces", "'category'"]
         )
     }
 

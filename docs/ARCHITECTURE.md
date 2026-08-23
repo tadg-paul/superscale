@@ -1,4 +1,4 @@
-<!-- Version: 1.1 | Last updated: 2026-08-23 -->
+<!-- Version: 1.2 | Last updated: 2026-08-23 -->
 
 # Superscale v2 Architecture
 
@@ -376,6 +376,11 @@ image upscaled locally.
 
 ## Changelog
 
+- **1.2 (2026-08-23):** Recorded the filter catalogue as described by its own
+  frontmatter rather than by filenames, and selection as a two-step flow in
+  which choosing loads a filter's wording for editing and sends nothing,
+  following #85. Removed the model-compatibility and prompt-template language,
+  which described a configuration a filter never carried.
 - **1.1 (2026-08-23):** Recorded the asset graph as part of the
   `SuperscaleUXCore` module boundary, following its introduction in #81.
 - **1.0 (2026-08-05):** Promoted the v2 architecture to the canonical project
