@@ -110,6 +110,7 @@ make install
 | `make test` | Run regression tests (excludes slow SSIM quality gate) |
 | `make test-one-off` | Run one-off tests, which live in the separate `OneOff/` package and are never run by `make test` |
 | `make test-ssim` | Run SSIM quality regression against PyTorch references (~2.5 min) |
+| `make test-gui` | Run the XCUITest suite against the built app. Covers the SwiftUI views, which `make test` does not build (~8 min) |
 | `make install` | Build + symlink to `~/.local/bin` |
 | `make release` | Tag, build CLI, push, update Homebrew formula (runs both test packs) |
 | `make release-gui` | Build GUI .app, package DMG, update Homebrew cask |

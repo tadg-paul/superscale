@@ -142,7 +142,7 @@ public final class GenerationCoordinator: ObservableObject {
     ///
     /// This is not attribution by timing. The identifier belongs to *this* output: an input from
     /// anywhere else is not the coordinator's output and carries nothing.
-    public private(set) var recordedSessionID: UUID?
+    @Published public private(set) var recordedSessionID: UUID?
 
     /// Records the session written for the current output.
     public func recordSession(_ id: UUID) {
