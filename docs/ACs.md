@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC82.8 from #82 on 2026-08-23
+Last migrated: AC83.6 from #83 on 2026-08-23
 
 ---
 
@@ -141,6 +141,12 @@ Last migrated: AC82.8 from #82 on 2026-08-23
   - ✅ RT-82.2: the number of faces enhanced is available without reading any message text
   - ✅ RT-82.3: tile progress arrives as completed and total counts rather than as text
   - ✅ RT-82.26: a progress report the mapping does not recognize still reaches the caller rather than being dropped
+  - ✅ RT-83.20: the stage's phase mapping yields a distinct case for every phase the kit reports, with none resolving to the unclassified case
+  - ✅ RT-83.21: a kit phase the stage does not map reaches the caller as unclassified rather than being dropped
+- Note: RT-82.1, RT-82.2, RT-82.3 and RT-82.26 were rewritten in #83 against `PipelineProgress`,
+  when the kit began reporting phases as values rather than as sentences the stage parsed. The
+  criterion is unchanged and the IDs are unchanged; only the source the mapping reads from moved.
+  RT-83.20 and RT-83.21 were added to this criterion's coverage by the same issue.
 - Note: the mapping from the pipeline's wording to a phase is coupled to that wording until structured progress lands inside `SuperscaleKit`. The coupling lives in one adapter, and the unclassified case is what stops an unmapped message being lost meanwhile.
 
 ### AC82.2 - Local upscaling and cloud filtering present one run-state model and one error path, so a caller handles both the same way.
@@ -209,5 +215,69 @@ Last migrated: AC82.8 from #82 on 2026-08-23
   - ✅ RT-82.23: changing the upscale model while the selection is cleared leaves it cleared
   - ✅ RT-82.24: a change to the custom dimension text never creates a selection where there was none
   - ✅ RT-82.25: importing an image while a scale is selected adopts the model's native scale rather than clearing the selection
+
+---
+
+## Local upscaling
+
+### AC83.1 - Splitting an opaque image into tiles and stitching them back reproduces it exactly, including its outermost row and column.
+- Introduced: #83 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-83.1: the outermost row and column of a stitched image match the source, including a channel whose source value is zero
+  - ✅ RT-83.2: an interior row crossing a tile seam matches the source
+  - ✅ RT-83.3: an image smaller than a single tile survives the round trip
+  - ✅ RT-83.4: an image whose width is an exact multiple of the tile stride survives the round trip
+  - ✅ RT-83.18: an image whose width leaves a final tile narrower than the overlap survives the round trip
+  - ✅ RT-83.23: a 4x upscale of a small opaque image has no black pixel in its outermost row or column
+- Note: RT-83.23 needs the x4plus model and skips without it. It is the only test here that meets
+  the output a user opens; the rest stitch at 1x and hold the tiler itself.
+
+### AC83.2 - A tile edge lying on the image boundary contributes at full weight, and an interior seam remains feathered.
+- Introduced: #83 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-83.5: a pixel on the image boundary holds the value of the only tile covering it
+  - ✅ RT-83.6: within an interior seam between two tiles of differing value, a pixel nearer one tile is closer to that tile's value than a pixel nearer the other
+
+### AC83.3 - An upscale that is cancelled stops with work left undone, wherever it is doing per-unit work.
+- Introduced: #83 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-83.7: a cancelled tile run leaves tiles unprocessed
+  - ✅ RT-83.8: a cancelled tile run reports cancellation rather than a failure
+  - ✅ RT-83.9: a run that is not cancelled processes every tile
+  - ✅ RT-83.19: a stitch cancelled part way stops rather than composing every row
+  - ✅ RT-83.22: a cancelled face-enhancement pass leaves faces unprocessed
+
+### AC83.4 - Progress reported by the kit identifies its phase and carries that phase's counts as values.
+- Introduced: #83 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-83.10: the tile phase carries the completed and total counts
+  - ✅ RT-83.11: the face-enhancement phase carries the number of faces
+  - ✅ RT-83.12: every phase the kit reports is distinguishable without reading any wording
+
+### AC83.5 - A failure the kit raises describes what went wrong in plain language, naming what it was working on.
+- Introduced: #83 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-83.13: an unreadable image produces a description naming the problem
+  - ✅ RT-83.14: an absent model produces a description naming the model
+  - ✅ RT-83.15: no description of a failure the kit raises contains a type name or an error code
+- Note: RT-83.15 samples the cases that exist. What generalizes it is structural: each
+  `errorDescription` is a `switch` with no `default`, so a case added without a description does
+  not compile. Errors raised by Vision and Core ML pass through unwrapped and are outside this
+  criterion, because wrapping them would bury the platform's own diagnostic.
+
+### AC83.6 - The command-line tool's reported progress reads exactly as it did before the kit reported phases as values.
+- Introduced: #83 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-83.16: each phase renders to the text the pipeline previously reported for it
+  - ✅ RT-83.17: a phase carrying counts renders them in the same positions as before
+- Note: the tests exercise `PipelineProgress.description`, which is the tool's progress handler
+  and the only formatting of a phase in that executable. Running the built binary would be a
+  build-system invocation, which `TESTING.md` keeps out of the regression pack.
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
