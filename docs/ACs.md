@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC81.8 from #81 on 2026-08-23
+Last migrated: AC82.8 from #82 on 2026-08-23
 
 ---
 
@@ -128,5 +128,86 @@ Last migrated: AC81.8 from #81 on 2026-08-23
   test. A test cannot assert that an overload is absent, because code calling a function that does
   not exist would not compile. The evidence is that the application target builds after the change
   while the seven correct uses of the display accessor are untouched.
+
+---
+
+## Stages and the scale control
+
+### AC82.1 - Stage progress identifies the phase of work as a value, and carries the counts that belong to it --- faces enhanced, tiles completed and total --- as numbers.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.1: each phase the local pipeline reports arrives as a distinct case, and none of them resolves to the unclassified case
+  - ✅ RT-82.2: the number of faces enhanced is available without reading any message text
+  - ✅ RT-82.3: tile progress arrives as completed and total counts rather than as text
+  - ✅ RT-82.26: a progress report the mapping does not recognize still reaches the caller rather than being dropped
+- Note: the mapping from the pipeline's wording to a phase is coupled to that wording until structured progress lands inside `SuperscaleKit`. The coupling lives in one adapter, and the unclassified case is what stops an unmapped message being lost meanwhile.
+
+### AC82.2 - Local upscaling and cloud filtering present one run-state model and one error path, so a caller handles both the same way.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.4: a caller driving either stage observes the same sequence of run states
+  - ✅ RT-82.5: a failure in either stage arrives as a failed run state carrying the reason, rather than as a flag with the error discarded
+  - ✅ RT-82.6: a cancellation in either stage is distinguishable from a failure
+  - ✅ RT-82.27: cancelling a stage that is not running leaves it idle rather than reporting a cancellation
+
+### AC82.3 - When the working image changes, the upscale in flight for the previous one is cancelled, and neither its progress nor its result is observed thereafter.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.7: a run superseded by a newer one is cancelled
+  - ✅ RT-82.8: the superseded run's output is not published even when it finishes last
+  - ✅ RT-82.9: the newer run's output is the one published
+  - ✅ RT-82.28: when the newer run fails, the superseded run's output is still not published
+  - ✅ RT-82.36: progress reported by a superseded run after it is superseded is not observed
+
+### AC82.4 - A stage run that does not complete leaves the graph as it was, and leaves no output at the location allocated for it.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.10: a cancelled run leaves no asset behind
+  - ✅ RT-82.11: a failed run leaves no asset behind
+  - ✅ RT-82.12: the current upscaled output is unchanged after a run that did not complete
+  - ✅ RT-82.29: a run cancelled after writing leaves no file at its allocated location
+
+### AC82.5 - A stage writes its output only to the location the graph allocated for it.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.13: the output is written at the allocated location
+  - ✅ RT-82.14: the completed run resolves to the asset the graph allocated rather than to a new one
+  - ✅ RT-82.35: a completed run leaves the allocated output in the graph's directory and nothing else
+
+### AC82.6 - An upscaled output exists only while a scale is selected.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.15: an image imported with no scale selected leaves no upscaled output
+  - ✅ RT-82.16: an image imported with a scale selected has one
+  - ✅ RT-82.17: selecting a scale after an import made with none leaves an upscaled output
+  - ✅ RT-82.31: clearing the selection while an upscaled output exists releases it
+  - ✅ RT-82.33: toggling face enhancement while the selection is cleared leaves no upscaled output
+  - ✅ RT-82.34: changing the upscale model while the selection is cleared leaves no upscaled output
+
+### AC82.7 - The scale selection is empty after the active scale is chosen again, and holds the chosen scale in every other case.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.18: choosing the active preset clears the selection
+  - ✅ RT-82.19: choosing a different preset selects that one
+  - ✅ RT-82.20: choosing the active custom option clears the selection
+  - ✅ RT-82.21: with nothing selected, no choice reports itself active
+  - ✅ RT-82.30: dimensions typed into the custom fields survive the selection being cleared and restored
+  - ✅ RT-82.32: choosing custom makes it the active choice before any dimension is typed
+
+### AC82.8 - A cleared scale selection persists until a scale is chosen: importing an image, changing the upscale model and changing the custom dimension text all leave it cleared.
+- Introduced: #82 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-82.22: importing an image while the selection is cleared leaves it cleared
+  - ✅ RT-82.23: changing the upscale model while the selection is cleared leaves it cleared
+  - ✅ RT-82.24: a change to the custom dimension text never creates a selection where there was none
+  - ✅ RT-82.25: importing an image while a scale is selected adopts the model's native scale rather than clearing the selection
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
