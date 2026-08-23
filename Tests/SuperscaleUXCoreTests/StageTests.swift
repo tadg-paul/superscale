@@ -98,7 +98,7 @@ final class StageTests: XCTestCase {
             XCTAssertNotEqual(
                 UpscaleProgressReader.phase(for: report),
                 .unclassified,
-                "\(report.kind) falls through the mapping"
+                "falls through the mapping: \(report)"
             )
         }
     }

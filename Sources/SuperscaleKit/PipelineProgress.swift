@@ -54,25 +54,12 @@ public enum PipelineProgress: Equatable, Sendable, CustomStringConvertible {
         }
     }
 
-    /// One value per case, for checking that no two phases collapse into the same kind.
-    public static var allPhaseKinds: [String] {
-        [
-            PipelineProgress.loading(fileName: "a"),
-            .inspecting(width: 1, height: 1, scale: 1),
-            .split(tiles: 1, tileSize: 1, overlap: 1),
-            .tiling(completed: 1, total: 1),
-            .stitching(width: 1, height: 1),
-            .upscalingAlpha,
-            .enhancingFaces(count: 1),
-            .resizing(width: 1, height: 1),
-            .writing(fileName: "a"),
-            .finished(width: 1, height: 1, fileName: "a"),
-            .warning("a"),
-        ].map(\.kind)
-    }
-
     /// Identifies the case without its payload.
-    public var kind: String {
+    ///
+    /// Like `description`, this is a `switch` with no `default`: a case added without being
+    /// identified here does not compile. That is what makes an exhaustive list unnecessary —
+    /// and a hand-maintained one would be the very thing this type exists to stop.
+    var kind: String {
         switch self {
         case .loading: return "loading"
         case .inspecting: return "inspecting"

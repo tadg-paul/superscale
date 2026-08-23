@@ -96,7 +96,7 @@ public enum Tiler {
     ///   - tileSize: The model's expected input size; smaller tiles are padded and cropped back.
     ///   - report: Receives a phase for each tile as it starts.
     ///   - upscale: Produces the upscaled image for one tile.
-    public static func processTiles(
+    static func processTiles(
         _ tiles: [Tile],
         scale: Int,
         tileSize: Int,

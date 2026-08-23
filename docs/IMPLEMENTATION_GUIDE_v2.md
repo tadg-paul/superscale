@@ -1,4 +1,4 @@
-<!-- Version: 3.2 | Last updated: 2026-08-23 -->
+<!-- Version: 3.3 | Last updated: 2026-08-23 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -481,9 +481,18 @@ and a 4096-pixel output is roughly 50 MB.
 A run is observed as a `StageRunState`: `idle`, `running(StageProgress)`, `succeeded`, `cancelled`
 or `failed(StageFailure)`. That is one model for both stages, replacing a phase enum on the cloud
 side and a boolean on the local one. `StagePhase` carries the counts that belong to it --- faces
-enhanced, tiles completed and total --- as numbers rather than as prose a caller has to parse, with
-an `unclassified` case so a report the mapping cannot place degrades to plain text rather than
-vanishing.
+enhanced, tiles completed and total --- as numbers rather than as prose a caller has to parse.
+
+The kit reports its own phases as `PipelineProgress`, so the stage maps case to case with no
+wording involved. That was not always so: the kit first reported sentences, and the stage
+recovered the structure by matching prefixes and splitting on spaces --- which meant rewording
+"Enhancing 3 faces..." silently broke the face count. `PipelineProgress.description` is still that
+sentence, and it is what the command-line tool prints, so the text a scripted caller reads is
+unchanged while nothing depends on parsing it.
+
+`StagePhase.unclassified` remains, and now catches a kit phase the stage does not map --- a
+warning, which is a diagnostic rather than a phase, or a case a later kit version adds. It reaches
+the caller with its text, so such a report degrades to plain wording rather than vanishing.
 
 **Two stages, not three.** `UpscaleStage` wraps `SuperscaleKit` and serves both
 upscale targets; `FilterStage` wraps `FalGenerationKit`. There is no separate
@@ -692,16 +701,26 @@ is called. Section 3.2 revives it.
 
 ## 5. Defects
 
-| | Severity | Defect |
-|---|---|---|
-| **D1** | data loss | History "Send to Upscale" passes `preferredAssetURL` (`upscaledAssetURL ?? generatedAssetURL`), so an already-upscaled session re-upscales its own output and overwrites the original at the fixed `upscaled.<ext>` path. The correct accessor sits unused three lines above. |
-| **D2** | data corruption | The write-back observer fires on any `resultData` change while `pendingSessionID` is set, so dropping an unrelated file after a handoff attributes that file's upscale to the cloud session. |
-| **D3** | confirmed, medium | **Every output has a one-pixel black border.** `Tiler.blendWeight` returns `min(left, right, top, bottom)`; at `x=0` that is zero, so edge pixels accumulate zero weight and keep their initialized zero (`Tiler.swift:156`). Measured on `Tests/visual_output/remy1_4x.png`: outermost row and column 100% black, inner rows 0%, source 0%. RT-087 misses it by sampling 20px inside. Affects every image v1 has produced. |
-| **D4** | medium | 3 of 86 filters begin with a markdown header containing their filename, which is sent to the provider as prompt text. |
-| **D5** | medium | Kit errors are not `LocalizedError`, so the GUI shows "The operation couldn't be completed. (SuperscaleKit.ImageIOError error 0.)" |
-| **D6** | medium | The upscale has no cancellation at any level, though it is the long local operation. |
-| **D7** | low | `pendingSessionID` is never cleared on mode switch or new drop. |
-| **D8** | low | `defaultUpscaleModelID` is honoured on the handoff path but not on drop. |
+| | Severity | Status | Defect |
+|---|---|---|---|
+| **D1** | data loss | closed by #81 | History "Send to Upscale" passes `preferredAssetURL` (`upscaledAssetURL ?? generatedAssetURL`), so an already-upscaled session re-upscales its own output and overwrites the original at the fixed `upscaled.<ext>` path. The correct accessor sits unused three lines above. |
+| **D2** | data corruption | closed by #81 | The write-back observer fires on any `resultData` change while `pendingSessionID` is set, so dropping an unrelated file after a handoff attributes that file's upscale to the cloud session. |
+| **D3** | confirmed, medium | closed by #83 | **Every output has a one-pixel black border.** `Tiler.blendWeight` returns `min(left, right, top, bottom)`; at `x=0` that is zero, so edge pixels accumulate zero weight and keep their initialized zero (`Tiler.swift:156`). Measured on `Tests/visual_output/remy1_4x.png`: outermost row and column 100% black, inner rows 0%, source 0%. RT-087 misses it by sampling 20px inside. Affects every image v1 has produced. |
+| **D4** | medium | open, slice 4 | 3 of 86 filters begin with a markdown header containing their filename, which is sent to the provider as prompt text. |
+| **D5** | medium | closed by #83 | Kit errors are not `LocalizedError`, so the GUI shows "The operation couldn't be completed. (SuperscaleKit.ImageIOError error 0.)" |
+| **D6** | medium | closed by #83 | The upscale has no cancellation at any level, though it is the long local operation. |
+| **D7** | low | closed by #81 | `pendingSessionID` is never cleared on mode switch or new drop. |
+| **D8** | low | open, slice 9 | `defaultUpscaleModelID` is honoured on the handoff path but not on drop. |
+
+Descriptions are kept as written rather than edited away once closed: the mechanism and the
+measurement are the useful record, and a defect table that only lists what is outstanding loses
+the history of what was wrong and how it was found.
+
+**On D3 in particular.** A tile edge lying on the image boundary is no longer feathered, because
+feathering exists so two overlapping tiles can sum to one and there is no second tile at the
+boundary. The regression test that holds it samples the outermost row and column of a real 4x
+output; against the unfixed weighting it reports 1200 black pixels on a 400×200 image, which is
+exactly its perimeter.
 
 ---
 
@@ -801,6 +820,9 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.3 (2026-08-23):** Recorded the defect statuses, closing D1, D2 and D7 against #81
+  and D3, D5 and D6 against #83, and updated section 3.3 for the kit reporting its
+  own phases as `PipelineProgress` rather than as sentences the stage parses.
 - **3.2 (2026-08-23):** Corrected section 3.3 against the stages as built in
   #82: the graph allocates the asset and its location, so a stage takes a
   `StageInput` and a `StageOutputLocation` and returns a `StageOutput` rather

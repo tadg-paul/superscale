@@ -31,15 +31,33 @@ final class PipelineProgressTests: XCTestCase {
     }
 
     // RT-83.12
+    //
+    // The list belongs to the test rather than to the module: a list in production would be a
+    // third enumeration of the cases and the only one the compiler does not check. `kind` and
+    // `description` are both switches with no default, so a case added without being identified
+    // and described does not compile.
     func test_everyPhaseIsDistinguishableWithoutReadingWording_RT083_12() {
-        let phases = PipelineProgress.allPhaseKinds
+        let reports: [PipelineProgress] = [
+            .loading(fileName: "a.png"),
+            .inspecting(width: 1, height: 1, scale: 1),
+            .split(tiles: 1, tileSize: 1, overlap: 1),
+            .tiling(completed: 1, total: 1),
+            .stitching(width: 1, height: 1),
+            .upscalingAlpha,
+            .enhancingFaces(count: 1),
+            .resizing(width: 1, height: 1),
+            .writing(fileName: "a.png"),
+            .finished(width: 1, height: 1, fileName: "a.png"),
+            .warning("a"),
+        ]
+
+        let kinds = reports.map(\.kind)
 
         XCTAssertEqual(
-            Set(phases).count,
-            phases.count,
+            Set(kinds).count,
+            reports.count,
             "two phases the kit reports share a kind"
         )
-        XCTAssertGreaterThan(phases.count, 1)
     }
 
     // MARK: - AC83.6 the command-line tool's text
