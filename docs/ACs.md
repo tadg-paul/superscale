@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC83.6 from #83 on 2026-08-23
+Last migrated: AC84.6 from #84 on 2026-08-23
 
 ---
 
@@ -279,5 +279,72 @@ Last migrated: AC83.6 from #83 on 2026-08-23
 - Note: the tests exercise `PipelineProgress.description`, which is the tool's progress handler
   and the only formatting of a phase in that executable. Running the built binary would be a
   build-system invocation, which `TESTING.md` keeps out of the regression pack.
+
+---
+
+## Pipeline reuse
+
+### AC84.1 - A run whose settings match a held pipeline uses that pipeline rather than loading another.
+- Introduced: #84 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-84.1: two runs with identical settings load the model once
+  - ✅ RT-84.2: the second run receives the same pipeline instance as the first
+  - ✅ RT-84.3: returning to a held pipeline after using another one loads neither again
+
+### AC84.2 - A run whose settings match no held pipeline loads one for those settings.
+- Introduced: #84 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-84.4: a different model name loads
+  - ✅ RT-84.5: a different tile size loads
+  - ✅ RT-84.6: a different face-enhancement setting loads
+  - ✅ RT-84.19: an unresolved tile size and an explicit one equal to the model's default are the same key
+- Note: RT-84.19 is the only test here asserting two things are the *same* key. The other three
+  fail a key that is too coarse; it fails one that is too fine, which would occupy a slot with a
+  duplicate and release a live entry to make room.
+
+### AC84.3 - No more than two pipelines are held, and the least recently used is released first.
+- Introduced: #84 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-84.7: a third distinct setting releases the least recently used
+  - ✅ RT-84.8: after four distinct settings are used, returning to each in turn reloads all but the two most recent
+  - ✅ RT-84.9: using a held pipeline makes it the most recently used, so a later release takes the other
+- Note: the bound is measured through reloads rather than through a published count. The second
+  slot exists for the face-enhancement toggle, which alternates between two keys holding the same
+  underlying model; one slot would reload on every press.
+
+### AC84.4 - Runs through the cache do not overlap, a run's progress reaches only its own observer, and no observer outlives its run.
+- Introduced: #84 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-84.10: a second run does not begin until the first has returned
+  - ✅ RT-84.11: progress reported during one run reaches that run's observer and no other
+  - ✅ RT-84.12: a failure in one run leaves a later run unaffected
+  - ✅ RT-84.17: a pipeline returned to the cache holds no observer from the run that used it
+  - ✅ RT-84.18: two runs started concurrently for settings nothing is held for load the model once
+- Note: non-overlap and single-loading are properties of two signatures being synchronous --- the
+  lent body and the loader. Swift actors are reentrant, so an `async` form of either would break
+  these while the tests still passed unless the tests contrived a suspension. RT-84.10 and
+  RT-84.18 are what make the breakage loud.
+
+### AC84.5 - A pipeline that failed to load is not held.
+- Introduced: #84 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-84.13: a load failure propagates to the caller rather than yielding a pipeline
+  - ✅ RT-84.14: a later run with the same settings loads again and succeeds
+
+### AC84.6 - An upscale performed by the application obtains its pipeline from the cache rather than constructing one.
+- Introduced: #84 (closed 2026-08-23)
+- Migrated: 2026-08-23
+- Tests:
+  - ✅ RT-84.15: two successive upscales through the processor call the cache's loader exactly once
+  - ✅ RT-84.16: the processor's second upscale produces the same result as its first
+- Note: these two need the x4plus model and skip without it. `Pipeline` is a concrete class, so a
+  counting loader must still return a real one, and a criterion about the application's path
+  cannot be met below that path. RT-84.15 counts *exactly* one because a processor that bypasses
+  the cache calls the loader zero times, which an "at most once" assertion would accept.
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
