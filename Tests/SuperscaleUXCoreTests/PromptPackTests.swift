@@ -1,12 +1,16 @@
-// ABOUTME: Verifies bundled prompt-pack loading, validation, composition, and selection state.
-// ABOUTME: Protects prompt bodies and stable metadata without launching the GUI.
+// ABOUTME: Verifies that filters describe themselves in frontmatter and that bad ones are reported.
+// ABOUTME: Reads the bundled corpus through the real loader and needs no files of its own.
 
 import XCTest
 @testable import SuperscaleUXCore
 
 final class PromptPackTests: XCTestCase {
-    // RT-74.1, RT-74.2
-    func test_bundledPromptPacksLoadWithStableMetadataAndFalCompatibility() throws {
+    private let model = "xai/grok-imagine-image"
+
+    // MARK: - Metadata comes from the file, not from its name
+
+    // RT-74.1, RT-74.2 (rewritten for AC85.1: the mechanism is frontmatter, not derivation)
+    func test_bundledFiltersLoadWithDeclaredMetadataAndOneCompatibleModel_RT074_1() throws {
         let catalogue = try PromptPackCatalogue.bundled()
         let architectural = try XCTUnwrap(catalogue.pack(id: "image-design-architectural-drawing"))
 
@@ -14,129 +18,294 @@ final class PromptPackTests: XCTestCase {
         XCTAssertEqual(architectural.displayName, "Architectural Drawing")
         XCTAssertEqual(architectural.category, "Design")
         XCTAssertTrue(architectural.body.hasPrefix("Transform the input image into an architectural drawing."))
-        XCTAssertEqual(architectural.compatibleModelIDs, ["xai/grok-imagine-image"])
+        XCTAssertEqual(architectural.compatibleModelIDs, [model])
         XCTAssertEqual(catalogue.packs.map(\.id), catalogue.packs.map(\.id).sorted())
     }
 
-    // RT-74.3, RT-74.4
-    func test_loaderRejectsMissingBodiesDuplicateIDsMalformedMetadataAndUnsupportedModels() throws {
-        let valid = descriptor(id: "image-design-example", resourceName: "example")
-        let loader = PromptPackLoader(supportedModelIDs: ["xai/grok-imagine-image"])
+    // RT-85.1
+    func test_aFiltersNameAndCategoryAreThoseItsFrontmatterDeclares_RT085_1() throws {
+        let packs = try load([
+            source("image-lighting-anything", id: "image-lighting-anything", name: "Chiaroscuro", category: "Lighting")
+        ])
 
-        assertLoadError(loader, descriptors: [valid], bodies: [:], contains: ["example", "body"])
-        assertLoadError(loader, descriptors: [valid, valid], bodies: ["example": "Body"], contains: ["duplicate", valid.id])
-        assertLoadError(
-            loader,
-            descriptors: [descriptor(id: "bad id", resourceName: "bad-metadata")],
-            bodies: ["bad-metadata": "Body"],
-            contains: ["bad-metadata", "metadata"]
-        )
-        assertLoadError(
-            loader,
-            descriptors: [
-                descriptor(
-                    id: "image-design-future",
-                    resourceName: "future-model",
-                    modelIDs: ["future/provider-model"]
-                ),
-            ],
-            bodies: ["future-model": "Body"],
-            contains: ["future-model", "unsupported model"]
-        )
+        XCTAssertEqual(packs.map(\.displayName), ["Chiaroscuro"])
+        XCTAssertEqual(packs.map(\.category), ["Lighting"])
     }
 
-    // RT-74.4
-    func test_loaderDiagnosticsDoNotExposePromptBodies() {
-        let secretBody = "private prompt wording that must not enter diagnostics"
-        let loader = PromptPackLoader(supportedModelIDs: ["xai/grok-imagine-image"])
-
-        do {
-            _ = try loader.load(
-                descriptors: [descriptor(id: "bad id", resourceName: "safe-resource-name")],
-                bodyProvider: { _ in secretBody }
+    // RT-85.2
+    //
+    // The filename says one thing and the frontmatter another. A loader that read frontmatter
+    // and fell back to the filename would pass RT-85.1; only disagreement separates them.
+    func test_aFilterWhoseFrontmatterDisagreesWithItsFilenamePresentsTheFrontmatter_RT085_2() throws {
+        let packs = try load([
+            source(
+                "image-lighting-chiaoscurod",
+                id: "image-lighting-chiaoscurod",
+                name: "Chiaroscuro",
+                category: "Lighting"
             )
-            XCTFail("Expected malformed metadata to be rejected")
-        } catch {
-            XCTAssertTrue(error.localizedDescription.contains("safe-resource-name"))
-            XCTAssertFalse(error.localizedDescription.contains(secretBody))
+        ])
+
+        XCTAssertEqual(packs.first?.displayName, "Chiaroscuro")
+        XCTAssertNotEqual(packs.first?.displayName, "Chiaoscurod")
+    }
+
+    // RT-85.3
+    func test_everyBundledFilterLoadsWithANameAndACategory_RT085_3() throws {
+        for pack in try PromptPackCatalogue.bundled().packs {
+            XCTAssertFalse(pack.displayName.trimmingCharacters(in: .whitespaces).isEmpty, pack.id)
+            XCTAssertFalse(pack.category.trimmingCharacters(in: .whitespaces).isEmpty, pack.id)
         }
     }
 
-    // RT-74.5, RT-74.6
-    func test_promptCompositionSupportsPackUserAndCombinedInputsWithoutMutation() {
-        let pack = PromptPack(
-            id: "image-design-example",
-            displayName: "Example",
-            category: "Design",
-            body: "Apply the bundled treatment.",
-            compatibleModelIDs: ["xai/grok-imagine-image"]
-        )
-        let original = pack
+    // MARK: - A file that cannot describe itself fails the corpus
 
-        XCTAssertEqual(PromptComposer.compose(pack: pack, userPrompt: ""), "Apply the bundled treatment.")
-        XCTAssertEqual(PromptComposer.compose(pack: nil, userPrompt: "Draw a tower."), "Draw a tower.")
-        XCTAssertEqual(
-            PromptComposer.compose(pack: pack, userPrompt: "Draw a tower."),
-            "Apply the bundled treatment.\n\nDraw a tower."
+    // RT-85.4
+    func test_aFileWithNoFrontmatterIsReportedNamingTheFile_RT085_4() {
+        assertLoadFails(
+            [PromptPackSource(resourceName: "image-design-bare", text: "Just a body, no metadata.")],
+            naming: ["image-design-bare", "frontmatter"]
         )
-        XCTAssertEqual(PromptComposer.compose(pack: pack, userPrompt: "Second use."), "Apply the bundled treatment.\n\nSecond use.")
-        XCTAssertEqual(pack, original)
     }
 
-    // RT-74.7
-    @MainActor
-    func test_selectionStateReferencesBundledPacksWithoutAnEditingSurface() throws {
+    // RT-85.5
+    func test_aFileWhoseFrontmatterIsMalformedOrWronglyTypedIsReportedNamingTheFile_RT085_5() {
+        assertLoadFails(
+            [PromptPackSource(resourceName: "image-design-broken", text: "---\n{ not json\n---\n\nBody.\n")],
+            naming: ["image-design-broken", "malformed"]
+        )
+        assertLoadFails(
+            [PromptPackSource(
+                resourceName: "image-design-mistyped",
+                text: """
+                ---
+                {"id": "image-design-mistyped", "name": 42, "category": "Design", "requiresInput": true}
+                ---
+
+                Body.
+                """
+            )],
+            naming: ["image-design-mistyped", "malformed"]
+        )
+        assertLoadFails(
+            [PromptPackSource(
+                resourceName: "image-design-unterminated",
+                text: "---\n{\"id\": \"image-design-unterminated\"}\n\nBody with no closing delimiter.\n"
+            )],
+            naming: ["image-design-unterminated", "frontmatter"]
+        )
+    }
+
+    // RT-85.6
+    func test_aFileWhoseFrontmatterOmitsARequiredFieldIsReportedNamingTheField_RT085_6() {
+        let fields = ["id", "name", "category", "requiresInput"]
+        for omitted in fields {
+            var values: [String: String] = [
+                "id": "\"image-design-partial\"",
+                "name": "\"Partial\"",
+                "category": "\"Design\"",
+                "requiresInput": "true",
+            ]
+            values.removeValue(forKey: omitted)
+            let json = values.map { "\"\($0.key)\": \($0.value)" }.joined(separator: ", ")
+
+            assertLoadFails(
+                [PromptPackSource(
+                    resourceName: "image-design-partial",
+                    text: "---\n{\(json)}\n---\n\nBody.\n"
+                )],
+                naming: ["image-design-partial", omitted]
+            )
+        }
+    }
+
+    // RT-85.7
+    func test_aFileWhoseBodyIsEmptyAfterItsFrontmatterIsReported_RT085_7() {
+        assertLoadFails(
+            [source("image-design-hollow", id: "image-design-hollow", body: "   \n\n")],
+            naming: ["image-design-hollow", "body"]
+        )
+    }
+
+    // RT-85.26
+    //
+    // The one a decoder cannot catch: "" decodes into a String perfectly well, and yields a
+    // filter with a blank row in the list.
+    func test_aRequiredFieldPresentButEmptyIsReportedNamingTheField_RT085_26() {
+        assertLoadFails(
+            [source("image-design-blank", id: "image-design-blank", name: "")],
+            naming: ["image-design-blank", "name"]
+        )
+        assertLoadFails(
+            [source("image-design-spaces", id: "image-design-spaces", category: "   ")],
+            naming: ["image-design-spaces", "category"]
+        )
+    }
+
+    // RT-85.20
+    func test_aCorpusWithTwoFiltersDeclaringTheSameIdentifierIsReported_RT085_20() {
+        assertLoadFails(
+            [
+                source("image-design-first", id: "image-design-same"),
+                source("image-design-second", id: "image-design-same"),
+            ],
+            naming: ["duplicate", "image-design-same"]
+        )
+    }
+
+    // RT-85.21
+    func test_theBundledCorpusContainsNoDuplicateIdentifier_RT085_21() throws {
+        let ids = try PromptPackCatalogue.bundled().packs.map(\.id)
+
+        XCTAssertEqual(Set(ids).count, ids.count)
+    }
+
+    // RT-74.3, RT-74.4 (rewritten against sources; the model check keeps its subject because the
+    // loader still supplies compatibleModelIDs and still validates them)
+    func test_theLoaderRejectsAnUnsupportedModelAndKeepsBodiesOutOfDiagnostics_RT074_3() {
+        let secret = "private prompt wording that must not enter diagnostics"
+        let loader = PromptPackLoader(supportedModelIDs: ["some/other-model"])
+
+        do {
+            _ = try loader.load(sources: [source("image-design-future", id: "image-design-future", body: secret)])
+            XCTFail("Expected an unsupported model to be rejected")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.localizedCaseInsensitiveContains("image-design-future"))
+            XCTAssertTrue(error.localizedDescription.localizedCaseInsensitiveContains("unsupported model"))
+            XCTAssertFalse(error.localizedDescription.contains(secret))
+        }
+    }
+
+    // MARK: - The body is what is sent, carried verbatim
+
+    // RT-85.8
+    func test_noLoadedFiltersTextContainsAFrontmatterDelimiter_RT085_8() throws {
+        for pack in try PromptPackCatalogue.bundled().packs {
+            XCTAssertFalse(pack.body.hasPrefix("---"), pack.id)
+            XCTAssertFalse(pack.body.contains("\"requiresInput\""), pack.id)
+        }
+    }
+
+    // RT-85.9
+    func test_noBundledFiltersTextBeginsWithAMarkdownHeading_RT085_9() throws {
+        for pack in try PromptPackCatalogue.bundled().packs {
+            XCTAssertFalse(pack.body.hasPrefix("#"), pack.id)
+        }
+    }
+
+    // RT-85.10
+    //
+    // The resource name as a contiguous string, not the words it contains: a file called
+    // image-print-risograph has every reason to say "risograph" in its body.
+    func test_noFiltersTextContainsItsResourceName_RT085_10() throws {
+        for pack in try PromptPackCatalogue.bundled().packs {
+            XCTAssertFalse(pack.body.contains(pack.id), pack.id)
+            XCTAssertFalse(pack.body.contains("\(pack.id).md"), pack.id)
+        }
+    }
+
+    // RT-85.11
+    func test_theThreeFiltersThatCarriedAFilenameHeadingLoadWithoutIt_RT085_11() throws {
         let catalogue = try PromptPackCatalogue.bundled()
-        let selection = PromptPackSelection(catalogue: catalogue)
-        let selectedID = "image-illustration-botanical"
+        let offenders = [
+            "image-lighting-film-noir",
+            "image-lighting-vermeer-window",
+            "image-lighting-chiaoscurod",
+        ]
 
-        selection.select(packID: selectedID)
-
-        XCTAssertEqual(selection.selectedPack?.id, selectedID)
-        XCTAssertEqual(selection.selectedPack, catalogue.pack(id: selectedID))
+        for id in offenders {
+            let pack = try XCTUnwrap(catalogue.pack(id: id), id)
+            XCTAssertFalse(pack.body.hasPrefix("#"), id)
+            XCTAssertFalse(pack.body.contains(id), id)
+        }
     }
 
-    private func descriptor(
+    // RT-85.24
+    //
+    // `---` is also a markdown horizontal rule. A parser splitting on every occurrence rather
+    // than on the first two would truncate the body silently, which nobody notices because a
+    // shortened prompt still produces an image.
+    func test_aFilterWhoseBodyContainsAHorizontalRuleLoadsWithThatBodyIntact_RT085_24() throws {
+        let body = "First instruction.\n\n---\n\nSecond instruction."
+        let packs = try load([source("image-design-ruled", id: "image-design-ruled", body: body)])
+
+        XCTAssertEqual(packs.first?.body, body)
+    }
+
+    // RT-85.32
+    //
+    // The loader does not edit bodies. Without this, a loader that discarded a leading heading
+    // would satisfy RT-85.9 to RT-85.11 while the three offending files stayed as they were,
+    // and the first filter that legitimately opened with a heading would be truncated.
+    func test_aFilterWhoseBodyBeginsWithAHeadingLoadsWithThatHeadingIntact_RT085_32() throws {
+        let body = "# Overview\n\nApply the treatment."
+        let packs = try load([source("image-design-headed", id: "image-design-headed", body: body)])
+
+        XCTAssertEqual(packs.first?.body, body)
+    }
+
+    // MARK: - Identifiers
+
+    // RT-85.19
+    //
+    // A prettier identifier on one file among 86 would lose that filter's saved default with
+    // no error and no message.
+    func test_everyBundledIdentifierMatchesTheResourceNameThePreviousVersionDerived_RT085_19() throws {
+        for pack in try PromptPackCatalogue.bundled().packs {
+            let components = pack.id.split(separator: "-")
+            XCTAssertEqual(components.first.map(String.init), "image", pack.id)
+            XCTAssertGreaterThanOrEqual(components.count, 3, pack.id)
+            XCTAssertNotNil(
+                pack.id.range(of: #"^[a-z0-9]+(?:-[a-z0-9]+)*$"#, options: .regularExpression),
+                pack.id
+            )
+        }
+    }
+
+    // MARK: - Fixtures
+
+    private func load(_ sources: [PromptPackSource]) throws -> [PromptPack] {
+        try PromptPackLoader(supportedModelIDs: [model]).load(sources: sources)
+    }
+
+    private func source(
+        _ resourceName: String,
         id: String,
-        resourceName: String,
-        modelIDs: [String] = ["xai/grok-imagine-image"]
-    ) -> PromptPackDescriptor {
-        PromptPackDescriptor(
-            id: id,
-            displayName: "Example",
-            category: "Design",
+        name: String = "Example",
+        category: String = "Design",
+        requiresInput: Bool = true,
+        body: String = "Apply the bundled treatment."
+    ) -> PromptPackSource {
+        PromptPackSource(
             resourceName: resourceName,
-            compatibleModelIDs: modelIDs
+            text: """
+            ---
+            {"id": "\(id)", "name": "\(name)", "category": "\(category)", "requiresInput": \(requiresInput)}
+            ---
+
+            \(body)
+            """
         )
     }
 
-    private func assertLoadError(
-        _ loader: PromptPackLoader,
-        descriptors: [PromptPackDescriptor],
-        bodies: [String: String],
-        contains fragments: [String],
+    private func assertLoadFails(
+        _ sources: [PromptPackSource],
+        naming fragments: [String],
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
         do {
-            _ = try loader.load(descriptors: descriptors) { resourceName in
-                guard let body = bodies[resourceName] else { throw PromptBodyFixtureError.missing }
-                return body
-            }
-            XCTFail("Expected prompt-pack loading to fail", file: file, line: line)
+            let packs = try PromptPackLoader(supportedModelIDs: [model]).load(sources: sources)
+            XCTFail("Expected loading to fail, got \(packs.count) filters", file: file, line: line)
         } catch {
             for fragment in fragments {
                 XCTAssertTrue(
                     error.localizedDescription.localizedCaseInsensitiveContains(fragment),
-                    "Expected diagnostic to contain '\(fragment)', got '\(error.localizedDescription)'",
+                    "Expected '\(fragment)' in '\(error.localizedDescription)'",
                     file: file,
                     line: line
                 )
             }
         }
-    }
-
-    private enum PromptBodyFixtureError: Error {
-        case missing
     }
 }
