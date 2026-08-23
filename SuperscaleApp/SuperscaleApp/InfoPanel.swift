@@ -68,7 +68,9 @@ struct InfoPanel: View {
         }
 
         // Scale
-        switch viewModel.scaleMode {
+        switch viewModel.scaleSelection {
+        case .off:
+            result.append("Upscaling off — select a scale to upscale this image")
         case .preset(let scale):
             if let w = viewModel.inputWidth, let h = viewModel.inputHeight {
                 result.append("Scale: \(scale)× → \(w * scale)×\(h * scale)")
@@ -90,7 +92,7 @@ struct InfoPanel: View {
         }
 
         // Stretch
-        if viewModel.stretchEnabled && viewModel.scaleMode == .custom {
+        if viewModel.stretchEnabled && viewModel.scaleSelection == .custom {
             result.append("Stretch enabled — output ignores aspect ratio")
         }
 

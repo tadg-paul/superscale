@@ -144,8 +144,9 @@ final class StageRunnerTests: XCTestCase {
         await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         try await harness.settle()
 
+        let started = await harness.stage.startedRuns
         XCTAssertNil(harness.runner.currentUpscale)
-        XCTAssertEqual(await harness.stage.startedRuns, [])
+        XCTAssertEqual(started, [])
     }
 
     // RT-82.16
@@ -198,8 +199,9 @@ final class StageRunnerTests: XCTestCase {
         await harness.runner.setFaceEnhance(true)
         try await harness.settle()
 
+        let started = await harness.stage.startedRuns
         XCTAssertNil(harness.runner.currentUpscale)
-        XCTAssertEqual(await harness.stage.startedRuns, [])
+        XCTAssertEqual(started, [])
     }
 
     // RT-82.34
@@ -210,8 +212,9 @@ final class StageRunnerTests: XCTestCase {
         await harness.runner.setModel(named: "realesrgan-x2plus", nativeScale: 2)
         try await harness.settle()
 
+        let started = await harness.stage.startedRuns
         XCTAssertNil(harness.runner.currentUpscale)
-        XCTAssertEqual(await harness.stage.startedRuns, [])
+        XCTAssertEqual(started, [])
     }
 
     // MARK: - AC82.2 cancelling something that is not running
@@ -292,14 +295,12 @@ final class StageRunnerTests: XCTestCase {
         let sourceURL = scratch.appendingPathComponent("source.png")
         try Data("source".utf8).write(to: sourceURL)
 
-        var settings = UpscaleRunSettings.fixture
-        settings.selection = selection
         let stage = GatedUpscaleStage()
         return Harness(
             runner: UpscaleRunner(
                 stage: stage,
                 graph: AssetGraph(outputDirectory: output),
-                settings: settings
+                settings: .fixture(selection: selection)
             ),
             stage: stage,
             sourceURL: sourceURL

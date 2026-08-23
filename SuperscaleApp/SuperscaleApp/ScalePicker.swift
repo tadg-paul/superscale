@@ -24,24 +24,21 @@ struct ScalePicker: View {
         HStack(spacing: 2) {
             ForEach([2, 4, 8], id: \.self) { scale in
                 Button {
-                    viewModel.scaleMode = .preset(scale)
-                    viewModel.showCustomFields = false
+                    viewModel.choose(.preset(scale))
                     focusedField = nil
                 } label: {
                     Text("\(scale)×")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                 }
                 .buttonStyle(.bordered)
-                .tint(isPresetSelected(scale) ? .accentColor : nil)
-                .help("Upscale \(scale)×")
+                .tint(viewModel.isActive(.preset(scale)) ? .accentColor : nil)
+                .help(viewModel.isActive(.preset(scale)) ? "Turn off upscaling" : "Upscale \(scale)×")
                 .accessibilityIdentifier("scale\(scale)x")
             }
 
             Button {
-                if !viewModel.showCustomFields {
-                    viewModel.showCustomFields = true
-                    focusedField = .width
-                }
+                viewModel.choose(.custom)
+                focusedField = viewModel.isActive(.custom) ? .width : nil
             } label: {
                 HStack(spacing: 3) {
                     Image(systemName: "ruler")
@@ -52,17 +49,10 @@ struct ScalePicker: View {
                 }
             }
             .buttonStyle(.bordered)
-            .tint(viewModel.scaleMode == .custom ? .accentColor : nil)
-            .help("Custom resolution")
+            .tint(viewModel.isActive(.custom) ? .accentColor : nil)
+            .help(viewModel.isActive(.custom) ? "Turn off upscaling" : "Custom resolution")
             .accessibilityIdentifier("scaleCustom")
         }
-    }
-
-    private func isPresetSelected(_ scale: Int) -> Bool {
-        if case .preset(let s) = viewModel.scaleMode, s == scale {
-            return true
-        }
-        return false
     }
 
     // MARK: - Resolution fields
@@ -140,7 +130,7 @@ struct ScalePicker: View {
     }
 
     private func presetWidthString() -> String {
-        if case .preset(let scale) = viewModel.scaleMode,
+        if case .preset(let scale) = viewModel.scaleSelection,
            let dims = viewModel.targetDimensions(forScale: scale) {
             return "\(dims.width)"
         }
@@ -148,7 +138,7 @@ struct ScalePicker: View {
     }
 
     private func presetHeightString() -> String {
-        if case .preset(let scale) = viewModel.scaleMode,
+        if case .preset(let scale) = viewModel.scaleSelection,
            let dims = viewModel.targetDimensions(forScale: scale) {
             return "\(dims.height)"
         }

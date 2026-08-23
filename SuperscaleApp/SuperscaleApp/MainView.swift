@@ -150,7 +150,7 @@ struct MainView: View {
             }
         }
         .onChange(of: viewModel.selectedModelName) { infoPanelDismissed = false }
-        .onChange(of: viewModel.scaleMode) { infoPanelDismissed = false }
+        .onChange(of: viewModel.scaleSelection) { infoPanelDismissed = false }
         .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
         .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
     }

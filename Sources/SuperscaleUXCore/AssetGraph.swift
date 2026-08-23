@@ -88,6 +88,7 @@ public enum AssetGraphError: LocalizedError, Equatable, Sendable {
     case unknownAsset(UUID)
     case upscaledAssetIsNotAStageInput(UUID)
     case noCandidateToLock
+    case notAnUpscaledOutput(UUID)
 
     public var errorDescription: String? {
         switch self {
@@ -102,6 +103,11 @@ public enum AssetGraphError: LocalizedError, Equatable, Sendable {
                 """
         case .noCandidateToLock:
             return "There is no candidate result to lock."
+        case let .notAnUpscaledOutput(id):
+            return """
+                Asset \(id.uuidString) is not an upscaled output. Only an upscaled output can be \
+                promoted or released; everything else is the user's image or a locked iteration.
+                """
         }
     }
 }
@@ -127,6 +133,10 @@ public struct AssetGraph: Sendable {
     private var assets: [UUID: Asset] = [:]
     private var baseID: UUID?
     private var candidateID: UUID?
+    /// Which upscaled asset is the current output. Held explicitly rather than derived, because a
+    /// run in progress is allocated before it is promoted: between those two moments two upscaled
+    /// assets can share a parent, and deriving would have to pick between them arbitrarily.
+    private var currentUpscaleID: UUID?
 
     public init(outputDirectory: URL) {
         self.outputDirectory = outputDirectory
@@ -235,17 +245,24 @@ public struct AssetGraph: Sendable {
     ///
     /// The location is derived from the new asset's identity, so it is unique for the life of the
     /// graph and a released location is never reused.
+    /// - Parameter promote: whether the new output immediately becomes the current one, releasing
+    ///   the output it supersedes. A caller that is about to run work which may not complete
+    ///   passes `false` and promotes on success, so a failed run does not destroy the output the
+    ///   user already has.
     public mutating func recordUpscale(
         of input: AssetReference,
         pixelSize: CGSize,
-        fileExtension: String
+        fileExtension: String,
+        promote: Bool = true
     ) throws -> UpscaleAllocation {
         try validateStageInput(input)
         let id = UUID()
         let resolvedExtension = fileExtension.isEmpty ? "png" : fileExtension
         let fileURL = outputDirectory
             .appendingPathComponent("upscaled-\(id.uuidString).\(resolvedExtension)")
-        try discardUpscales(of: input.id)
+        if promote {
+            try discardUpscales(of: input.id)
+        }
         assets[id] = Asset(
             id: id,
             role: .upscaled,
@@ -254,7 +271,35 @@ public struct AssetGraph: Sendable {
             parentID: input.id,
             provenance: nil
         )
+        if promote {
+            currentUpscaleID = id
+        }
         return UpscaleAllocation(reference: AssetReference(id: id), fileURL: fileURL)
+    }
+
+    /// Makes an already-recorded upscale the current output, releasing the one it supersedes.
+    public mutating func promote(_ reference: AssetReference) throws {
+        let asset = try asset(for: reference)
+        guard asset.role == .upscaled, let parentID = asset.parentID else {
+            throw AssetGraphError.notAnUpscaledOutput(asset.id)
+        }
+        try discardUpscales(of: parentID, except: asset.id)
+        currentUpscaleID = asset.id
+    }
+
+    /// Releases an upscaled output the graph holds, removing its file.
+    ///
+    /// Only an upscaled asset can be released. Everything else is either the user's image or a
+    /// locked iteration, neither of which this operation may reach.
+    public mutating func release(_ reference: AssetReference) throws {
+        let asset = try asset(for: reference)
+        guard asset.role == .upscaled else {
+            throw AssetGraphError.notAnUpscaledOutput(asset.id)
+        }
+        try remove(asset)
+        if currentUpscaleID == asset.id {
+            currentUpscaleID = nil
+        }
     }
 
     /// Adopts the candidate as the base, leaving the previous base reachable behind it.
@@ -279,11 +324,15 @@ public struct AssetGraph: Sendable {
     /// The upscaled output of the working asset, when one has been produced for it.
     public func currentUpscale() throws -> AssetReference? {
         guard let workingAsset else { throw AssetGraphError.noWorkingAsset }
-        // At most one upscaled asset can share a parent, because `recordUpscale` releases the
-        // outputs of that parent before allocating a new one. Without that, taking the first
-        // match from an unordered collection would be arbitrary.
-        let match = assets.values.first { $0.role == .upscaled && $0.parentID == workingAsset.id }
-        return match.map { AssetReference(id: $0.id) }
+        // Read from the explicit pointer rather than searched for, because an allocated run that
+        // has not yet been promoted also has the working asset as its parent.
+        guard let currentUpscaleID,
+              let current = assets[currentUpscaleID],
+              current.parentID == workingAsset.id
+        else {
+            return nil
+        }
+        return AssetReference(id: current.id)
     }
 
     /// The nearest session in the asset's ancestry, or none when its ancestry holds none.
@@ -303,13 +352,22 @@ public struct AssetGraph: Sendable {
     ///
     /// Only assets of role `upscaled` that the graph itself allocated are reachable here. Sources,
     /// imported images, filter results and locked iterations are outside the operation entirely.
-    private mutating func discardUpscales(of parentID: UUID) throws {
-        let superseded = assets.values.filter { $0.role == .upscaled && $0.parentID == parentID }
+    private mutating func discardUpscales(of parentID: UUID, except retained: UUID? = nil) throws {
+        let superseded = assets.values.filter {
+            $0.role == .upscaled && $0.parentID == parentID && $0.id != retained
+        }
         for asset in superseded {
-            if isOwned(asset.fileURL), FileManager.default.fileExists(atPath: asset.fileURL.path) {
-                try FileManager.default.removeItem(at: asset.fileURL)
-            }
-            assets.removeValue(forKey: asset.id)
+            try remove(asset)
+        }
+    }
+
+    private mutating func remove(_ asset: Asset) throws {
+        if isOwned(asset.fileURL), FileManager.default.fileExists(atPath: asset.fileURL.path) {
+            try FileManager.default.removeItem(at: asset.fileURL)
+        }
+        assets.removeValue(forKey: asset.id)
+        if currentUpscaleID == asset.id {
+            currentUpscaleID = nil
         }
     }
 

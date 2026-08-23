@@ -11,18 +11,29 @@ final class StageTests: XCTestCase {
     // MARK: - AC82.1 structured progress
 
     // RT-82.1
+    //
+    // The reports are the pipeline's own wording, taken from Pipeline.swift. Inventing plausible
+    // messages here would let the mapping pass while failing against the kit it maps.
     func test_eachReportedPhaseArrivesAsADistinctCase() {
         let reports = [
-            "Loading image...",
-            "Detecting content type...",
-            "Upscaling tile 3 of 12...",
-            "Stitching output...",
+            "Loading remy1.png...",
+            "Input: 1024×768, scale: 4×",
+            "Processing tile 3 of 12...",
+            "Stitching output (4096×3072)...",
+            "Upscaling alpha channel...",
             "Enhancing 2 faces...",
+            "Resizing to 2000×1500...",
+            "Writing remy1_4x.png...",
+            "Done: 2000×1500 → remy1_4x.png",
         ]
 
         let phases = reports.map { UpscaleProgressReader.phase(for: $0) }
 
-        XCTAssertEqual(phases.count, Set(phases.map(\.discriminator)).count, "phases collapsed together")
+        XCTAssertEqual(
+            Set(phases.map(\.discriminator)).count,
+            reports.count,
+            "two phases the pipeline distinguishes collapsed into one"
+        )
         XCTAssertFalse(
             phases.contains(.unclassified),
             "a phase the pipeline reports was absorbed by the catch-all"
@@ -31,16 +42,20 @@ final class StageTests: XCTestCase {
 
     // RT-82.2
     func test_theFaceCountIsAvailableWithoutReadingMessageText() {
-        let phase = UpscaleProgressReader.phase(for: "Enhancing 3 faces...")
-
-        XCTAssertEqual(phase, .enhancingFaces(count: 3))
+        XCTAssertEqual(UpscaleProgressReader.phase(for: "Enhancing 3 faces..."), .enhancingFaces(count: 3))
+        XCTAssertEqual(UpscaleProgressReader.phase(for: "Enhancing 1 face..."), .enhancingFaces(count: 1))
     }
 
     // RT-82.3
     func test_tileProgressArrivesAsCompletedAndTotalCounts() {
-        let phase = UpscaleProgressReader.phase(for: "Upscaling tile 5 of 16...")
-
-        XCTAssertEqual(phase, .tiling(completed: 5, total: 16))
+        XCTAssertEqual(
+            UpscaleProgressReader.phase(for: "Processing tile 5 of 16..."),
+            .tiling(completed: 5, total: 16)
+        )
+        XCTAssertEqual(
+            UpscaleProgressReader.phase(for: "Split into 16 tiles of 512×512"),
+            .tiling(completed: 0, total: 16)
+        )
     }
 
     // RT-82.26
@@ -55,10 +70,10 @@ final class StageTests: XCTestCase {
 
     // RT-82.4
     func test_eitherStageObservedThroughTheProtocolYieldsTheSameRunStateSequence() async throws {
-        let upscale = try await observedStates {
+        let upscale = await observedStates {
             try await self.runUpscaleStage(processor: StubUpscaleProcessor())
         }
-        let filter = try await observedStates {
+        let filter = await observedStates {
             try await self.runFilterStage(service: StubFilterService())
         }
 
@@ -67,11 +82,11 @@ final class StageTests: XCTestCase {
 
     // RT-82.5
     func test_aFailureInEitherStageArrivesAsAFailedRunStateCarryingTheReason() async throws {
-        let upscaleStates = try await observedStates {
-            try? await self.runUpscaleStage(processor: StubUpscaleProcessor(failure: "disk full"))
+        let upscaleStates = await observedStates {
+            try await self.runUpscaleStage(processor: StubUpscaleProcessor(failure: "disk full"))
         }
-        let filterStates = try await observedStates {
-            try? await self.runFilterStage(service: StubFilterService(failure: "gateway timeout"))
+        let filterStates = await observedStates {
+            try await self.runFilterStage(service: StubFilterService(failure: "gateway timeout"))
         }
 
         XCTAssertEqual(reason(in: upscaleStates), "disk full")
@@ -80,8 +95,8 @@ final class StageTests: XCTestCase {
 
     // RT-82.6
     func test_aCancellationIsDistinguishableFromAFailure() async throws {
-        let states = try await observedStates {
-            try? await self.runUpscaleStage(processor: StubUpscaleProcessor(cancels: true))
+        let states = await observedStates {
+            try await self.runUpscaleStage(processor: StubUpscaleProcessor(cancels: true))
         }
 
         XCTAssertTrue(states.contains(.cancelled))
@@ -160,8 +175,9 @@ final class StageTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private struct Harness {
-        let graph: AssetGraph
+    /// A reference type, so an allocation made through it is visible to the assertions afterwards.
+    private final class Harness {
+        var graph: AssetGraph
         let stage: UpscaleStage
         let input: StageInput
         private let source: AssetReference
@@ -174,8 +190,7 @@ final class StageTests: XCTestCase {
         }
 
         func allocateUpscale() throws -> StageOutputLocation {
-            var mutable = graph
-            let allocation = try mutable.recordUpscale(
+            let allocation = try graph.recordUpscale(
                 of: source,
                 pixelSize: CGSize(width: 2048, height: 1536),
                 fileExtension: "png"
@@ -207,9 +222,12 @@ final class StageTests: XCTestCase {
     }
 
     /// Drives a stage through a runner-shaped observer and returns every state it published.
+    ///
+    /// The body's error is caught here rather than at the call site, because the mapping from a
+    /// thrown error to a run state is the thing under test.
     private func observedStates(
         _ body: @escaping () async throws -> Void
-    ) async throws -> [StageRunState] {
+    ) async -> [StageRunState] {
         let recorder = StateRecorder()
         await recorder.record(.idle)
         do {
@@ -219,6 +237,10 @@ final class StageTests: XCTestCase {
             await recorder.record(.failed(failure))
         } catch is CancellationError {
             await recorder.record(.cancelled)
+        } catch {
+            await recorder.record(
+                .failed(.processingFailed(stage: "unknown", reason: error.localizedDescription))
+            )
         }
         return await recorder.states
     }
@@ -292,10 +314,14 @@ extension StagePhase {
     var discriminator: String {
         switch self {
         case .loading: return "loading"
-        case .detecting: return "detecting"
+        case .inspecting: return "inspecting"
         case .tiling: return "tiling"
         case .stitching: return "stitching"
+        case .upscalingAlpha: return "upscalingAlpha"
         case .enhancingFaces: return "enhancingFaces"
+        case .resizing: return "resizing"
+        case .writing: return "writing"
+        case .finished: return "finished"
         case .uploading: return "uploading"
         case .awaitingModel: return "awaitingModel"
         case .downloading: return "downloading"

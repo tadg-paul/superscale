@@ -14,11 +14,6 @@ final class UpscaleViewModel: ObservableObject {
 
     // MARK: - Scale mode
 
-    enum ScaleMode: Equatable {
-        case preset(Int)
-        case custom
-    }
-
     enum DefiningDimension {
         case width, height
     }
@@ -27,7 +22,9 @@ final class UpscaleViewModel: ObservableObject {
 
     @Published var showButtonLabels: Bool = true
     @Published var selectedModelName: String = "auto"
-    @Published var scaleMode: ScaleMode = .preset(4)
+    /// What the scale control holds. Private to the setter, so a view cannot assign around
+    /// `choose(_:)` and lose the toggle-group behaviour it encodes.
+    @Published private(set) var scaleSelection: ScaleSelection = .preset(4)
     @Published var showCustomFields: Bool = false
     @Published var customWidth: String = ""
     @Published var customHeight: String = ""
@@ -111,12 +108,9 @@ final class UpscaleViewModel: ObservableObject {
                 if !self.suppressDimensionUpdates {
                     self.definingDimension = .width
                 }
-                // Activate custom mode when a valid (non-zero) number is entered
-                if self.showCustomFields, let val = Int(filtered), val > 0 {
-                    self.scaleMode = .custom
-                } else if case .custom = self.scaleMode {
-                    self.scaleMode = .preset(self.nativeScale)
-                }
+                // Typing a dimension never creates a selection: choosing custom does that.
+                // It only moves an existing selection between custom and the model's scale.
+                self.reflectTypedDimension(isValid: Int(filtered).map { $0 > 0 } ?? false)
                 if !self.stretchEnabled && self.definingDimension == .width {
                     // Delay indicative update to avoid disrupting TextField input
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
@@ -147,12 +141,9 @@ final class UpscaleViewModel: ObservableObject {
                 }
                 if self.suppressDimensionUpdates { return }
                 self.definingDimension = .height
-                // Activate custom mode when a valid (non-zero) number is entered
-                if self.showCustomFields, let val = Int(filtered), val > 0 {
-                    self.scaleMode = .custom
-                } else if case .custom = self.scaleMode {
-                    self.scaleMode = .preset(self.nativeScale)
-                }
+                // Typing a dimension never creates a selection: choosing custom does that.
+                // It only moves an existing selection between custom and the model's scale.
+                self.reflectTypedDimension(isValid: Int(filtered).map { $0 > 0 } ?? false)
                 if !self.stretchEnabled && self.definingDimension == .height {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                         guard let self, self.definingDimension == .height else { return }
@@ -208,22 +199,28 @@ final class UpscaleViewModel: ObservableObject {
                     scale = ModelRegistry.model(named: newName)?.scale
                         ?? ModelRegistry.defaultModel.scale
                 }
-                self.scaleMode = .preset(scale)
+                // The model's native scale replaces a selected scale; it does not create one.
+                self.adoptNativeScale(scale)
                 self.showCustomFields = false
                 self.customWidth = ""
                 self.customHeight = ""
             }
             .store(in: &cancellables)
 
-        // Preset scale changes trigger re-upscale immediately
-        $scaleMode
+        // Preset scale changes trigger re-upscale immediately. Clearing the selection releases
+        // the result instead, because with nothing selected there is no upscale to show.
+        $scaleSelection
             .dropFirst()
-            .sink { [weak self] newMode in
+            .sink { [weak self] selection in
                 guard let self else { return }
-                if case .preset = newMode {
+                switch selection {
+                case .off:
+                    self.releaseUpscaledResult()
+                case .preset:
                     self.reupscaleIfNeeded()
+                case .custom:
+                    break  // debounced by the dimension subscribers below
                 }
-                // Custom mode re-upscale is debounced via dimension subscribers below
             }
             .store(in: &cancellables)
 
@@ -234,7 +231,7 @@ final class UpscaleViewModel: ObservableObject {
             .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
             .sink { [weak self] val in
                 guard let self,
-                      case .custom = self.scaleMode,
+                      self.scaleSelection == .custom,
                       let v = Int(val), v > 0 else { return }
                 self.reupscaleIfNeeded()
             }
@@ -245,7 +242,7 @@ final class UpscaleViewModel: ObservableObject {
             .debounce(for: .seconds(1.5), scheduler: RunLoop.main)
             .sink { [weak self] val in
                 guard let self,
-                      case .custom = self.scaleMode,
+                      self.scaleSelection == .custom,
                       let v = Int(val), v > 0 else { return }
                 self.reupscaleIfNeeded()
             }
@@ -253,22 +250,22 @@ final class UpscaleViewModel: ObservableObject {
     }
 
     private func reupscaleIfNeeded() {
-        guard let url = inputURL, !isProcessing else { return }
+        guard !scaleSelection.isOff, let url = inputURL, !isProcessing else { return }
         processImage(source: currentInputSource ?? .imported(url))
     }
 
     /// Re-upscale for face enhance toggle only — preserves scale settings.
     private func reupscaleForFaceToggle() {
-        guard let url = inputURL, !isProcessing else { return }
+        guard !scaleSelection.isOff, let url = inputURL, !isProcessing else { return }
         // Capture current scale state before processImage can interfere
-        let savedMode = scaleMode
+        let savedSelection = scaleSelection
         let savedCustomW = customWidth
         let savedCustomH = customHeight
         let savedDefining = definingDimension
         let savedShowCustom = showCustomFields
         processImage(source: currentInputSource ?? .imported(url))
         // Restore scale state in case anything reset it
-        scaleMode = savedMode
+        scaleSelection = savedSelection
         customWidth = savedCustomW
         customHeight = savedCustomH
         definingDimension = savedDefining
@@ -320,6 +317,49 @@ final class UpscaleViewModel: ObservableObject {
         } else if definingDimension == .height, let typed = Int(customHeight), typed > 0 {
             customWidth = "\(Int(round(Double(typed) * aspectRatio)))"
         }
+    }
+
+    // MARK: - Scale selection
+
+    /// The only route to a new selection. Pressing the active choice clears it, which is what
+    /// makes the scale buttons a toggle group rather than a set that can never be emptied.
+    func choose(_ choice: ScaleChoice) {
+        scaleSelection = scaleSelection.choosing(choice)
+        showCustomFields = scaleSelection == .custom
+    }
+
+    func isActive(_ choice: ScaleChoice) -> Bool {
+        scaleSelection.isActive(choice)
+    }
+
+    /// Replaces a selected scale with the model's native one. A cleared selection stays cleared:
+    /// adopting a scale is not the same as creating a selection.
+    private func adoptNativeScale(_ scale: Int) {
+        guard case .preset = scaleSelection else { return }
+        scaleSelection = .preset(scale)
+    }
+
+    /// Moves an existing selection between custom and the model's scale as dimensions are typed
+    /// or emptied. Never creates a selection where there was none.
+    private func reflectTypedDimension(isValid: Bool) {
+        guard !scaleSelection.isOff else { return }
+        if showCustomFields, isValid {
+            scaleSelection = .custom
+        } else if scaleSelection == .custom {
+            scaleSelection = .preset(nativeScale)
+        }
+    }
+
+    /// With nothing selected there is no upscale to show, so the result is released rather than
+    /// left on screen contradicting the control.
+    private func releaseUpscaledResult() {
+        result = nil
+        resultData = nil
+        resultSource = nil
+        cachedWithFaces = nil
+        cachedWithoutFaces = nil
+        showComparison = false
+        progressMessage = ""
     }
 
     // MARK: - Actions
@@ -413,10 +453,16 @@ final class UpscaleViewModel: ObservableObject {
             }
             // Re-cap custom dimensions against new image's 8× limit
             reapplyDimensionCap()
-            scaleMode = .preset(nativeScale)
+            // A new image adopts the model's native scale, as in v1 — but it does not create a
+            // selection. Dropped with the scale off, it simply becomes the image to work on.
+            adoptNativeScale(nativeScale)
         }
 
-        let options = coordinatorOptions()
+        guard let options = coordinatorOptions() else {
+            isProcessing = false
+            progressMessage = ""
+            return
+        }
         let coordinator = upscaleCoordinator
         Task.detached { [weak self] in
             guard let self else { return }
@@ -432,7 +478,7 @@ final class UpscaleViewModel: ObservableObject {
                         }
                         // Replace native-scale dimension reports with target dimensions
                         if message.hasPrefix("Stitching output"),
-                           case .custom = self.scaleMode {
+                           self.scaleSelection == .custom {
                             let tw = self.customWidth
                             let th = self.customHeight
                             self.progressMessage = "Resizing to \(tw)×\(th)..."
@@ -473,9 +519,12 @@ final class UpscaleViewModel: ObservableObject {
         }
     }
 
-    private func coordinatorOptions() -> GUIUpscaleOptions {
+    /// The options for a run, or nothing when no scale is selected and no run is due.
+    private func coordinatorOptions() -> GUIUpscaleOptions? {
         let sizing: GUIUpscaleSizing
-        switch scaleMode {
+        switch scaleSelection {
+        case .off:
+            return nil
         case let .preset(scale):
             sizing = .preset(scale: scale)
         case .custom:
@@ -501,7 +550,9 @@ final class UpscaleViewModel: ObservableObject {
     private func outputFilename() -> String {
         guard let inputURL else { return "upscaled.png" }
         let stem = inputURL.deletingPathExtension().lastPathComponent
-        switch scaleMode {
+        switch scaleSelection {
+        case .off:
+            return "\(stem).png"
         case .preset(let scale):
             return "\(stem)_\(scale)x.png"
         case .custom:
