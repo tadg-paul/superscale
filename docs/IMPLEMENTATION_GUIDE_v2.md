@@ -1,4 +1,4 @@
-<!-- Version: 3.1 | Last updated: 2026-08-23 -->
+<!-- Version: 3.2 | Last updated: 2026-08-23 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -467,10 +467,23 @@ cancellation model, and one error path:
 ```swift
 protocol Stage {
     associatedtype Options
-    func run(input: Asset, options: Options,
-             progress: @Sendable (StageProgress) -> Void) async throws -> Asset
+    func run(input: StageInput, output: StageOutputLocation, options: Options,
+             progress: @Sendable (StageProgress) -> Void) async throws -> StageOutput
 }
 ```
+
+**The graph allocates; the stage writes.** A stage does not mint the asset it produces, because
+the guarantee that no two upscales collide belongs to the graph: it allocates the asset and the
+location, the stage writes there, and the caller records the completion against the reference the
+graph already holds. Nor does a stage hand bytes back --- the image is already held in memory once,
+and a 4096-pixel output is roughly 50 MB.
+
+A run is observed as a `StageRunState`: `idle`, `running(StageProgress)`, `succeeded`, `cancelled`
+or `failed(StageFailure)`. That is one model for both stages, replacing a phase enum on the cloud
+side and a boolean on the local one. `StagePhase` carries the counts that belong to it --- faces
+enhanced, tiles completed and total --- as numbers rather than as prose a caller has to parse, with
+an `unclassified` case so a report the mapping cannot place degrades to plain text rather than
+vanishing.
 
 **Two stages, not three.** `UpscaleStage` wraps `SuperscaleKit` and serves both
 upscale targets; `FilterStage` wraps `FalGenerationKit`. There is no separate
@@ -788,6 +801,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.2 (2026-08-23):** Corrected section 3.3 against the stages as built in
+  #82: the graph allocates the asset and its location, so a stage takes a
+  `StageInput` and a `StageOutputLocation` and returns a `StageOutput` rather
+  than minting and returning an `Asset`. Added the run-state model and the
+  structured progress phases.
 - **3.1 (2026-08-23):** Corrected section 3 against the asset graph as built in
   #81: an upscale is discarded when superseded rather than at lock time, and
   `Provenance` carries the session identifier that lineage attribution walks.

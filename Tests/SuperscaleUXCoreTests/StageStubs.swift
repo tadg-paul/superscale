@@ -10,18 +10,18 @@ final class StubUpscaleProcessor: GUIUpscaleProcessing, @unchecked Sendable {
     let reports: [String]
     private let failure: String?
     private let cancels: Bool
-    private let cancelsAfterWriting: Bool
+    private let failsAfterProducing: Bool
 
     init(
         reports: [String] = [],
         failure: String? = nil,
         cancels: Bool = false,
-        cancelsAfterWriting: Bool = false
+        failsAfterProducing: Bool = false
     ) {
         self.reports = reports
         self.failure = failure
         self.cancels = cancels
-        self.cancelsAfterWriting = cancelsAfterWriting
+        self.failsAfterProducing = failsAfterProducing
     }
 
     func process(
@@ -38,8 +38,8 @@ final class StubUpscaleProcessor: GUIUpscaleProcessing, @unchecked Sendable {
         if let failure {
             throw StageFailure.processingFailed(stage: "upscale", reason: failure)
         }
-        if cancelsAfterWriting {
-            throw StubCancellationAfterWriting()
+        if failsAfterProducing {
+            throw StubFailureAfterProducing()
         }
         return GUIUpscaleProcessedImage(
             imageData: Data("upscaled".utf8),
@@ -50,9 +50,8 @@ final class StubUpscaleProcessor: GUIUpscaleProcessing, @unchecked Sendable {
     }
 }
 
-/// Signals that the processor produced bytes and was then cancelled, so the stage has something
-/// to clean up at the allocated location.
-struct StubCancellationAfterWriting: Error {}
+/// Signals that the processor produced its output and then failed.
+struct StubFailureAfterProducing: Error {}
 
 /// A cloud filter service whose behaviour each test chooses.
 struct StubFilterService: FilterServicing {

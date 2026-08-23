@@ -20,6 +20,9 @@ public final class UpscaleRunner: ObservableObject {
     /// The run whose progress and result are observed. Anything from another run is ignored.
     private var activeRun: UUID?
     private var cancelledRuns: Set<UUID> = []
+    /// Where a superseded run will write when it eventually stops, so its output can be removed
+    /// once it has actually been produced.
+    private var supersededLocations: [UUID: URL] = [:]
 
     public init(
         stage: any UpscaleStaging,
@@ -128,36 +131,46 @@ public final class UpscaleRunner: ObservableObject {
             fileURL: allocation.fileURL
         )
         let stage = self.stage
+        // One stream per run, consumed in order by one child task. A tiled upscale reports once
+        // per tile, and unstructured per-report tasks carry no ordering between them, so the
+        // progress line could go backwards.
+        let (reports, continuation) = AsyncStream<StageProgress>.makeStream()
 
         task = Task { [weak self] in
+            let observer = Task { @MainActor [weak self] in
+                for await progress in reports {
+                    self?.receive(progress, from: run)
+                }
+            }
+            defer { observer.cancel() }
+
             do {
                 let output = try await stage.run(
                     input: input,
                     output: location,
                     options: options,
-                    progress: { progress in
-                        Task { @MainActor [weak self] in
-                            self?.receive(progress, from: run)
-                        }
-                    }
+                    progress: { continuation.yield($0) }
                 )
+                continuation.finish()
+                await observer.value
                 await MainActor.run { self?.complete(run, output: output, at: allocation.reference) }
-            } catch is CancellationError {
-                await MainActor.run { self?.abandon(run, at: allocation.reference, state: .cancelled) }
-            } catch let failure as StageFailure {
-                await MainActor.run {
-                    self?.abandon(run, at: allocation.reference, state: .failed(failure))
-                }
             } catch {
-                let failure = StageFailure.processingFailed(
-                    stage: "upscale",
-                    reason: error.localizedDescription
-                )
+                continuation.finish()
+                await observer.value
+                let outcome = Self.outcome(for: error)
                 await MainActor.run {
-                    self?.abandon(run, at: allocation.reference, state: .failed(failure))
+                    self?.abandon(run, at: allocation.reference, state: outcome)
                 }
             }
         }
+    }
+
+    /// The run state an error produces. Cancellation is not a failure, and a failure keeps the
+    /// reason it carried rather than collapsing to a flag.
+    private static func outcome(for error: Error) -> StageRunState {
+        if error is CancellationError { return .cancelled }
+        if let failure = error as? StageFailure { return .failed(failure) }
+        return .failed(.processingFailed(stage: "upscale", reason: error.localizedDescription))
     }
 
     private func receive(_ progress: StageProgress, from run: UUID) {
@@ -167,11 +180,14 @@ public final class UpscaleRunner: ObservableObject {
 
     private func complete(_ run: UUID, output: StageOutput, at reference: AssetReference) {
         guard activeRun == run else {
+            unlinkSuperseded(run)
             discard(reference)
             return
         }
         do {
-            try graph.promote(reference)
+            // The size the stage actually produced, replacing the placeholder the allocation
+            // carried before there was an output to measure.
+            try graph.promote(reference, pixelSize: output.pixelSize)
             activeRun = nil
             state = .succeeded(reference)
         } catch {
@@ -180,6 +196,7 @@ public final class UpscaleRunner: ObservableObject {
     }
 
     private func abandon(_ run: UUID, at reference: AssetReference, state newState: StageRunState) {
+        unlinkSuperseded(run)
         discard(reference)
         guard activeRun == run else { return }
         activeRun = nil
@@ -197,7 +214,28 @@ public final class UpscaleRunner: ObservableObject {
         task?.cancel()
         task = nil
         activeRun = nil
+        // The location is remembered before the asset goes, because the run itself is still
+        // working: the local pipeline does not check for cancellation until a later slice, so it
+        // will write to this location after the asset has been released. Without this the file
+        // would be left behind with nothing referencing it.
+        if let asset = try? graph.asset(for: AssetReference(id: run)) {
+            supersededLocations[run] = asset.fileURL
+        }
         discard(AssetReference(id: run))
+    }
+
+    /// Removes what a superseded run wrote after its asset had already been released.
+    private func unlinkSuperseded(_ run: UUID) {
+        guard let fileURL = supersededLocations.removeValue(forKey: run),
+              FileManager.default.fileExists(atPath: fileURL.path)
+        else {
+            return
+        }
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            state = .failed(.processingFailed(stage: "release", reason: error.localizedDescription))
+        }
     }
 
     private func releaseCurrentUpscale() {

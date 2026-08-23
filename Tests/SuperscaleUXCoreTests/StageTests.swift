@@ -159,8 +159,13 @@ final class StageTests: XCTestCase {
     // MARK: - AC82.4 a run that does not complete
 
     // RT-82.29
+    //
+    // The stage writes once, atomically, after the work returns, so there is no window in which
+    // it has written and not completed. A run that does not complete therefore leaves nothing at
+    // its location by construction. The other case — a superseded run that keeps working and
+    // writes after its allocation was released — is the runner's, not the stage's.
     func test_aRunCancelledAfterWritingLeavesNoFileAtItsAllocatedLocation() async throws {
-        let harness = try makeHarness(processor: StubUpscaleProcessor(cancelsAfterWriting: true))
+        let harness = try makeHarness(processor: StubUpscaleProcessor(failsAfterProducing: true))
         let allocation = try harness.allocateUpscale()
 
         _ = try? await harness.stage.run(

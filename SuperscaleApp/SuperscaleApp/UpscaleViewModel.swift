@@ -83,6 +83,9 @@ final class UpscaleViewModel: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let upscaleCoordinator: GUIUpscaleCoordinator
     private var currentInputSource: GUIUpscaleSource?
+    /// The run in flight, and which run may publish. Anything from a superseded run is ignored.
+    private var upscaleTask: Task<Void, Never>?
+    private var activeRun: UUID?
 
     private var suppressDimensionUpdates = false
 
@@ -353,6 +356,10 @@ final class UpscaleViewModel: ObservableObject {
     /// With nothing selected there is no upscale to show, so the result is released rather than
     /// left on screen contradicting the control.
     private func releaseUpscaledResult() {
+        upscaleTask?.cancel()
+        upscaleTask = nil
+        activeRun = nil
+        isProcessing = false
         result = nil
         resultData = nil
         resultSource = nil
@@ -463,60 +470,112 @@ final class UpscaleViewModel: ObservableObject {
             progressMessage = ""
             return
         }
+        start(source: source, options: options)
+    }
+
+    /// Runs an upscale, replacing any run already in flight.
+    ///
+    /// The task is retained rather than detached, so a run superseded by a new image or a changed
+    /// setting can be cancelled and its result ignored. Two runs previously raced here, and which
+    /// one landed last was not determined by anything.
+    private func start(source: GUIUpscaleSource, options: GUIUpscaleOptions) {
+        upscaleTask?.cancel()
+        let run = UUID()
+        activeRun = run
+
         let coordinator = upscaleCoordinator
-        Task.detached { [weak self] in
-            guard let self else { return }
-            do {
-                let output = try coordinator.process(source: source, options: options) { [weak self] message in
-                    Task { @MainActor in
-                        guard let self else { return }
-                        // Track face count from progress messages
-                        if message.hasPrefix("Enhancing") && message.contains("face") {
-                            if let num = Int(message.components(separatedBy: " ")[1]) {
-                                self.lastUpscaleFaceCount = num
-                            }
-                        }
-                        // Replace native-scale dimension reports with target dimensions
-                        if message.hasPrefix("Stitching output"),
-                           self.scaleSelection == .custom {
-                            let tw = self.customWidth
-                            let th = self.customHeight
-                            self.progressMessage = "Resizing to \(tw)×\(th)..."
-                        } else {
-                            self.progressMessage = message
-                        }
-                    }
-                }
-                let image = NSImage(data: output.imageData)
-                let preFaceImage = output.preFaceImageData.flatMap(NSImage.init(data:))
-                let faceWasEnabled = await self.faceEnhance
-                await MainActor.run {
-                    self.result = image
-                    // Set before the data, so an observer of the data always sees the input it
-                    // came from rather than the input of the previous run.
-                    self.resultSource = output.source
-                    self.resultData = output.imageData
-                    if faceWasEnabled {
-                        self.cachedWithFaces = image
-                        self.cachedWithoutFaces = preFaceImage ?? image
-                    } else {
-                        self.cachedWithoutFaces = image
-                        // cachedWithFaces stays nil — toggling on will trigger re-upscale
-                    }
-                    self.lastUpscaleModelName = output.resolvedModelName
-                    self.lastUpscaleWasAutoDetect = output.wasAutoDetect
-                    self.isProcessing = false
-                    self.progressMessage = ""
-                    self.showComparison = true
-                }
-            } catch {
-                await MainActor.run {
-                    self.errorMessage = error.localizedDescription
-                    self.isProcessing = false
-                    self.progressMessage = ""
+        let faceWasEnabled = faceEnhance
+        // One stream per run, consumed in order. Reports arrive once per tile, and unstructured
+        // per-report tasks carry no ordering between them.
+        let (reports, continuation) = AsyncStream<StageProgress>.makeStream()
+
+        upscaleTask = Task { [weak self] in
+            let observer = Task { @MainActor [weak self] in
+                for await progress in reports {
+                    self?.receive(progress, from: run)
                 }
             }
+            defer { observer.cancel() }
+
+            do {
+                // Detached deliberately: `process` is synchronous and blocks for seconds, and this
+                // view model is main-actor isolated, so a task inheriting that isolation would
+                // block the interface. Its value is awaited here, so it remains part of this run
+                // rather than escaping it. The work itself does not stop when this run is
+                // superseded, because the pipeline does not check for cancellation yet; what
+                // stops is the result reaching anything, which `activeRun` decides.
+                let output = try await Task.detached(priority: .userInitiated) {
+                    try coordinator.process(source: source, options: options) { message in
+                        continuation.yield(UpscaleProgressReader.progress(for: message))
+                    }
+                }.value
+                continuation.finish()
+                await observer.value
+                await MainActor.run {
+                    self?.publish(output, from: run, faceEnhanceWasEnabled: faceWasEnabled)
+                }
+            } catch {
+                continuation.finish()
+                await observer.value
+                await MainActor.run { self?.abandon(run, error: error) }
+            }
         }
+    }
+
+    /// Progress from a run that has been superseded reaches nothing.
+    private func receive(_ progress: StageProgress, from run: UUID) {
+        guard activeRun == run else { return }
+        if case let .enhancingFaces(count) = progress.phase {
+            lastUpscaleFaceCount = count
+        }
+        progressMessage = displayText(for: progress)
+    }
+
+    /// The phase decides what is shown; the detail is wording, never parsed.
+    private func displayText(for progress: StageProgress) -> String {
+        if case .stitching = progress.phase, scaleSelection == .custom {
+            return "Resizing to \(customWidth)×\(customHeight)..."
+        }
+        return progress.detail ?? ""
+    }
+
+    private func publish(
+        _ output: GUIUpscaleResult,
+        from run: UUID,
+        faceEnhanceWasEnabled: Bool
+    ) {
+        guard activeRun == run else { return }
+        activeRun = nil
+        let image = NSImage(data: output.imageData)
+        let preFaceImage = output.preFaceImageData.flatMap(NSImage.init(data:))
+
+        result = image
+        // Set before the data, so an observer of the data always sees the input it came from
+        // rather than the input of the previous run.
+        resultSource = output.source
+        resultData = output.imageData
+        if faceEnhanceWasEnabled {
+            cachedWithFaces = image
+            cachedWithoutFaces = preFaceImage ?? image
+        } else {
+            cachedWithoutFaces = image
+            // cachedWithFaces stays nil — toggling on will trigger re-upscale
+        }
+        lastUpscaleModelName = output.resolvedModelName
+        lastUpscaleWasAutoDetect = output.wasAutoDetect
+        isProcessing = false
+        progressMessage = ""
+        showComparison = true
+    }
+
+    private func abandon(_ run: UUID, error: Error) {
+        guard activeRun == run else { return }
+        activeRun = nil
+        isProcessing = false
+        progressMessage = ""
+        // Cancellation is not a failure: the run was replaced, and the replacement reports itself.
+        guard !(error is CancellationError) else { return }
+        errorMessage = error.localizedDescription
     }
 
     /// The options for a run, or nothing when no scale is selected and no run is due.

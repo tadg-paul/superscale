@@ -278,12 +278,23 @@ public struct AssetGraph: Sendable {
     }
 
     /// Makes an already-recorded upscale the current output, releasing the one it supersedes.
-    public mutating func promote(_ reference: AssetReference) throws {
+    ///
+    /// - Parameter pixelSize: what the stage actually produced. An allocation is made before the
+    ///   work runs, so its size is a placeholder until the output exists to be measured.
+    public mutating func promote(_ reference: AssetReference, pixelSize: CGSize) throws {
         let asset = try asset(for: reference)
         guard asset.role == .upscaled, let parentID = asset.parentID else {
             throw AssetGraphError.notAnUpscaledOutput(asset.id)
         }
         try discardUpscales(of: parentID, except: asset.id)
+        assets[asset.id] = Asset(
+            id: asset.id,
+            role: asset.role,
+            fileURL: asset.fileURL,
+            pixelSize: pixelSize,
+            parentID: asset.parentID,
+            provenance: asset.provenance
+        )
         currentUpscaleID = asset.id
     }
 
