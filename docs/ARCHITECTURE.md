@@ -73,7 +73,7 @@ flowchart LR
 
 Text-to-image generation:
 
-1. User enters a prompt or selects a prompt pack preset.
+1. User enters a prompt, or selects a filter and edits the wording it loads.
 2. `GenerationViewModel` resolves the selected model and prompt options.
 3. `GenerationCoordinator` asks `PricingService` for a cached or live estimate.
 4. User starts generation.
@@ -205,18 +205,27 @@ families. Views should not know how to construct provider-specific payloads.
 
 ## Prompt Packs
 
-Prompt packs provide the pre-canned AI filters. They should be bundled app
-resources with stable identifiers, names, descriptions, model preferences, and
-prompt templates. User-defined prompt packs can be added later after the bundled
-resource format is stable.
+Prompt packs provide the pre-canned AI filters. They are bundled app resources
+that describe themselves in a JSON frontmatter block carrying a stable
+identifier, a name, a category, and whether the filter needs an input image.
+Nothing is derived from the filename. User-defined filters can be added later
+now that the bundled resource format is stable.
 
-The prompt system should support:
+A filter is prompt text, not a configuration: it carries no model list, because
+any model that accepts a reference image can run any filter.
+
+Selecting a filter and applying it are two steps. Selecting loads the filter's
+own wording into the editable prompt field and sends nothing, so the whole
+catalogue can be read at no charge. Applying sends the field as it stands,
+edited or not; an edit lasts for that run and does not change the built-in
+filter. Text written with no filter chosen is applied as written, and applying
+with nothing to send is refused.
+
+The prompt system supports:
 
 - user-entered prompt text;
-- preset prompts;
-- optional prompt modifiers;
-- reference-image requirements;
-- model compatibility warnings.
+- filter wording loaded for editing;
+- reference-image requirements.
 
 Prompt packs should not hard-code paid generation assumptions. The selected
 model and pricing service should determine the final cost estimate.

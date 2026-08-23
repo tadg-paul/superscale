@@ -1,4 +1,4 @@
-<!-- Version: 3.4 | Last updated: 2026-08-23 -->
+<!-- Version: 3.5 | Last updated: 2026-08-23 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -564,18 +564,35 @@ self-contained:
 
 ```markdown
 ---
-id: lighting-film-noir
-name: Film Noir
-category: Lighting
-requiresInput: true
-aspect: preserve
+{
+  "id": "image-lighting-film-noir",
+  "name": "Film Noir",
+  "category": "Lighting",
+  "requiresInput": true
+}
 ---
+
 Transform the input image using film noir lighting.
 Preserve the subject's identity, pose, expression, clothing, camera angle...
 ```
 
+The block is JSON rather than YAML, because `CODING.md` requires structured
+data to be read by a format-aware parser and `JSONDecoder` is one in the
+standard library. YAML would mean either a new dependency for four scalar
+fields or a hand-rolled key-value reader, which is a line-oriented parser
+wearing a schema.
+
+All four fields are required, and the three strings must be non-empty: a name
+that is present but blank decodes perfectly well and ships a blank row in the
+list. A file that cannot describe itself fails the corpus rather than being
+skipped, because a catalogue quietly short by one is not something anybody
+counts.
+
 This replaces deriving metadata by splitting filenames, which has nowhere to
-record whether a filter needs an input image.
+record whether a filter needs an input image. The identifiers are unchanged ---
+still the resource name --- because the GUI stores the user's default filter
+under that value, and a prettier identifier would make every saved default
+resolve to nothing with no error and no message.
 
 The fields are deliberately few. **A filter is prompt text, not a
 configuration.** It carries no model list and no compatibility declaration,
@@ -586,8 +603,15 @@ not another --- any model that accepts a reference image can run any filter.
 description and could seed generation once that path exists.
 
 **Body convention**, following the strongest existing filters: transform
-instruction, preserve clause, style direction, intended feel, avoid clause. No
-markdown headers --- validated at load.
+instruction, preserve clause, style direction, intended feel, avoid clause, and
+no markdown headers.
+
+The convention is enforced in the corpus, not in the loader. Everything after
+the closing delimiter is carried verbatim: a loader that stripped a leading
+heading would satisfy every corpus test while the polluted files stayed as they
+were, and would silently truncate the first filter that legitimately opened with
+one. `---` is also a horizontal rule, so only the first two delimiters bound the
+frontmatter.
 
 ### 3.6 Cloud integration
 
@@ -712,7 +736,7 @@ is called. Section 3.2 revives it.
 | **D1** | data loss | closed by #81 | History "Send to Upscale" passes `preferredAssetURL` (`upscaledAssetURL ?? generatedAssetURL`), so an already-upscaled session re-upscales its own output and overwrites the original at the fixed `upscaled.<ext>` path. The correct accessor sits unused three lines above. |
 | **D2** | data corruption | closed by #81 | The write-back observer fires on any `resultData` change while `pendingSessionID` is set, so dropping an unrelated file after a handoff attributes that file's upscale to the cloud session. |
 | **D3** | confirmed, medium | closed by #83 | **Every output has a one-pixel black border.** `Tiler.blendWeight` returns `min(left, right, top, bottom)`; at `x=0` that is zero, so edge pixels accumulate zero weight and keep their initialized zero (`Tiler.swift:156`). Measured on `Tests/visual_output/remy1_4x.png`: outermost row and column 100% black, inner rows 0%, source 0%. RT-087 misses it by sampling 20px inside. Affects every image v1 has produced. |
-| **D4** | medium | open, slice 4 | 3 of 86 filters begin with a markdown header containing their filename, which is sent to the provider as prompt text. |
+| **D4** | medium | closed by #85 | 3 of 86 filters begin with a markdown header containing their filename, which is sent to the provider as prompt text. |
 | **D5** | medium | closed by #83 | Kit errors are not `LocalizedError`, so the GUI shows "The operation couldn't be completed. (SuperscaleKit.ImageIOError error 0.)" |
 | **D6** | medium | closed by #83 | The upscale has no cancellation at any level, though it is the long local operation. |
 | **D7** | low | closed by #81 | `pendingSessionID` is never cleared on mode switch or new drop. |
@@ -834,6 +858,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.5 (2026-08-23):** Corrected section 3.5 against the catalogue as built in #85: the
+  frontmatter is JSON rather than YAML, carries four required fields rather than five, and
+  keeps the existing identifiers. Recorded that the no-headers convention is enforced in
+  the corpus rather than by the loader, which carries bodies verbatim, and closed D4.
 - **3.4 (2026-08-23):** Split slice 3 into 3a and 3b in the delivery table, recorded why
   the reusable pipeline is confined to an actor rather than made one, and noted in
   section 2.5 that the model load is paid on the first run for a given model and
