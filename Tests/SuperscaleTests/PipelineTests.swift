@@ -154,6 +154,60 @@ final class PipelineTests: XCTestCase {
         }
     }
 
+    // RT-83.23: a real upscale has no black pixel in its outermost row or column
+    //
+    // The only test in #83 that meets the output a user opens. Every other one stitches at 1x,
+    // while this path stitches already-upscaled tiles with a scaled overlap and scaled origins —
+    // so a disagreement between those two would break the boundary weighting again with every
+    // pure test still passing. RT-087 above samples twenty pixels inside the edge, which is
+    // where the defect is not.
+    func test_pipeline_output_has_no_black_border_RT083_23() throws {
+        let modelURL = modelsDir.appendingPathComponent("RealESRGAN_x4plus.mlpackage")
+        try XCTSkipIf(!FileManager.default.fileExists(atPath: modelURL.path),
+                      "x4plus model not found")
+
+        let tmpDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("superscale_rt83_23_\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tmpDir) }
+
+        let inputURL = tmpDir.appendingPathComponent("border_100x50.png")
+        try createSplitColourImage(width: 100, height: 50, at: inputURL,
+                                   leftRed: true, rightBlue: true, withAlpha: false)
+        let outputURL = tmpDir.appendingPathComponent("border_100x50_4x.png")
+
+        let pipeline = try Pipeline(modelName: "realesrgan-x4plus")
+        try pipeline.process(input: inputURL, output: outputURL)
+
+        let result = try ImageLoader.load(from: outputURL)
+        let maxX = result.image.width - 1
+        let maxY = result.image.height - 1
+
+        var blackPixels: [String] = []
+        for x in 0...maxX {
+            for y in [0, maxY] {
+                if let px = samplePixel(result.image, x: x, y: y),
+                   px.r == 0, px.g == 0, px.b == 0 {
+                    blackPixels.append("(\(x), \(y))")
+                }
+            }
+        }
+        for y in 0...maxY {
+            for x in [0, maxX] {
+                if let px = samplePixel(result.image, x: x, y: y),
+                   px.r == 0, px.g == 0, px.b == 0 {
+                    blackPixels.append("(\(x), \(y))")
+                }
+            }
+        }
+
+        XCTAssertTrue(
+            blackPixels.isEmpty,
+            "the outermost row and column hold \(blackPixels.count) black pixels, "
+                + "first at \(blackPixels.prefix(3).joined(separator: ", "))"
+        )
+    }
+
     // RT-088: Transparent image smaller than tile size has aligned RGB and alpha
     func test_pipeline_small_transparent_image_aligned_channels_RT088() throws {
         let modelURL = modelsDir.appendingPathComponent("RealESRGAN_x4plus.mlpackage")
