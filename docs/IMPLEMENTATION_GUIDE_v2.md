@@ -851,8 +851,12 @@ Open, not blocking:
 
 - **Filter catalogue as sidebar or sheet** (3.9). The only layout question left,
   and one better answered against something running.
-- **Filter corpus revision.** 26 of 86 filters lack a preserve clause and read as
-  style prompts rather than transforms. Authorial work.
+- ~~**Filter corpus revision.** 26 of 86 filters lack a preserve clause and read as
+  style prompts rather than transforms. Authorial work.~~ **Closed 2026-08-23: not a
+  defect.** The author's ruling is that the absent preserve clauses are deliberate. Filter
+  wording is not to be changed. The `requiresInput` flag records which filters transform an
+  input rather than describing a style, which is the distinction the observation was reaching
+  for.
 - **The README** states images never leave the machine. True of local upscaling,
   false once filtering ships. Needs correcting before release.
 
