@@ -9,13 +9,13 @@ import XCTest
 
 final class GUIUpscaleCoordinatorTests: XCTestCase {
     // RT-71.1
-    func test_selectedFixtureReachesSharedCoordinatorAndYieldsResult() throws {
+    func test_selectedFixtureReachesSharedCoordinatorAndYieldsResult() async throws {
         let fixture = try makeFixture(named: "selected.png", contents: Data("selected".utf8))
         defer { try? FileManager.default.removeItem(at: fixture.deletingLastPathComponent()) }
         let processor = RecordingUpscaleProcessor()
         let coordinator = GUIUpscaleCoordinator(processor: processor)
 
-        let result = try coordinator.process(
+        let result = try await coordinator.process(
             source: .imported(fixture),
             options: defaultOptions,
             onProgress: { _ in }
@@ -27,7 +27,7 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
     }
 
     // RT-71.1
-    func test_selectedFixtureRunsThroughSuperscaleProcessor() throws {
+    func test_selectedFixtureRunsThroughSuperscaleProcessor() async throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -37,7 +37,7 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         try XCTSkipUnless(FileManager.default.fileExists(atPath: model.path), "2x model is not installed")
         let coordinator = GUIUpscaleCoordinator()
 
-        let result = try coordinator.process(
+        let result = try await coordinator.process(
             source: .imported(fixture),
             options: GUIUpscaleOptions(
                 selectedModelName: "realesrgan-x2plus",
@@ -55,7 +55,7 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
     }
 
     // RT-71.2
-    func test_modelScaleAndFaceOptionsArePreserved() throws {
+    func test_modelScaleAndFaceOptionsArePreserved() async throws {
         let fixture = try makeFixture(named: "options.png", contents: Data("options".utf8))
         defer { try? FileManager.default.removeItem(at: fixture.deletingLastPathComponent()) }
         let processor = RecordingUpscaleProcessor()
@@ -66,19 +66,20 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
             sizing: .custom(width: 1200, height: 800, stretch: true)
         )
 
-        _ = try coordinator.process(source: .imported(fixture), options: options, onProgress: { _ in })
+        _ = try await coordinator.process(
+            source: .imported(fixture), options: options, onProgress: { _ in })
 
         XCTAssertEqual(processor.requests.first?.options, options)
     }
 
     // RT-71.3
-    func test_generatedFixtureUsesTheSameCoordinatorAndYieldsResult() throws {
+    func test_generatedFixtureUsesTheSameCoordinatorAndYieldsResult() async throws {
         let fixture = try makeFixture(named: "generated.png", contents: Data("generated".utf8))
         defer { try? FileManager.default.removeItem(at: fixture.deletingLastPathComponent()) }
         let processor = RecordingUpscaleProcessor()
         let coordinator = GUIUpscaleCoordinator(processor: processor)
 
-        let result = try coordinator.process(
+        let result = try await coordinator.process(
             source: GUIUpscaleSource(origin: .generatedFile, url: fixture),
             options: defaultOptions,
             onProgress: { _ in }
@@ -90,16 +91,19 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
     }
 
     // RT-71.4
-    func test_selectedAndGeneratedFailuresExposeTheSameDiagnostic() throws {
+    func test_selectedAndGeneratedFailuresExposeTheSameDiagnostic() async throws {
         let fixture = try makeFixture(named: "failure.png", contents: Data("failure".utf8))
         defer { try? FileManager.default.removeItem(at: fixture.deletingLastPathComponent()) }
         let coordinator = GUIUpscaleCoordinator(processor: FailingUpscaleProcessor())
 
-        let selectedError = captureError {
-            _ = try coordinator.process(source: .imported(fixture), options: defaultOptions, onProgress: { _ in })
+        let selectedError = await captureError {
+            _ = try await coordinator.process(
+                source: .imported(fixture), options: defaultOptions, onProgress: { _ in })
         }
-        let generatedError = captureError {
-            _ = try coordinator.process(source: GUIUpscaleSource(origin: .generatedFile, url: fixture), options: defaultOptions, onProgress: { _ in })
+        let generatedError = await captureError {
+            _ = try await coordinator.process(
+                source: GUIUpscaleSource(origin: .generatedFile, url: fixture),
+                options: defaultOptions, onProgress: { _ in })
         }
 
         XCTAssertEqual(selectedError, "Fixture processing failed")
@@ -123,9 +127,9 @@ final class GUIUpscaleCoordinatorTests: XCTestCase {
         return url
     }
 
-    private func captureError(_ operation: () throws -> Void) -> String {
+    private func captureError(_ operation: () async throws -> Void) async -> String {
         do {
-            try operation()
+            try await operation()
             XCTFail("Expected processing to fail")
             return ""
         } catch {

@@ -103,11 +103,14 @@ public struct GUIUpscaleResult: Equatable, Sendable {
 }
 
 public protocol GUIUpscaleProcessing: Sendable {
+    /// Asynchronous because the pipeline is lent by an actor. The blocking work runs on that
+    /// actor's executor rather than the caller's, so a main-actor caller does not need to
+    /// detach a task to stay responsive.
     func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
         onProgress: @escaping @Sendable (PipelineProgress) -> Void
-    ) throws -> GUIUpscaleProcessedImage
+    ) async throws -> GUIUpscaleProcessedImage
 }
 
 public struct GUIUpscaleCoordinator: Sendable {
@@ -121,8 +124,8 @@ public struct GUIUpscaleCoordinator: Sendable {
         source: GUIUpscaleSource,
         options: GUIUpscaleOptions,
         onProgress: @escaping @Sendable (PipelineProgress) -> Void
-    ) throws -> GUIUpscaleResult {
-        let processed = try processor.process(
+    ) async throws -> GUIUpscaleResult {
+        let processed = try await processor.process(
             inputURL: source.url,
             options: options,
             onProgress: onProgress
@@ -137,42 +140,70 @@ public struct GUIUpscaleCoordinator: Sendable {
     }
 }
 
+/// Holds the pre-face-enhancement image the pipeline reports mid-run, so it survives the closure
+/// that receives it without a captured `var` crossing the concurrency boundary.
+final class PreFaceCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var data: Data?
+
+    var imageData: Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        return data
+    }
+
+    func capture(_ image: CGImage) {
+        let encoded = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+        lock.lock()
+        defer { lock.unlock() }
+        data = encoded
+    }
+}
+
 public struct SuperscaleGUIUpscaleProcessor: GUIUpscaleProcessing {
-    public init() {}
+    private let cache: PipelineCache
+
+    /// Takes its cache rather than reaching for the shared one, so a test can observe which
+    /// pipeline a run obtained. A seam a test cannot reach is the seam that breaks.
+    public init(cache: PipelineCache = .shared) {
+        self.cache = cache
+    }
 
     public func process(
         inputURL: URL,
         options: GUIUpscaleOptions,
         onProgress: @escaping @Sendable (PipelineProgress) -> Void
-    ) throws -> GUIUpscaleProcessedImage {
+    ) async throws -> GUIUpscaleProcessedImage {
         let wasAutoDetect = options.selectedModelName == "auto"
         let modelName = try resolvedModelName(inputURL: inputURL, selectedModelName: options.selectedModelName)
-        let pipeline = try Pipeline(modelName: modelName, faceEnhance: options.faceEnhance)
-        pipeline.onProgress = onProgress
+        let settings = try PipelineSettings(modelName: modelName, faceEnhance: options.faceEnhance)
 
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("superscale_gui_\(UUID().uuidString).png")
         defer { try? FileManager.default.removeItem(at: outputURL) }
 
-        var preFaceImageData: Data?
+        let preFace = PreFaceCapture()
         let sizing = pipelineSizing(for: options.sizing)
-        try pipeline.process(
-            input: inputURL,
-            output: outputURL,
-            requestedScale: sizing.requestedScale,
-            targetWidth: sizing.targetWidth,
-            targetHeight: sizing.targetHeight,
-            stretch: sizing.stretch,
-            onPreFaceEnhance: { image in
-                preFaceImageData = NSBitmapImageRep(cgImage: image)
-                    .representation(using: .png, properties: [:])
-            }
-        )
+        let resolvedModel = try await cache.withPipeline(settings) { pipeline in
+            pipeline.onProgress = onProgress
+            try pipeline.process(
+                input: inputURL,
+                output: outputURL,
+                requestedScale: sizing.requestedScale,
+                targetWidth: sizing.targetWidth,
+                targetHeight: sizing.targetHeight,
+                stretch: sizing.stretch,
+                onPreFaceEnhance: { image in
+                    preFace.capture(image)
+                }
+            )
+            return pipeline.modelName
+        }
 
         return GUIUpscaleProcessedImage(
             imageData: try Data(contentsOf: outputURL),
-            preFaceImageData: preFaceImageData,
-            resolvedModelName: modelName,
+            preFaceImageData: preFace.imageData,
+            resolvedModelName: resolvedModel,
             wasAutoDetect: wasAutoDetect
         )
     }

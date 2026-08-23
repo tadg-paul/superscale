@@ -76,7 +76,7 @@ public struct UpscaleStage: Stage, UpscaleStaging {
             throw StageFailure.inputUnavailable(input.fileURL)
         }
 
-        let processed = try process(input: input, options: options, progress: progress)
+        let processed = try await process(input: input, options: options, progress: progress)
         try Task.checkCancellation()
         try write(processed.imageData, to: output.fileURL)
 
@@ -91,9 +91,9 @@ public struct UpscaleStage: Stage, UpscaleStaging {
         input: StageInput,
         options: UpscaleStageOptions,
         progress: @escaping @Sendable (StageProgress) -> Void
-    ) throws -> GUIUpscaleProcessedImage {
+    ) async throws -> GUIUpscaleProcessedImage {
         do {
-            return try processor.process(
+            return try await processor.process(
                 inputURL: input.fileURL,
                 options: GUIUpscaleOptions(
                     selectedModelName: options.modelName,

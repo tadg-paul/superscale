@@ -498,17 +498,13 @@ final class UpscaleViewModel: ObservableObject {
             defer { observer.cancel() }
 
             do {
-                // Detached deliberately: `process` is synchronous and blocks for seconds, and this
-                // view model is main-actor isolated, so a task inheriting that isolation would
-                // block the interface. Its value is awaited here, so it remains part of this run
-                // rather than escaping it. The work itself does not stop when this run is
-                // superseded, because the pipeline does not check for cancellation yet; what
-                // stops is the result reaching anything, which `activeRun` decides.
-                let output = try await Task.detached(priority: .userInitiated) {
-                    try coordinator.process(source: source, options: options) { progress in
-                        continuation.yield(UpscaleProgressReader.progress(for: progress))
-                    }
-                }.value
+                // No detached task: the pipeline is lent by an actor, so the blocking work runs
+                // on that actor's executor rather than on this main-actor-isolated view model.
+                // Awaiting it here keeps the run structured, and cancelling this task now reaches
+                // the pipeline's own cancellation checks.
+                let output = try await coordinator.process(source: source, options: options) { progress in
+                    continuation.yield(UpscaleProgressReader.progress(for: progress))
+                }
                 continuation.finish()
                 await observer.value
                 await MainActor.run {

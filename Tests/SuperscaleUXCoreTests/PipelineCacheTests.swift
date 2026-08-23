@@ -76,9 +76,12 @@ final class PipelineCacheTests: XCTestCase {
         )
     }
 
-    /// An unresolved tile size and an explicit one equal to the model's default are the same
-    /// pipeline, so they must be the same key rather than two entries for one thing.
-    func test_anUnresolvedTileSizeMatchesTheModelsDefault() throws {
+    // RT-84.19
+    //
+    // An unresolved tile size and an explicit one equal to the model's default build the same
+    // pipeline, so they must be the same key rather than two entries for one thing — which would
+    // occupy both slots with a duplicate and release a live entry to make room.
+    func test_anUnresolvedTileSizeMatchesTheModelsDefault_RT084_19() throws {
         let modelDefault = try XCTUnwrap(ModelRegistry.model(named: "realesrgan-x4plus")).tileSize
 
         let unresolved = try PipelineSettings.fixture(tileSize: nil)
