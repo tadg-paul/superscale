@@ -15,21 +15,23 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.7
     func test_aRunSupersededByANewerOneIsCancelled() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let first = try await harness.awaitStartedRun()
 
-        await harness.runner.choose(.preset(8))
+        harness.runner.choose(.preset(8))
         _ = try await harness.awaitStartedRun(after: first)
+        try await harness.settle()
 
-        XCTAssertTrue(harness.runner.isCancelled(first))
+        let wasCancelled = await harness.stage.wasCancelled(first)
+        XCTAssertTrue(wasCancelled, "the superseded run did not observe its own cancellation")
     }
 
     // RT-82.8
     func test_theSupersededRunsOutputIsNotPublishedEvenWhenItFinishesLast() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let first = try await harness.awaitStartedRun()
-        await harness.runner.choose(.preset(8))
+        harness.runner.choose(.preset(8))
         let second = try await harness.awaitStartedRun(after: first)
 
         await harness.stage.release(second)
@@ -43,9 +45,9 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.9
     func test_theNewerRunsOutputIsTheOnePublished() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let first = try await harness.awaitStartedRun()
-        await harness.runner.choose(.preset(8))
+        harness.runner.choose(.preset(8))
         let second = try await harness.awaitStartedRun(after: first)
 
         await harness.stage.release(second)
@@ -58,9 +60,9 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.28
     func test_whenTheNewerRunFailsTheSupersededOutputIsStillNotPublished() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let first = try await harness.awaitStartedRun()
-        await harness.runner.choose(.preset(8))
+        harness.runner.choose(.preset(8))
         let second = try await harness.awaitStartedRun(after: first)
 
         await harness.stage.failRun(second, reason: "model unavailable")
@@ -75,9 +77,9 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.36
     func test_progressFromASupersededRunIsNotObserved() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let first = try await harness.awaitStartedRun()
-        await harness.runner.choose(.preset(8))
+        harness.runner.choose(.preset(8))
         _ = try await harness.awaitStartedRun(after: first)
         let stateBefore = harness.runner.state
 
@@ -95,7 +97,7 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.10
     func test_aCancelledRunLeavesNoAssetBehind() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let run = try await harness.awaitStartedRun()
 
         harness.runner.cancel()
@@ -107,7 +109,7 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.11
     func test_aFailedRunLeavesNoAssetBehind() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let run = try await harness.awaitStartedRun()
 
         await harness.stage.failRun(run, reason: "disk full")
@@ -120,13 +122,13 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.12
     func test_theCurrentOutputIsUnchangedAfterARunThatDidNotComplete() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let first = try await harness.awaitStartedRun()
         await harness.stage.release(first)
         try await harness.awaitSucceeded()
         let established = harness.runner.currentUpscale
 
-        await harness.runner.setFaceEnhance(true)
+        harness.runner.setFaceEnhance(true)
         let second = try await harness.awaitStartedRun(after: first)
         await harness.stage.failRun(second, reason: "disk full")
         await harness.stage.release(second)
@@ -141,7 +143,7 @@ final class StageRunnerTests: XCTestCase {
     func test_anImageImportedWithNoScaleSelectedLeavesNoUpscaledOutput() async throws {
         let harness = try makeHarness(selection: .off)
 
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         try await harness.settle()
 
         let started = await harness.stage.startedRuns
@@ -153,7 +155,7 @@ final class StageRunnerTests: XCTestCase {
     func test_anImageImportedWithAScaleSelectedHasAnUpscaledOutput() async throws {
         let harness = try makeHarness()
 
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let run = try await harness.awaitStartedRun()
         await harness.stage.release(run)
         try await harness.awaitSucceeded()
@@ -164,10 +166,10 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.17
     func test_selectingAScaleAfterAnImportMadeWithNoneLeavesAnUpscaledOutput() async throws {
         let harness = try makeHarness(selection: .off)
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         try await harness.settle()
 
-        await harness.runner.choose(.preset(4))
+        harness.runner.choose(.preset(4))
         let run = try await harness.awaitStartedRun()
         await harness.stage.release(run)
         try await harness.awaitSucceeded()
@@ -178,13 +180,13 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.31
     func test_clearingTheSelectionWhileAnUpscaledOutputExistsReleasesIt() async throws {
         let harness = try makeHarness()
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
         let run = try await harness.awaitStartedRun()
         await harness.stage.release(run)
         try await harness.awaitSucceeded()
         let outputURL = try harness.runner.graph.asset(for: XCTUnwrap(harness.runner.currentUpscale)).fileURL
 
-        await harness.runner.choose(.preset(4))
+        harness.runner.choose(.preset(4))
         try await harness.settle()
 
         XCTAssertNil(harness.runner.currentUpscale)
@@ -194,9 +196,9 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.33
     func test_togglingFaceEnhancementWhileTheSelectionIsClearedLeavesNoUpscaledOutput() async throws {
         let harness = try makeHarness(selection: .off)
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
 
-        await harness.runner.setFaceEnhance(true)
+        harness.runner.setFaceEnhance(true)
         try await harness.settle()
 
         let started = await harness.stage.startedRuns
@@ -207,9 +209,9 @@ final class StageRunnerTests: XCTestCase {
     // RT-82.34
     func test_changingTheModelWhileTheSelectionIsClearedLeavesNoUpscaledOutput() async throws {
         let harness = try makeHarness(selection: .off)
-        await harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
+        harness.runner.importImage(fileURL: harness.sourceURL, pixelSize: .fixture)
 
-        await harness.runner.setModel(named: "realesrgan-x2plus", nativeScale: 2)
+        harness.runner.setModel(named: "realesrgan-x2plus", nativeScale: 2)
         try await harness.settle()
 
         let started = await harness.stage.startedRuns

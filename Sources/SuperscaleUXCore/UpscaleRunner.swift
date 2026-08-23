@@ -19,7 +19,6 @@ public final class UpscaleRunner: ObservableObject {
     private var task: Task<Void, Never>?
     /// The run whose progress and result are observed. Anything from another run is ignored.
     private var activeRun: UUID?
-    private var cancelledRuns: Set<UUID> = []
     /// Where a superseded run will write when it eventually stops, so its output can be removed
     /// once it has actually been produced.
     private var supersededLocations: [UUID: URL] = [:]
@@ -36,10 +35,6 @@ public final class UpscaleRunner: ObservableObject {
 
     public var currentUpscale: AssetReference? {
         (try? graph.currentUpscale()) ?? nil
-    }
-
-    public func isCancelled(_ run: UUID) -> Bool {
-        cancelledRuns.contains(run)
     }
 
     // MARK: - Events
@@ -130,13 +125,23 @@ public final class UpscaleRunner: ObservableObject {
             reference: allocation.reference,
             fileURL: allocation.fileURL
         )
+        task = execute(run: run, input: input, location: location, options: options)
+    }
+
+    /// Runs the stage and reports the outcome, ignoring both if the run is superseded meanwhile.
+    private func execute(
+        run: UUID,
+        input: StageInput,
+        location: StageOutputLocation,
+        options: UpscaleStageOptions
+    ) -> Task<Void, Never> {
         let stage = self.stage
         // One stream per run, consumed in order by one child task. A tiled upscale reports once
         // per tile, and unstructured per-report tasks carry no ordering between them, so the
         // progress line could go backwards.
         let (reports, continuation) = AsyncStream<StageProgress>.makeStream()
 
-        task = Task { [weak self] in
+        return Task { [weak self] in
             let observer = Task { @MainActor [weak self] in
                 for await progress in reports {
                     self?.receive(progress, from: run)
@@ -153,13 +158,13 @@ public final class UpscaleRunner: ObservableObject {
                 )
                 continuation.finish()
                 await observer.value
-                await MainActor.run { self?.complete(run, output: output, at: allocation.reference) }
+                await MainActor.run { self?.complete(run, output: output, at: location.reference) }
             } catch {
                 continuation.finish()
                 await observer.value
                 let outcome = Self.outcome(for: error)
                 await MainActor.run {
-                    self?.abandon(run, at: allocation.reference, state: outcome)
+                    self?.abandon(run, at: location.reference, state: outcome)
                 }
             }
         }
@@ -210,7 +215,6 @@ public final class UpscaleRunner: ObservableObject {
     /// the superseded run reaching the user in the meantime.
     private func stopActiveRun() {
         guard let run = activeRun else { return }
-        cancelledRuns.insert(run)
         task?.cancel()
         task = nil
         activeRun = nil

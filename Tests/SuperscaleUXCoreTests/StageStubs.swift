@@ -83,10 +83,25 @@ actor GatedUpscaleStage: UpscaleStaging {
     private var pendingProgress: [UUID: [StageProgress]] = [:]
     private var observers: [UUID: @Sendable (StageProgress) -> Void] = [:]
     private var failures: [UUID: String] = [:]
+    private var cancelled: Set<UUID> = []
 
     /// Fails the run for the given output reference rather than completing it.
     func failRun(_ id: UUID, reason: String) {
         failures[id] = reason
+    }
+
+    /// Whether the run for the given output reference observed its own cancellation.
+    ///
+    /// Asserting on this rather than on a flag the runner keeps is what shows the task was
+    /// actually cancelled, not merely that the runner intended to cancel it.
+    func wasCancelled(_ id: UUID) -> Bool {
+        cancelled.contains(id)
+    }
+
+    private func markCancelled(_ id: UUID) {
+        cancelled.insert(id)
+        guard let continuation = gates.removeValue(forKey: id) else { return }
+        continuation.resume(throwing: CancellationError())
     }
 
     func run(
@@ -98,8 +113,12 @@ actor GatedUpscaleStage: UpscaleStaging {
         let id = output.reference.id
         startedRuns.append(id)
         observers[id] = progress
-        try await withCheckedThrowingContinuation { continuation in
-            gates[id] = continuation
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                gates[id] = continuation
+            }
+        } onCancel: {
+            Task { await self.markCancelled(id) }
         }
         if let reason = failures[id] {
             throw StageFailure.processingFailed(stage: "upscale", reason: reason)
