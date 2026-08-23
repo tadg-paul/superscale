@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-print-screenprint-poster",
+  "name": "Screenprint Poster",
+  "category": "Print",
+  "requiresInput": true
+}
+---
 Transform the input image into a screenprinted poster illustration.
 
 Preserve the main subject, composition, pose, facial identity if present, and the important spatial relationships in the image.

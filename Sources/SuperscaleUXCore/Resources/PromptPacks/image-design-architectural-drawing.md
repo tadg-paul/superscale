@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-design-architectural-drawing",
+  "name": "Architectural Drawing",
+  "category": "Design",
+  "requiresInput": true
+}
+---
 Transform the input image into an architectural drawing.
 
 Preserve the building, room, street, object placement, perspective, proportions, and overall spatial layout of the source image.

@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-cosy-web",
+  "name": "Cosy Web",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a cosy web aesthetic.
 
 Preserve the main subject, composition, pose, identity if people are present, and the important objects in the source image.

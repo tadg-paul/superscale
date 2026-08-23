@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-sketch-pencil-watercolour",
+  "name": "Pencil Watercolour",
+  "category": "Sketch",
+  "requiresInput": true
+}
+---
 Watercolour pencil illustration. Graphite sketch underdrawing, visible pencil grain and hatching. Soft wet-bloom colour washes, dry pigment texture at stroke edges. Fresh vivid palette, high key values, paper grain visible. Hand-drawn, highly finished.

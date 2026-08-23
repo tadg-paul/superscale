@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-sensory-maximalism",
+  "name": "Sensory Maximalism",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a sensory maximalist visual.
 
 Preserve the main subject, composition, pose, identity if people are present, and the important objects in the source image.

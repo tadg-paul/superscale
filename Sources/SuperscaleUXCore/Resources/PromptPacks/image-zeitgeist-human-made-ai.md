@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-human-made-ai",
+  "name": "Human-Made AI",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a human-made AI-era image: visibly composed, corrected, handled, and imperfect.
 
 Preserve the main subject, composition, pose, identity if people are present, object placement, and the overall visual logic of the source image.

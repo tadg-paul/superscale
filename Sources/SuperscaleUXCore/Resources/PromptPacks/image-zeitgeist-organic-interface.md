@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-organic-interface",
+  "name": "Organic Interface",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into an organic interface aesthetic.
 
 Preserve the main subject, composition, identity if people are present, object placement, and the overall scene structure.

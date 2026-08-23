@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-office-uncanny",
+  "name": "Office Uncanny",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into an uncanny office aesthetic.
 
 Preserve the main subject, composition, pose, identity if people are present, object placement, and the basic setting of the source image.

@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-degraded-screenshot",
+  "name": "Degraded Screenshot",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a degraded screenshot aesthetic.
 
 Preserve the main subject, composition, pose, identity if people are present, object placement, and the overall structure of the source image.

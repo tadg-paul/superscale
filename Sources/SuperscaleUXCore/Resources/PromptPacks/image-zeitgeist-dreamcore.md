@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-zeitgeist-dreamcore",
+  "name": "Dreamcore",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Dreamcore liminal space. Washed-out pastel palette, low-contrast lighting, slight haze. A familiar place rendered slightly wrong - proportions subtly off, light sources that don't quite make sense. Nostalgic and uncanny. Fine ink linework visible beneath the fog. Pen and ink foundation with translucent digital colour wash. Quiet, unsettling, bittersweet.

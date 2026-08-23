@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-illustration-pulp-paperback",
+  "name": "Pulp Paperback",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Transform the input image into a vintage pulp paperback cover illustration.
 
 Preserve the central subject, composition, pose, identity, setting, and the main emotional or dramatic situation from the original image.

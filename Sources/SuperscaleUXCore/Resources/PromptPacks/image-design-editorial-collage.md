@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-design-editorial-collage",
+  "name": "Editorial Collage",
+  "category": "Design",
+  "requiresInput": true
+}
+---
 Transform the input image into an editorial collage illustration.
 
 Preserve the main subject, pose, composition, facial identity if people are present, and the relative placement of important objects.

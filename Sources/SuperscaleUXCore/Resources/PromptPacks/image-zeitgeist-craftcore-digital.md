@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-craftcore-digital",
+  "name": "Craftcore Digital",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a craftcore digital artwork.
 
 Preserve the main subject, framing, pose, identity if people are present, and the important objects and spatial relationships in the source image.

@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-lowercase-intimate",
+  "name": "Lowercase Intimate",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a lowercase intimate aesthetic.
 Preserve the main subject, composition, pose, identity if people are present, object placement, and emotional tone of the source image.
 Reinterpret the image with a soft, modest, intimate design sensibility: low contrast, gentle spacing, quiet colour, hand-touched detail, informal composition, and a deliberately non-grand feeling. Make the image feel personal, approachable, and understated rather than polished or authoritative.

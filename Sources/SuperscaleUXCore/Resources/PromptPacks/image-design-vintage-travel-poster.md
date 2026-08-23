@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-design-vintage-travel-poster",
+  "name": "Vintage Travel Poster",
+  "category": "Design",
+  "requiresInput": true
+}
+---
 Transform the input image into a vintage travel poster.
 
 Preserve the main location, landmark, subject placement, camera angle, and overall composition of the input image.

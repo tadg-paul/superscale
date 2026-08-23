@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-illustration-wellcome-collection",
+  "name": "Wellcome Collection",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Fine ink illustration in the tradition of Wellcome Collection and New Yorker spot illustration. Confident ink linework with variation in stroke weight - heavier outlines, finer interior detail lines. Cross-hatching and fine parallel hatching for shadow and depth. Warm cream or off-white paper texture throughout. Black ink primary, with a single restrained watercolour wash accent per image - muted cornflower blue, soft warm ochre, or pale grey. Hand-crafted quality, clinical precision meeting quiet artistic care.

@@ -28,8 +28,7 @@ struct GenerateView: View {
     let onSendToUpscale: (GUIUpscaleSource) -> Void
     let onOpenSettings: () -> Void
 
-    @State private var prompt = ""
-    @State private var selectedPackID: String?
+    @State private var selection = FilterSelection()
     @State private var selectedModelID = FalGenerationRequest.defaultModelID
     @State private var aspectRatio = "1:1"
     @State private var references: [URL] = []
@@ -51,7 +50,10 @@ struct GenerateView: View {
         .onAppear {
             guard !didLoadDefaults else { return }
             didLoadDefaults = true
-            selectedPackID = settings.defaultPromptPackID
+            selection = FilterSelection(filters: settings.promptPackCatalogue.packs)
+            if let defaultFilterID = settings.defaultPromptPackID {
+                selection.choose(defaultFilterID)
+            }
             selectedModelID = settings.defaultModelID
             if let reopenedSession { apply(reopenedSession) }
         }
@@ -97,10 +99,10 @@ struct GenerateView: View {
     private var controls: some View {
         HStack(alignment: .top, spacing: 18) {
             Form {
-                Picker("Prompt pack", selection: $selectedPackID) {
+                Picker("Prompt pack", selection: chosenFilterID) {
                     Text("None").tag(nil as String?)
-                    ForEach(settings.promptPackCatalogue.packs, id: \.id) { pack in
-                        Text("\(pack.category): \(pack.displayName)").tag(pack.id as String?)
+                    ForEach(selection.filters, id: \.id) { filter in
+                        Text("\(filter.category): \(filter.displayName)").tag(filter.id as String?)
                     }
                 }
                 .accessibilityIdentifier("generationPromptPackPicker")
@@ -117,8 +119,8 @@ struct GenerateView: View {
                 }
                 .accessibilityIdentifier("generationAspectPicker")
 
-                if let selectedPack {
-                    Text(selectedPack.category)
+                if let selectedFilter = selection.selectedFilter {
+                    Text(selectedFilter.category)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -128,7 +130,7 @@ struct GenerateView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 Text("Prompt").font(.headline)
-                TextEditor(text: $prompt)
+                TextEditor(text: $selection.text)
                     .font(.body)
                     .frame(minHeight: 90, maxHeight: 130)
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.secondary.opacity(0.35)))
@@ -227,10 +229,10 @@ struct GenerateView: View {
                     VStack(alignment: .leading, spacing: 14) {
                         Text("Session details").font(.headline)
                             .accessibilityIdentifier("generatedSessionDetails")
-                        detailRow("Prompt", PromptComposer.compose(pack: selectedPack, userPrompt: prompt))
+                        detailRow("Prompt", selection.promptToApply)
                         detailRow("Model", selectedModel?.displayName ?? selectedModelID)
                         detailRow("Endpoint", selectedModelID)
-                        detailRow("Prompt pack", selectedPack?.displayName ?? "None")
+                        detailRow("Prompt pack", selection.selectedFilter?.displayName ?? "None")
                         detailRow("Aspect", aspectRatio)
                         detailRow("References", "\(references.count)")
                         detailRow("Estimate", estimateDescription)
@@ -341,12 +343,23 @@ struct GenerateView: View {
 
     private var canGenerate: Bool {
         settings.isGenerationConfigured
-            && !PromptComposer.compose(pack: selectedPack, userPrompt: prompt).isEmpty
+            && selection.canApply
             && coordinator.phase != .generating
     }
 
-    private var selectedPack: PromptPack? {
-        selectedPackID.flatMap(settings.promptPackCatalogue.pack(id:))
+    /// Choosing loads the filter's wording into the field; choosing "None" detaches from the
+    /// filter and leaves the wording alone, because what is applied is what is in the field.
+    private var chosenFilterID: Binding<String?> {
+        Binding(
+            get: { selection.selectedID },
+            set: { id in
+                if let id {
+                    selection.choose(id)
+                } else {
+                    selection.clearSelection()
+                }
+            }
+        )
     }
 
     private var selectedModel: GenerationModel? {
@@ -400,12 +413,13 @@ struct GenerateView: View {
     private func submitGeneration() {
         do {
             let referenceValues = try references.map(dataURL)
-            let request = FalGenerationRequest(
-                prompt: PromptComposer.compose(pack: selectedPack, userPrompt: prompt),
+            // The refusal lives in the model, so the button and the send path cannot disagree
+            // about whether there is anything to send.
+            guard let request = selection.request(
                 modelID: selectedModelID,
                 aspectRatio: aspectRatio,
                 referenceImageURLs: referenceValues
-            )
+            ) else { return }
             lastRecordedPhase = nil
             // The coordinator clears its own recorded session when the phase moves.
             coordinator.start(request, apiKey: settings.generationKey)
@@ -451,7 +465,7 @@ struct GenerateView: View {
         do {
             let record = try sessionStore.record(
                 GenerationSessionDraft(
-                    prompt: PromptComposer.compose(pack: selectedPack, userPrompt: prompt),
+                    prompt: selection.promptToApply,
                     modelID: selectedModelID,
                     estimatedCost: estimatedCost,
                     referencePaths: references.map(\.path),
@@ -493,7 +507,9 @@ struct GenerateView: View {
     }
 
     private func apply(_ session: GenerationSessionRecord) {
-        prompt = session.prompt
+        // A reopened session carries the wording that was sent, which is the whole prompt: the
+        // filter it may have come from is not recoverable from it, and does not need to be.
+        selection = FilterSelection(filters: settings.promptPackCatalogue.packs, text: session.prompt)
         selectedModelID = session.modelID
         references = session.referencePaths
             .map(URL.init(fileURLWithPath:))

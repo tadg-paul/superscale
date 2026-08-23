@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-design-map-engraving",
+  "name": "Map Engraving",
+  "category": "Design",
+  "requiresInput": true
+}
+---
 Transform the input image into a technical cutaway illustration.
 
 Preserve the main object, building, vehicle, device, or structure from the source image, including its proportions, orientation, and recognisable external form.

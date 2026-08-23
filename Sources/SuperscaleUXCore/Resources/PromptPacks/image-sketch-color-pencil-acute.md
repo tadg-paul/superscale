@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-sketch-color-pencil-acute",
+  "name": "Colour Pencil Acute",
+  "category": "Sketch",
+  "requiresInput": true
+}
+---
 Transform the source image into a traditional artist’s sketchbook illustration. Preserve the composition, proportions, perspective, and all important details from the original image.
 
 Render the image primarily as a graphite pencil drawing with clean hand-drawn linework, visible construction lines, and natural pencil texture on white paper.

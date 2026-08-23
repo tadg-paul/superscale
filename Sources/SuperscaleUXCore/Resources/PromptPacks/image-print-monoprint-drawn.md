@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-print-monoprint-drawn",
+  "name": "Monoprint Drawn",
+  "category": "Print",
+  "requiresInput": true
+}
+---
 Monoprint with drawn additions. Painterly, one-off printed texture as a ground layer — ghostly, unpredictable, slightly smeared. Fine pen drawing laid over the top to resolve form. The tension between the accidental print and the intentional line.

@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-illustration-botanical",
+  "name": "Botanical",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Botanical illustration. Precise observational watercolour on vellum or hot-pressed paper. Scientifically accurate detail, subtle shadow, specimen-plate composition with generous white space. Colour built in many transparent glazes. No visible linework in the final piece — form described entirely through tone and colour.

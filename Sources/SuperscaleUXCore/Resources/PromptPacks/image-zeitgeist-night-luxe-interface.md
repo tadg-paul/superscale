@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-night-luxe-interface",
+  "name": "Night Luxe Interface",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a night luxe interface aesthetic.
 Preserve the main subject, composition, pose, identity if people are present, object placement, and overall visual structure of the source image.
 Reinterpret the image with premium dark-mode atmosphere: black glass, soft reflections, glossy surfaces, deep shadows, subtle gradients, luxury-tech lighting, restrained highlights, and elegant low-light contrast.

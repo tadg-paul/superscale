@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-lighting-rembrandt",
+  "name": "Rembrandt",
+  "category": "Lighting",
+  "requiresInput": true
+}
+---
 Transform the input image using Rembrandt lighting.
 
 Preserve the subject’s identity, pose, expression, clothing, facial structure, camera angle, and composition.

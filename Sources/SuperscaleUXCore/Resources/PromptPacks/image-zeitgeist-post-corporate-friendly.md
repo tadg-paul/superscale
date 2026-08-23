@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-post-corporate-friendly",
+  "name": "Post-Corporate Friendly",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a post-corporate friendly aesthetic.
 Preserve the main subject, composition, identity if people are present, pose, expression, object placement, and the core meaning of the source image.
 Reinterpret the image with a warm, informal, anti-authoritarian brand-world feeling: soft shapes, approachable composition, human-scale details, hand-touched texture, relaxed colour, modest imperfection, and a sense of friendliness without corporate polish.

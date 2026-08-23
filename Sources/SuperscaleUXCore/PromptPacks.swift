@@ -1,7 +1,6 @@
-// ABOUTME: Loads and validates immutable prompt packs bundled with the GUI core.
-// ABOUTME: Derives stable metadata from resource names and composes packs with user prompts.
+// ABOUTME: Loads and validates the bundled image filters, which describe themselves in frontmatter.
+// ABOUTME: Reports a corpus that cannot describe itself rather than guessing metadata from a path.
 
-import Combine
 import FalGenerationKit
 import Foundation
 
@@ -11,112 +10,167 @@ public struct PromptPack: Equatable, Sendable {
     public let category: String
     public let body: String
     public let compatibleModelIDs: [String]
+    /// Whether the filter transforms an input image rather than producing one from wording alone.
+    ///
+    /// Nothing reads it yet — every MVP filter transforms. It is declared now so that the version
+    /// which generates from a bare prompt is an addition rather than a migration of 86 files.
+    public let requiresInput: Bool
 
     public init(
         id: String,
         displayName: String,
         category: String,
         body: String,
-        compatibleModelIDs: [String]
+        compatibleModelIDs: [String],
+        requiresInput: Bool
     ) {
         self.id = id
         self.displayName = displayName
         self.category = category
         self.body = body
         self.compatibleModelIDs = compatibleModelIDs
+        self.requiresInput = requiresInput
     }
 }
 
-public struct PromptPackDescriptor: Equatable, Sendable {
-    public let id: String
-    public let displayName: String
-    public let category: String
+/// One filter file as it stands on disk: what it is called, and everything it says.
+///
+/// The loader takes text rather than locations, which is what keeps the corpus readable from the
+/// bundle and testable from a string without either path knowing about the other.
+public struct PromptPackSource: Equatable, Sendable {
     public let resourceName: String
-    public let compatibleModelIDs: [String]
+    public let text: String
 
-    public init(
-        id: String,
-        displayName: String,
-        category: String,
-        resourceName: String,
-        compatibleModelIDs: [String]
-    ) {
-        self.id = id
-        self.displayName = displayName
-        self.category = category
+    public init(resourceName: String, text: String) {
         self.resourceName = resourceName
-        self.compatibleModelIDs = compatibleModelIDs
+        self.text = text
     }
 }
 
 public struct PromptPackLoader: Sendable {
+    private static let delimiter = "---"
+    private static let compatibleModelIDs = [FalGenerationRequest.defaultModelID]
+
     private let supportedModelIDs: Set<String>
 
     public init(supportedModelIDs: Set<String>) {
         self.supportedModelIDs = supportedModelIDs
     }
 
-    public func load(
-        descriptors: [PromptPackDescriptor],
-        bodyProvider: (String) throws -> String
-    ) throws -> [PromptPack] {
+    /// Reads every filter, or reports the first that cannot describe itself.
+    ///
+    /// A bad file fails the corpus rather than being skipped: a catalogue quietly short by one is
+    /// not something anybody counts, whereas a build that will not start is noticed immediately.
+    public func load(sources: [PromptPackSource]) throws -> [PromptPack] {
         var seenIDs = Set<String>()
         var packs: [PromptPack] = []
 
-        for descriptor in descriptors {
-            guard seenIDs.insert(descriptor.id).inserted else {
+        for source in sources {
+            let pack = try parse(source)
+            guard seenIDs.insert(pack.id).inserted else {
                 throw PromptPackError.invalidResource(
-                    descriptor.resourceName,
-                    reason: "duplicate prompt-pack ID '\(descriptor.id)'"
+                    source.resourceName,
+                    reason: "duplicate prompt-pack ID '\(pack.id)'"
                 )
             }
-            try validate(descriptor)
-
-            let body: String
-            do {
-                body = try bodyProvider(descriptor.resourceName)
-            } catch {
-                throw PromptPackError.invalidResource(
-                    descriptor.resourceName,
-                    reason: "prompt body is missing or unreadable"
-                )
-            }
-            guard !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                throw PromptPackError.invalidResource(descriptor.resourceName, reason: "prompt body is empty")
-            }
-
-            packs.append(
-                PromptPack(
-                    id: descriptor.id,
-                    displayName: descriptor.displayName,
-                    category: descriptor.category,
-                    body: body,
-                    compatibleModelIDs: descriptor.compatibleModelIDs
-                )
-            )
+            packs.append(pack)
         }
         return packs.sorted { $0.id < $1.id }
     }
 
-    private func validate(_ descriptor: PromptPackDescriptor) throws {
-        let idRange = descriptor.id.range(
-            of: #"^[a-z0-9]+(?:-[a-z0-9]+)*$"#,
-            options: .regularExpression
-        )
-        guard idRange != nil,
-              !descriptor.displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !descriptor.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              !descriptor.resourceName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw PromptPackError.invalidResource(descriptor.resourceName, reason: "prompt-pack metadata is malformed")
+    private func parse(_ source: PromptPackSource) throws -> PromptPack {
+        let (frontmatter, body) = try split(source)
+        let metadata = try decode(frontmatter, resourceName: source.resourceName)
+
+        guard !body.isEmpty else {
+            throw PromptPackError.invalidResource(source.resourceName, reason: "prompt body is empty")
         }
-        guard !descriptor.compatibleModelIDs.isEmpty,
-              Set(descriptor.compatibleModelIDs).isSubset(of: supportedModelIDs) else {
+        try validate(metadata, resourceName: source.resourceName)
+
+        return PromptPack(
+            id: metadata.id,
+            displayName: metadata.name,
+            category: metadata.category,
+            body: body,
+            compatibleModelIDs: Self.compatibleModelIDs,
+            requiresInput: metadata.requiresInput
+        )
+    }
+
+    /// Splits on the *first two* delimiters only. Everything after the second is body, verbatim:
+    /// `---` is also a markdown horizontal rule, and splitting on every occurrence would truncate
+    /// such a filter silently, which nobody notices because a shortened prompt still returns an
+    /// image.
+    private func split(_ source: PromptPackSource) throws -> (frontmatter: String, body: String) {
+        var lines = source.text.components(separatedBy: .newlines)
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == Self.delimiter else {
+            throw PromptPackError.invalidResource(source.resourceName, reason: "frontmatter is missing")
+        }
+        lines.removeFirst()
+
+        guard let close = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == Self.delimiter }) else {
+            throw PromptPackError.invalidResource(source.resourceName, reason: "frontmatter is not terminated")
+        }
+        return (
+            frontmatter: lines[..<close].joined(separator: "\n"),
+            body: lines[lines.index(after: close)...]
+                .joined(separator: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+
+    private func decode(_ frontmatter: String, resourceName: String) throws -> PromptPackMetadata {
+        do {
+            return try JSONDecoder().decode(PromptPackMetadata.self, from: Data(frontmatter.utf8))
+        } catch let DecodingError.keyNotFound(key, _) {
             throw PromptPackError.invalidResource(
-                descriptor.resourceName,
+                resourceName,
+                reason: "frontmatter omits required field '\(key.stringValue)'"
+            )
+        } catch let DecodingError.valueNotFound(_, context) {
+            throw PromptPackError.invalidResource(
+                resourceName,
+                reason: "frontmatter omits required field '\(context.codingPath.last?.stringValue ?? "")'"
+            )
+        } catch {
+            throw PromptPackError.invalidResource(resourceName, reason: "frontmatter is malformed")
+        }
+    }
+
+    private func validate(_ metadata: PromptPackMetadata, resourceName: String) throws {
+        for (field, value) in [("name", metadata.name), ("category", metadata.category)] {
+            guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw PromptPackError.invalidResource(
+                    resourceName,
+                    reason: "frontmatter field '\(field)' is empty"
+                )
+            }
+        }
+        guard metadata.id.range(of: #"^[a-z0-9]+(?:-[a-z0-9]+)*$"#, options: .regularExpression) != nil else {
+            throw PromptPackError.invalidResource(
+                resourceName,
+                reason: metadata.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "frontmatter field 'id' is empty"
+                    : "frontmatter field 'id' is not an identifier"
+            )
+        }
+        // The model is not file metadata and never was: every filter runs against the one MVP
+        // model, which the loader supplies. The check survives because a loader built for an
+        // unsupported set must still refuse rather than send.
+        guard Set(Self.compatibleModelIDs).isSubset(of: supportedModelIDs) else {
+            throw PromptPackError.invalidResource(
+                resourceName,
                 reason: "metadata references an unsupported model"
             )
         }
     }
+}
+
+private struct PromptPackMetadata: Decodable {
+    let id: String
+    let name: String
+    let category: String
+    let requiresInput: Bool
 }
 
 public struct PromptPackCatalogue: Sendable {
@@ -137,55 +191,16 @@ public struct PromptPackCatalogue: Sendable {
         let urls = bundledURLs.filter { $0.deletingPathExtension().lastPathComponent.hasPrefix("image-") }
         guard !urls.isEmpty else { throw PromptPackError.bundleUnavailable }
 
-        let resources = Dictionary(uniqueKeysWithValues: urls.map { url in
-            (url.deletingPathExtension().lastPathComponent, url)
-        })
-        let descriptors = try resources.keys.map(descriptor(resourceName:))
-        let loader = PromptPackLoader(supportedModelIDs: [FalGenerationRequest.defaultModelID])
-        let packs = try loader.load(descriptors: descriptors) { resourceName in
-            guard let url = resources[resourceName] else {
-                throw PromptPackError.invalidResource(resourceName, reason: "resource was not found")
+        let sources = try urls.map { url in
+            let resourceName = url.deletingPathExtension().lastPathComponent
+            do {
+                return PromptPackSource(resourceName: resourceName, text: try String(contentsOf: url, encoding: .utf8))
+            } catch {
+                throw PromptPackError.invalidResource(resourceName, reason: "resource could not be read")
             }
-            return try String(contentsOf: url, encoding: .utf8)
         }
-        return PromptPackCatalogue(packs: packs)
-    }
-
-    private static func descriptor(resourceName: String) throws -> PromptPackDescriptor {
-        let components = resourceName.split(separator: "-").map(String.init)
-        guard components.count >= 3, components[0] == "image" else {
-            throw PromptPackError.invalidResource(resourceName, reason: "resource name cannot supply prompt-pack metadata")
-        }
-        return PromptPackDescriptor(
-            id: resourceName,
-            displayName: components.dropFirst(2).joined(separator: " ").capitalized,
-            category: components[1].capitalized,
-            resourceName: resourceName,
-            compatibleModelIDs: [FalGenerationRequest.defaultModelID]
-        )
-    }
-}
-
-public enum PromptComposer {
-    public static func compose(pack: PromptPack?, userPrompt: String) -> String {
-        let packBody = pack?.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let userBody = userPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
-        return [packBody, userBody].filter { !$0.isEmpty }.joined(separator: "\n\n")
-    }
-}
-
-@MainActor
-public final class PromptPackSelection: ObservableObject {
-    @Published public private(set) var selectedPack: PromptPack?
-    public let catalogue: PromptPackCatalogue
-
-    public init(catalogue: PromptPackCatalogue, selectedPackID: String? = nil) {
-        self.catalogue = catalogue
-        self.selectedPack = selectedPackID.flatMap(catalogue.pack(id:))
-    }
-
-    public func select(packID: String?) {
-        selectedPack = packID.flatMap(catalogue.pack(id:))
+        let loader = PromptPackLoader(supportedModelIDs: [FalGenerationRequest.defaultModelID])
+        return PromptPackCatalogue(packs: try loader.load(sources: sources))
     }
 }
 

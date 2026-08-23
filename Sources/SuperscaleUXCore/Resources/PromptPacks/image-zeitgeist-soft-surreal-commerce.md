@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-soft-surreal-commerce",
+  "name": "Soft Surreal Commerce",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a soft surreal commerce-style editorial image.
 
 Preserve the main subject, composition, identity if people are present, product or object placement, and the core visual structure of the source image.

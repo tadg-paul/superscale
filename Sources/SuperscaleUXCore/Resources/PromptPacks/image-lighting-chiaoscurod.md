@@ -1,5 +1,11 @@
-# image-lighting-chiaroscuro.md
-
+---
+{
+  "id": "image-lighting-chiaoscurod",
+  "name": "Chiaroscuro",
+  "category": "Lighting",
+  "requiresInput": true
+}
+---
 Transform the input image using chiaroscuro lighting.
 
 Preserve the subject’s identity, pose, expression, clothing, facial structure, camera angle, and composition.

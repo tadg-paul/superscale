@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-illustration-childrens-book-gouache",
+  "name": "Children's Book Gouache",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Transform the input image into a children’s book illustration painted in gouache.
 
 Preserve the main subject, pose, expression, composition, clothing, object placement, and setting.

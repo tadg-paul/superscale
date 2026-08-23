@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-illustration-naturalist-field-guide",
+  "name": "Naturalist Field Guide",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Transform the input image into a naturalist field-guide illustration.
 
 Preserve the subject’s structure, proportions, distinctive markings, pose, and important visible details.

@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-media-zine-photocopy",
+  "name": "Zine Photocopy",
+  "category": "Media",
+  "requiresInput": true
+}
+---
 Transform the input image into a black-and-white photocopied zine image.
 
 Preserve the main subject, framing, pose, expression, object placement, and overall scene structure.

@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-sketch-pen-sketch-loose",
+  "name": "Pen Sketch Loose",
+  "category": "Sketch",
+  "requiresInput": true
+}
+---
 Loose gestural sketch in ink and watercolour. Scratchy, searching linework — lines that find their form rather than state it, with visible corrections and second thoughts. Nib or brush pen with variable pressure; marks bleed slightly at the edges. Watercolour laid in wet, colours bleeding into each other, blooms and tide marks welcome. Palette shares the same brightness and clarity but sits lightly, unfinished, breathing. Paper texture shows. The energy of the first impression preserved, not resolved.

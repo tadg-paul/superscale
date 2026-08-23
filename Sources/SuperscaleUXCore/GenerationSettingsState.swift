@@ -49,6 +49,36 @@ public final class GenerationSettingsState: ObservableObject {
         lastError = startupError ?? credentialError
     }
 
+    /// Builds the state around a catalogue that may not load.
+    ///
+    /// A corpus that will not load leaves the application with no filters and the reason to hand,
+    /// and leaves everything local alone — section 2.8 of the implementation guide rules that when
+    /// filters are unavailable, local upscaling works fully, and a corpus that will not load is
+    /// that condition reached by another route. The handling lives here rather than in the app's
+    /// entry point so that it is the same code the tests drive.
+    public convenience init(
+        credentials: GenerationCredentialService,
+        preferencesStore: GenerationPreferencesStore,
+        loadingCatalogue load: () throws -> PromptPackCatalogue,
+        startupError: String? = nil
+    ) {
+        do {
+            self.init(
+                credentials: credentials,
+                preferencesStore: preferencesStore,
+                promptPackCatalogue: try load(),
+                startupError: startupError
+            )
+        } catch {
+            self.init(
+                credentials: credentials,
+                preferencesStore: preferencesStore,
+                promptPackCatalogue: PromptPackCatalogue(packs: []),
+                startupError: startupError ?? error.localizedDescription
+            )
+        }
+    }
+
     public var isGenerationConfigured: Bool {
         !generationKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }

@@ -1,5 +1,11 @@
-# image-lighting-vermeer-window.md
-
+---
+{
+  "id": "image-lighting-vermeer-window",
+  "name": "Vermeer Window",
+  "category": "Lighting",
+  "requiresInput": true
+}
+---
 Transform the input image using soft Vermeer-like window light.
 
 Preserve the subject’s identity, pose, expression, clothing, facial structure, camera angle, composition, and important objects.

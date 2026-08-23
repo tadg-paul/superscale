@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-sketch-outline-careful",
+  "name": "Outline Careful",
+  "category": "Sketch",
+  "requiresInput": true
+}
+---
 Convert this image into a careful monochrome outline drawing. Preserve the original composition, proportions, perspective, scale, and all significant details from the source image. Create clean, deliberate black linework on a plain white background, using precise contours, interior structural lines, and edge definition to describe form clearly. Include important architectural, environmental, and object detail, but simplify visual noise and incidental texture into readable, organised linework. Use consistent but subtly varied line weight to improve clarity, depth, and separation of forms. Prioritise clarity and hierarchy of detail, preserving major forms and meaningful secondary detail while avoiding visual clutter. Where necessary, simplify detail without omitting important elements or distorting spatial relationships. Use controlled cross-contour detail and very occasional fine hatching only where necessary to distinguish overlapping forms, while remaining predominantly an outline drawing. The final result should feel like a carefully drafted ink illustration, architectural drawing, or technical line drawing: crisp, legible, faithful to the source image, and visually balanced.
 
 Avoid: colour, greyscale shading, painterly rendering, filled black areas, heavy shadows, charcoal texture, loose sketchiness, scribbles, cartoon or comic stylisation, anime aesthetics, exaggerated forms, thick marker lines, cel shading, abstraction, distorted perspective, omitted major details, text, labels, or watermarks.

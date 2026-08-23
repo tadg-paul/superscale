@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-print-risograph",
+  "name": "Risograph",
+  "category": "Print",
+  "requiresInput": true
+}
+---
 Risograph print aesthetic. Limited colour separation (two or three spot colours), slight misregistration between layers, halftone dot patterns visible, flat graphic colour, grain and texture from the printing process. Cheerful, zine-like energy.

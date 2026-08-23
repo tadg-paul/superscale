@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-bureaucratic-surrealism",
+  "name": "Bureaucratic Surrealism",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into bureaucratic surrealism.
 
 Preserve the main subject, composition, identity if people are present, object placement, and the core structure of the source image.

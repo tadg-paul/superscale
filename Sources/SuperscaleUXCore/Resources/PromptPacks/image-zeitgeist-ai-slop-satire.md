@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-ai-slop-satire",
+  "name": "AI Slop Satire",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a satirical over-polished AI-commercial aesthetic.
 Preserve the main subject, composition, pose, identity if people are present, object placement, and the basic meaning of the source image.
 Reinterpret the image with deliberately excessive AI-era smoothness: too-perfect surfaces, generic commercial gloss, unnaturally even lighting, vague aspirational polish, synthetic smiles where appropriate, hyper-clean textures, soft plastic gradients, and subtly uncanny detail.

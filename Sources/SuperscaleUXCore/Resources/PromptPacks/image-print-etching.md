@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-print-etching",
+  "name": "Etching",
+  "category": "Print",
+  "requiresInput": true
+}
+---
 Etching with aquatint tone. Fine bitten lines, delicate tonal gradations from aquatint grain, plate tone visible in lighter areas. Sepia or dark brown ink on cream paper. The controlled accident of acid bite. Rembrandt meets Edward Ardizzone.

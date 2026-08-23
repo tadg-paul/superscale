@@ -1,5 +1,11 @@
-# image-lighting-film-noir.md
-
+---
+{
+  "id": "image-lighting-film-noir",
+  "name": "Film Noir",
+  "category": "Lighting",
+  "requiresInput": true
+}
+---
 Transform the input image using film noir lighting.
 
 Preserve the subject’s identity, pose, expression, clothing, camera angle, composition, and major object placement.

@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-marbled-fluid",
+  "name": "Marbled Fluid",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image into a marbled fluid aesthetic.
 
 Preserve the main subject, composition, pose, identity if people are present, and the key objects and spatial relationships of the source image.

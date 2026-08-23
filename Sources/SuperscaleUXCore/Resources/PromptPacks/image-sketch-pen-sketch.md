@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-sketch-pen-sketch",
+  "name": "Pen Sketch",
+  "category": "Sketch",
+  "requiresInput": true
+}
+---
 Convert this image into a detailed hand-drawn pen sketch. Use clean, confident solid ink lines with visible line weight variation, as if drawn with fineliner pens. Add dense crosshatching and stippling for shading, texture, and depth rather than soft gradients. Render in a sketchbook / illustrated journal style using black ink plus selective coloured pens (muted but vivid pen colours, like red, blue, green, ochre, and purple). Preserve the composition and recognisable details of the original image, but reinterpret it as expressive pen artwork. Avoid painterly effects, smooth digital shading, watercolour washes, or pencil textures. Keep visible pen strokes, hatch marks, and slight imperfections of hand drawing. White or lightly textured paper background.

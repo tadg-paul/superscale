@@ -16,15 +16,7 @@ struct SuperscaleApp: App {
     private let sessionStore: GenerationSessionStore
 
     init() {
-        let catalogue: PromptPackCatalogue
         var startupError: String?
-        do {
-            catalogue = try PromptPackCatalogue.bundled()
-            startupError = nil
-        } catch {
-            catalogue = PromptPackCatalogue(packs: [])
-            startupError = error.localizedDescription
-        }
 
         var credentialStorage: any CredentialStorage = KeychainCredentialStorage()
         var coordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
@@ -63,7 +55,7 @@ struct SuperscaleApp: App {
             wrappedValue: GenerationSettingsState(
                 credentials: GenerationCredentialService(storage: credentialStorage),
                 preferencesStore: GenerationPreferencesStore(),
-                promptPackCatalogue: catalogue,
+                loadingCatalogue: { try PromptPackCatalogue.bundled() },
                 startupError: startupError
             )
         )

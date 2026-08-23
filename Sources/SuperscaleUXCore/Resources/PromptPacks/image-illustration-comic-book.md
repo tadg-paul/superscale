@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-illustration-comic-book",
+  "name": "Comic Book",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Transform this image into a bold comic-book illustration with clean solid ink outlines, sharp edges, and hard colour separation. Use confident black linework with varied line weight, strong silhouettes, and flat or cel-shaded colours rather than soft gradients. Add comic-style shadows, high contrast, and selective use of halftone textures or screen tones for depth. Preserve the composition and recognisable details of the original image, but reinterpret it as professionally inked comic art. Colours should feel bold, graphic, and deliberate, with crisp boundaries between tones. Avoid painterly blending, soft airbrushing, photorealism, or muddy textures.

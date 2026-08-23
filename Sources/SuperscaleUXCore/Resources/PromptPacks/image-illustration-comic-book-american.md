@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-illustration-comic-book-american",
+  "name": "Comic Book American",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Render in the style of a professionally inked comic-book panel. Heavy black inks, dramatic contrast, strong contour lines, cel shading, selective crosshatching, bold shadows, and saturated but controlled colours. Emphasize dynamic composition and graphic readability.

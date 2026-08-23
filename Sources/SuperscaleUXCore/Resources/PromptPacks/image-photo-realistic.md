@@ -1,1 +1,9 @@
+---
+{
+  "id": "image-photo-realistic",
+  "name": "Realistic",
+  "category": "Photo",
+  "requiresInput": true
+}
+---
 Transform this image into a highly photorealistic scene, preserving the original composition, perspective, and key elements. Render with natural lighting, realistic materials, true-to-life textures, atmospheric depth, and physically plausible shadows and reflections. Make it look like a high-resolution real photograph taken with a professional camera, with subtle environmental imperfections and believable detail. Use realistic colour grading, accurate scale, and natural contrast. Avoid stylization or painterly interpretation.

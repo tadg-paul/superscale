@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-zeitgeist-spiral-motif",
+  "name": "Spiral Motif",
+  "category": "Zeitgeist",
+  "requiresInput": true
+}
+---
 Transform the input image using a contemporary spiral motif aesthetic.
 Preserve the main subject, composition, pose, identity if people are present, and the important objects and spatial relationships in the source image.
 Reinterpret the image with spiral forms, curling ornament, circular movement, whorls, vortex-like accents, and rhythmic curved shapes. Let the spiral motif influence the background, surface decoration, framing, hair, fabric, shadows, or environmental details where appropriate.

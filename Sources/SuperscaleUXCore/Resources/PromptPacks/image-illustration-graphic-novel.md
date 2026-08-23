@@ -1,3 +1,11 @@
+---
+{
+  "id": "image-illustration-graphic-novel",
+  "name": "Graphic Novel",
+  "category": "Illustration",
+  "requiresInput": true
+}
+---
 Transform the input image into a mature graphic novel illustration with strong inkwork and cinematic visual storytelling.
 
 Preserve the original subject, pose, expression, identity, camera angle, composition, clothing structure, important objects, and scene logic.
