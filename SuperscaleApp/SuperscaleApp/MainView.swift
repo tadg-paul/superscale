@@ -42,6 +42,10 @@ struct MainView: View {
             HStack(spacing: 0) {
                 canvas
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // A container, not an element. Without this the identifier makes SwiftUI
+                    // treat the canvas as one element and absorb the drop target, the image and
+                    // the info panel, which is the defect #88 fixed in Settings.
+                    .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("workspaceCanvas")
                 Divider()
                 FilterPanel(

@@ -29,6 +29,9 @@ struct FilterPanel: View {
             promptArea
         }
         .frame(minWidth: 260, idealWidth: 280, maxWidth: 340)
+        // A container, not an element: the panel's identifier must not absorb the catalogue, the
+        // prompt area and the Apply button. AC73.6 states the rule this follows.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("filterPanel")
     }
 

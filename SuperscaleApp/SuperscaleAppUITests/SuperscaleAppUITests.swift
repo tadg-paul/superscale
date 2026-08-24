@@ -243,11 +243,26 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     /// Opens the Settings scene, which #87 made a real macOS Settings window rather than a mode.
+    ///
+    /// Addressed by the menu item rather than by window title: the title a `Settings` scene gives
+    /// its window is the platform's business and has changed across macOS releases, whereas the
+    /// menu item is the route a user actually takes.
     @discardableResult
     private func openSettings() -> XCUIElement {
-        app.typeKey(",", modifierFlags: .command)
-        let settings = app.windows["Settings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "Cmd+comma should open the Settings scene")
+        let appMenu = app.menuBars.menuBarItems.element(boundBy: 1)
+        XCTAssertTrue(appMenu.waitForExistence(timeout: 5))
+        appMenu.click()
+
+        let settingsItem = app.menuBars.menuItems.matching(
+            NSPredicate(format: "title BEGINSWITH 'Settings'")
+        ).firstMatch
+        XCTAssertTrue(settingsItem.waitForExistence(timeout: 3), "the app menu should offer Settings")
+        settingsItem.click()
+
+        let settings = app.windows.matching(
+            NSPredicate(format: "title CONTAINS[c] 'Settings'")
+        ).firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "Settings should open as its own window")
         return settings
     }
 
