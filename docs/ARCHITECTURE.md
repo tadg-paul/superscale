@@ -1,4 +1,4 @@
-<!-- Version: 1.2 | Last updated: 2026-08-23 -->
+<!-- Version: 1.3 | Last updated: 2026-08-24 -->
 
 # Superscale v2 Architecture
 
@@ -306,18 +306,28 @@ classDiagram
 
 ## UX Structure
 
-The main window should gain mode-level navigation rather than overloading the
-existing upscaling toolbar.
+**There is one workspace, and the image is the window.**
 
-Recommended top-level modes:
+An earlier iteration proposed mode-level navigation with Upscale, Generate,
+History and Settings as peer surfaces. That framing was built and then removed
+in #87: filtering an image and upscaling it are stages of one piece of work, and
+making them peers meant the user carried the image between them by hand. It was
+also the root of the cross-mode state defects recorded in the implementation
+guide.
 
-- Upscale: the current local workflow.
-- Generate: prompt, prompt pack, model, references, cost, and output.
-- History: prior generated and processed assets.
-- Settings: API keys, defaults, prompt packs, and account state.
+What replaced it:
 
-Generated images should be able to move into Upscale with one action. Upscale
-results should remain saveable through the existing save flow.
+- **The canvas** holds the working image, filling most of the window, with drag
+  and drop, the comparison view and the magnifier as before.
+- **The filter panel** sits beside it: the catalogue within its categories, the
+  editable prompt area, and Apply with the flat rate beside it.
+- **Settings** is a `Settings` scene on `Cmd+,`, in its own window.
+- **Prior sessions** reach the user through `File > Open Recent`, bounded to the
+  ten most recent. There is no History surface.
+
+A filter reads the working image at its own resolution, never the upscaled
+rendering of it, which is invariant I1. Upscale results remain saveable through
+the existing save flow.
 
 ## Error Handling
 
@@ -376,6 +386,11 @@ image upscaled locally.
 
 ## Changelog
 
+- **1.3 (2026-08-24):** Replaced the mode-level navigation recommendation with
+  the single workspace as built in #87: one canvas, a filter panel beside it, a
+  `Settings` scene, and prior sessions on `File > Open Recent`. Recorded that a
+  filter reads the working image at its own resolution rather than its upscaled
+  rendering.
 - **1.2 (2026-08-23):** Recorded the filter catalogue as described by its own
   frontmatter rather than by filenames, and selection as a two-step flow in
   which choosing loads a filter's wording for editing and sends nothing,

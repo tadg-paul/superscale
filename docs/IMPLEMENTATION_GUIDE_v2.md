@@ -1,4 +1,4 @@
-<!-- Version: 3.5 | Last updated: 2026-08-23 -->
+<!-- Version: 3.6 | Last updated: 2026-08-24 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -700,10 +700,26 @@ Two consequences worth stating:
 - **Settings must become a `Settings` scene.** It is currently a mode, so
   removing modes forces it. That is the correct destination anyway.
 
-**Open question:** the filter catalogue as a persistent sidebar or an invoked
-sheet. A sidebar suits browsing 86 items and keeps the prompt area beside the
-canvas; a sheet keeps the workspace uncluttered but makes flicking between
-filters heavier. This is a layout judgement best made against something running.
+**Resolved as a sidebar** (#87, 2026-08-24). Browsing 86 filters is the primary
+activity, and the prompt area belongs beside the image it will change rather
+than in front of it. The panel holds the categories, the editable prompt and the
+Apply button; the canvas keeps the rest of the window.
+
+**Reference images.** There is one, and it is the working image. The three
+reference wells the Generate workspace offered are removed: section 2.2 admits
+one image at a time, and a well inviting a second contradicts it.
+
+**A filter reads the working image at its own resolution.** The canvas shows the
+upscaled rendering by default, so sending what is on screen would be the natural
+implementation and would breach invariant I1. The asset graph enforces this from
+slice 9b; until then the criterion carries it.
+
+**Accessibility identifiers belong on controls, not on the rows containing
+them.** An identifier on a stack makes SwiftUI treat that stack as a single
+element and absorb its children, which removes them from the accessibility tree
+entirely: unreachable to VoiceOver, not merely to a test. Where a container needs
+an identity of its own it declares `accessibilityElement(children: .contain)`
+alongside it. This cost three separate defects before it was written down.
 
 ---
 
@@ -740,7 +756,7 @@ is called. Section 3.2 revives it.
 | **D5** | medium | closed by #83 | Kit errors are not `LocalizedError`, so the GUI shows "The operation couldn't be completed. (SuperscaleKit.ImageIOError error 0.)" |
 | **D6** | medium | closed by #83 | The upscale has no cancellation at any level, though it is the long local operation. |
 | **D7** | low | closed by #81 | `pendingSessionID` is never cleared on mode switch or new drop. |
-| **D8** | low | open, slice 9 | `defaultUpscaleModelID` is honoured on the handoff path but not on drop. |
+| **D8** | low | closed by #87 | `defaultUpscaleModelID` is honoured on the handoff path but not on drop. Both paths now resolve through one function, with the arrival as a parameter so a future divergence has to be written deliberately rather than left out. |
 
 Descriptions are kept as written rather than edited away once closed: the mechanism and the
 measurement are the useful record, and a defect table that only lists what is outstanding loses
@@ -772,7 +788,8 @@ a precondition for everything after it.
 | 6 | **Model handling** | One handler for `xai/grok-imagine-image`: plural `image_urls`, `aspect_ratio` sizing, `/edit` suffix for the edit endpoint, sizing params omitted on edit. Argument merge precedence and aspect snapping. The registry keeps the shape that admits more models; it does not populate them. |
 | 7 | **Minimum resolution** | Raise an undersized import to the assumed minimum long edge, from a single documented constant, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
-| 9 | **Single workspace** | Collapse the four modes into one workspace: remove Generate and History as surfaces, locked iterations to a sidebar, filter catalogue to a sidebar or sheet, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene. Closes D8, and removes the cross-mode state that causes D2 and D7. |
+| 9a | **The shape** | Collapse the four modes into one workspace: remove Generate and History as surfaces, filter catalogue to a sidebar with its editable prompt and Apply, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene, one reference which is the working image. Closes D8, and removes the cross-mode state that caused D2 and D7. |
+| 9b | **The graph behind it** | Base, candidate and lock wired to `AssetGraph`, filters reading the base, upscales as derivations, locked iterations in a sidebar, and the filter on/off toggle. |
 
 **On confining the pipeline rather than converting it.** Slice 3b delivers what "actor-confined
 reusable `Pipeline`" is for --- one instance, reused, never touched by two runs at once --- by
@@ -862,6 +879,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.6 (2026-08-24):** Resolved section 3.9's open question as a sidebar, following #87.
+  Recorded that there is one reference and it is the working image, that a filter reads that
+  image at its own resolution rather than its upscaled rendering, and that accessibility
+  identifiers belong on controls rather than on the rows containing them. Split slice 9 into
+  9a and 9b in the delivery table and closed D8.
 - **3.5 (2026-08-23):** Corrected section 3.5 against the catalogue as built in #85: the
   frontmatter is JSON rather than YAML, carries four required fields rather than five, and
   keeps the existing identifiers. Recorded that the no-headers convention is enforced in
