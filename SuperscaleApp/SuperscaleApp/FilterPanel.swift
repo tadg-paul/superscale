@@ -16,8 +16,10 @@ struct FilterPanel: View {
     let isGenerationConfigured: Bool
     let hasWorkingImage: Bool
     let isApplying: Bool
+    let canLock: Bool
     let onApply: () -> Void
     let onCancel: () -> Void
+    let onLock: () -> Void
 
     @State private var activeCategory: String?
     @State private var search = ""
@@ -231,6 +233,19 @@ struct FilterPanel: View {
                     .disabled(!canApply)
                     .accessibilityIdentifier("applyFilterButton")
             }
+
+            // Lock is the only action that moves the base, which is how filters stack
+            // deliberately: noir *then* woodblock, rather than woodblock instead of noir. It
+            // promotes the candidate at its own resolution, never the upscaled rendering of it.
+            Button {
+                onLock()
+            } label: {
+                Label("Lock", systemImage: "lock")
+                    .frame(maxWidth: .infinity)
+            }
+            .disabled(!canLock)
+            .help("Keep this result and build the next filter on it")
+            .accessibilityIdentifier("lockButton")
         }
         .padding(12)
     }

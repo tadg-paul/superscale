@@ -1,6 +1,7 @@
 // ABOUTME: The single Superscale workspace: the image on the canvas, the filters beside it.
 // ABOUTME: Holds the base image a filter reads and the candidate a filter produced.
 
+import FalGenerationKit
 import SuperscaleKit
 import SuperscaleUXCore
 import SwiftUI
@@ -14,8 +15,9 @@ struct MainView: View {
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
     @State private var didLoadDefaults = false
-    /// The image a filter reads. Never the candidate, and never the upscaled rendering.
-    @State private var baseImageURL: URL?
+    /// The workspace's state. The graph decides which asset is read and which is shown; the view
+    /// model renders whichever one it is handed.
+    @StateObject private var workspace = WorkspaceState(outputDirectory: V2AppPaths.generated)
 
     private let sessionStore: GenerationSessionStore
 
@@ -52,10 +54,12 @@ struct MainView: View {
                     selection: $selection,
                     catalogueFailure: settingsState.lastError,
                     isGenerationConfigured: settingsState.isGenerationConfigured,
-                    hasWorkingImage: baseImageURL != nil,
+                    hasWorkingImage: workspace.graph.base != nil,
                     isApplying: generationCoordinator.phase == .generating,
+                    canLock: workspace.canLock,
                     onApply: applyFilter,
-                    onCancel: generationCoordinator.cancel
+                    onCancel: generationCoordinator.cancel,
+                    onLock: lockCandidate
                 )
             }
             Divider()
@@ -63,11 +67,9 @@ struct MainView: View {
         }
         .navigationTitle(windowTitle)
         .onAppear(perform: loadDefaults)
-        .onChange(of: viewModel.inputURL) { _, url in
-            // An image arriving by any route becomes the base a filter reads.
-            if let url, url != candidateURL { baseImageURL = url }
-        }
+        .onChange(of: viewModel.inputURL) { _, url in adoptImportedImage(url) }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
+        .onChange(of: workspace.showsBase) { _, _ in displayChosenAsset() }
         // A setting change makes the info panel's summary stale, so it comes back to say what the
         // new setting will do.
         .onChange(of: viewModel.selectedModelName) { infoPanelDismissed = false }
@@ -131,42 +133,99 @@ struct MainView: View {
 
     // MARK: - Applying a filter
 
-    /// The candidate a filter produced, shown on the canvas while the base stays put.
-    ///
-    /// Applying always reads the base, so a second filter replaces this rather than compounding
-    /// on it. Promoting a candidate to base is what Lock does, and Lock is slice 9b.
-    private var candidateURL: URL? {
-        generationCoordinator.output?.localURL
+    private var coordinatorOutputPath: String? {
+        generationCoordinator.output?.localURL.path
     }
 
-    private var coordinatorOutputPath: String? {
-        candidateURL?.path
+    /// Adopts an image the user brought in as the graph's source, starting a new chain.
+    private func adoptImportedImage(_ url: URL?) {
+        guard let url,
+              url != generationCoordinator.output?.localURL,
+              url != currentlyDisplayedFileURL else { return }
+        workspace.importImage(fileURL: url, pixelSize: importedPixelSize(url))
     }
 
     private func applyFilter() {
-        guard let baseImageURL else { return }
+        // The graph decides what a filter reads: the base, never the candidate and never the
+        // upscaled rendering. Asking it rather than reaching for what is on screen is the whole
+        // point of the graph being the state.
+        guard let input = try? workspace.graph.input(for: .filter),
+              let asset = try? workspace.graph.asset(for: input) else { return }
         do {
-            let reference = try dataURL(for: baseImageURL)
-            var workspace = WorkspaceModel(
+            let reference = try dataURL(for: asset.fileURL)
+            var request = WorkspaceModel(
                 filters: selection.filters,
                 workingImage: WorkingImage(referenceValue: reference, hasWorkingImage: true),
                 isGenerationConfigured: settingsState.isGenerationConfigured
             )
-            workspace.selection = selection
-            guard let request = workspace.applyRequest() else { return }
-            generationCoordinator.start(request, apiKey: settingsState.generationKey)
+            request.selection = selection
+            guard let built = request.applyRequest() else { return }
+            generationCoordinator.start(built, apiKey: settingsState.generationKey)
         } catch {
             viewModel.errorMessage = error.localizedDescription
         }
     }
 
-    /// Sends a filter result to the local upscale, so the canvas shows it the way it shows
-    /// anything else: upscaled when a scale is selected, untouched when it is not.
+    /// Records a filter result as the candidate and shows it.
     private func adoptFilterResult() {
         // The coordinator's own input carries its attribution. Constructing one here from a
         // location would be attribution by timing, which #86 closed.
         guard let source = generationCoordinator.upscaleSource else { return }
+        do {
+            try workspace.recordFilter(
+                named: selection.selectedID ?? "",
+                fileURL: source.url,
+                pixelSize: importedPixelSize(source.url),
+                modelID: FalGenerationRequest.defaultModelID,
+                prompt: selection.promptToApply,
+                sessionID: source.sessionID
+            )
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+            return
+        }
         upscale(source, arrival: .filterResult)
+    }
+
+    /// Promotes the candidate to base, so the next filter builds on it.
+    private func lockCandidate() {
+        do {
+            let locked = try workspace.lock()
+            try display(locked)
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Shows whichever asset the workspace's toggle has chosen.
+    private func displayChosenAsset() {
+        guard let chosen = workspace.displayedAsset else { return }
+        do {
+            try display(chosen)
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Hands an asset to the view model, which renders it upscaled when a scale is selected and
+    /// untouched when it is not.
+    ///
+    /// Resolved through the graph rather than by location, so an upscaled reference is refused
+    /// here rather than being sent for a second upscale.
+    private func display(_ reference: AssetReference) throws {
+        let source = try GUIUpscaleSource(resolving: reference, in: workspace.graph)
+        upscale(source, arrival: .filterResult)
+    }
+
+    private var currentlyDisplayedFileURL: URL? {
+        guard let displayed = workspace.displayedAsset,
+              let asset = try? workspace.graph.asset(for: displayed) else { return nil }
+        return asset.fileURL
+    }
+
+    private func importedPixelSize(_ url: URL) -> CGSize {
+        guard let image = NSImage(contentsOf: url) else { return .zero }
+        return image.size
     }
 
     private func upscale(_ source: GUIUpscaleSource, arrival: ImageArrival) {
@@ -214,6 +273,21 @@ struct MainView: View {
             faceEnhanceButton
 
             Spacer()
+
+            // Flick between the filtered result and the image it was made from. A view choice
+            // only: it stores nothing, so it is free and reversible, and it is unavailable when
+            // there is no candidate to compare against.
+            if workspace.canCompare {
+                Toggle(isOn: $workspace.showsBase) {
+                    Label(
+                        workspace.showsBase ? "Showing Original" : "Showing Filtered",
+                        systemImage: workspace.showsBase ? "photo" : "wand.and.stars"
+                    )
+                }
+                .toggleStyle(.button)
+                .help("Show the image this filter was applied to")
+                .accessibilityIdentifier("filterToggle")
+            }
 
             if viewModel.result != nil {
                 Button(viewModel.showComparison ? "Full View" : "Compare") {

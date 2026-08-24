@@ -242,6 +242,23 @@ final class SuperscaleAppUITests: XCTestCase {
     /// Addressed by the menu item rather than by window title: the title a `Settings` scene gives
     /// its window is the platform's business and has changed across macOS releases, whereas the
     /// menu item is the route a user actually takes.
+    // RT-89.27: with no candidate, the filter toggle is unavailable.
+    //
+    // There is nothing to compare the base against until a filter has produced something.
+    func test_withNoCandidateTheFilterToggleIsUnavailable_RT089_27() {
+        XCTAssertTrue(app.buttons["fileChooser"].waitForExistence(timeout: 5))
+
+        XCTAssertFalse(element(identifier: "filterToggle").exists)
+    }
+
+    // RT-89.7 at the surface: Lock is unavailable with nothing to promote.
+    func test_lockIsUnavailableWithNoCandidate_RT089_7() {
+        let lock = element(identifier: "lockButton")
+        XCTAssertTrue(lock.waitForExistence(timeout: 5))
+
+        XCTAssertFalse(lock.isEnabled, "there is no candidate to promote")
+    }
+
     // RT-89.20: Settings presents no pricing control.
     func test_settingsPresentsNoPricingControl_RT089_20() {
         openSettings()
