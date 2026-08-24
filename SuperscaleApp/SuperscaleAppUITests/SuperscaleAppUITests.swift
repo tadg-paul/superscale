@@ -50,6 +50,11 @@ final class SuperscaleAppUITests: XCTestCase {
         let openPanel = app.dialogs.firstMatch
         guard openPanel.waitForExistence(timeout: 5) else { return false }
 
+        // Synthesized keystrokes go to whichever application is frontmost, so anything else taking
+        // focus while the suite runs sends them elsewhere and the panel never navigates. This was
+        // measured rather than guessed: the failure reproduces at commits whose full suite passed.
+        app.activate()
+
         // Press Cmd+Shift+G to open path entry
         openPanel.typeKey("g", modifierFlags: [.command, .shift])
 
