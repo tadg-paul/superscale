@@ -1190,19 +1190,59 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertFalse(element(identifier: "settingsWorkspace").exists)
     }
 
-    // RT-87.8, RT-87.9: filters are reachable within their categories.
-    func test_filtersAreListedWithinTheirCategories_RT087_8() {
-        let catalogue = element(identifier: "filterCatalogue")
-        XCTAssertTrue(catalogue.waitForExistence(timeout: 5))
+    // RT-87.8: every category the catalogue declares is offered as a one-click narrowing.
+    //
+    // Rewritten from section headings to a filter bar. Headings grouped 86 filters into one long
+    // scroll and called it categorisation; what they did not offer was choosing a category. These
+    // assert the chips, which narrow in one click and clear in one click.
+    func test_everyCategoryIsOfferedAsAFilter_RT087_8() {
+        XCTAssertTrue(element(identifier: "category-all").waitForExistence(timeout: 5))
 
-        for category in ["Lighting", "Print", "Sketch", "Zeitgeist"] {
+        for category in ["design", "illustration", "lighting", "material",
+                         "media", "photo", "print", "sketch", "zeitgeist"] {
             XCTAssertTrue(
-                catalogue.staticTexts[category].exists,
-                "\(category) should be a heading in the catalogue"
+                element(identifier: "category-\(category)").exists,
+                "\(category) should be offered as a category chip"
             )
         }
+    }
+
+    // RT-87.9: choosing a category narrows the list to the filters that declare it.
+    func test_choosingACategoryNarrowsTheList_RT087_9() {
+        let lighting = element(identifier: "category-lighting")
+        XCTAssertTrue(lighting.waitForExistence(timeout: 5))
+        lighting.click()
+
         XCTAssertTrue(element(identifier: "filter-image-lighting-film-noir").exists)
+        XCTAssertFalse(
+            element(identifier: "filter-image-print-linocut").exists,
+            "a Print filter should not survive narrowing to Lighting"
+        )
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "4")
+    }
+
+    // RT-87.36: the same chip again widens it, so clearing costs one click too.
+    func test_choosingTheActiveCategoryAgainClearsTheNarrowing_RT087_36() {
+        let lighting = element(identifier: "category-lighting")
+        XCTAssertTrue(lighting.waitForExistence(timeout: 5))
+
+        lighting.click()
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "4")
+        lighting.click()
+
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "86")
         XCTAssertTrue(element(identifier: "filter-image-print-linocut").exists)
+    }
+
+    // RT-87.37: search reaches across categories, so nothing is behind a chip.
+    func test_searchReachesAcrossCategories_RT087_37() {
+        let search = element(identifier: "filterSearchField")
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.click()
+        search.typeText("noir")
+
+        XCTAssertTrue(element(identifier: "filter-image-lighting-film-noir").exists)
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "1")
     }
 
     // RT-87.10: nothing is unreachable.
@@ -1210,7 +1250,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(element(identifier: "filterCount").waitForExistence(timeout: 5))
         let reported = textContent(of: element(identifier: "filterCount"))
 
-        XCTAssertEqual(reported, "86", "the panel should offer every filter the catalogue loads")
+        XCTAssertEqual(reported, "86", "with no category chosen, every filter is offered")
     }
 
     // RT-87.11: choosing a filter fills the prompt area.
