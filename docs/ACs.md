@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC85.9 from #85 on 2026-08-23, with AC74.1 and AC74.2 brought forward from #74
+Last migrated: AC73.5 from #73 on 2026-08-24, with AC73.6 backfilled beside it by #88
 
 ---
 
@@ -485,3 +485,34 @@ Last migrated: AC85.9 from #85 on 2026-08-23, with AC74.1 and AC74.2 brought for
 ### AC85.7 - removed before sign-off
 - 🚫 Removed: it duplicated AC74.2. RT-85.20 and RT-85.21 extend that criterion's coverage
   instead. The identifier is not reused.
+
+---
+
+## Settings and credentials
+
+### AC73.5 - Users can see separate controls for generation key, account/admin key, account state, defaults, and prompt packs.
+- Introduced: #73 (closed, pre-cutover)
+- Migrated: 2026-08-24, cited by #88
+- Tests:
+  - ✅ RT-73.8: the Settings controls are present, with their enabled and disabled states
+  - ⏳ UT-73.2: pending human resolution in delivery master #79
+- Note: the criterion says *which* controls exist. Whether each can be reached is AC73.6, backfilled
+  beside it. RT-73.8's pricing and account assertions were removed by #88 with the surface they
+  covered, and its navigation by `modeSettings` is rewritten by #87 when Settings becomes a scene
+  rather than a mode.
+
+### AC73.6 - Every interactive control in Settings is individually addressable by assistive technology, rather than being absorbed into the row that contains it.
+- Introduced: #88 (backfilled onto #73's feature, 2026-08-24)
+- Tests:
+  - ✅ RT-88.1: the account refresh control is reachable in the accessibility tree
+  - ✅ RT-88.2: the account summary is reachable in the accessibility tree
+  - ✅ RT-88.3: each control AC73.5 names is reachable by its own identifier
+- Note: backfilled rather than stretched from AC73.5. A sighted user could see the refresh control;
+  it was drawn, on screen, and worked with a mouse. What it was not was addressable, so VoiceOver
+  could not reach it. An accessibility identifier on an `HStack` makes SwiftUI treat the stack as one
+  element and absorb its children. Isolated by comparison with the pricing row directly above, which
+  carries no container identifier and whose button was always reachable. RT-88.3 states the rule
+  rather than the two instances, because the same mistake elsewhere in the panel would leave RT-88.1
+  and RT-88.2 passing.
+
+**Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~

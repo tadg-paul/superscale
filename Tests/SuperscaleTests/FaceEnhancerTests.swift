@@ -50,25 +50,19 @@ final class FaceEnhancerTests: XCTestCase {
                        "Should not mention face enhancement when model is absent")
     }
 
-    // RT-042: GFPGAN excluded from git, formula, and distribution
-    func test_gfpgan_excluded_from_distribution_RT042() throws {
-        // 1. Check .gitignore covers GFPGAN model files
-        let gitignore = try String(contentsOfFile:
-            projectRoot.appendingPathComponent(".gitignore").path)
-        // *.mlpackage and *.pth patterns cover GFPGAN files
-        XCTAssertTrue(gitignore.contains("*.mlpackage"),
-                      ".gitignore should exclude *.mlpackage")
-        XCTAssertTrue(gitignore.contains("*.pth"),
-                      ".gitignore should exclude *.pth")
+    // RT-88.5, under AC1.5. Replaces RT-042, which additionally read `.gitignore` and
+    // `Formula/superscale.rb` as text. `TESTING.md` prohibits grepping project files as a test
+    // oracle, and neither assertion proved anything: an ignore pattern is not evidence that a
+    // file is untracked, and a formula's text is not evidence about a built artefact. What the
+    // criterion is about is repository state, which is what this queries.
+    //
+    // Weights are judged by extension rather than by path. The old form excluded `scripts/`
+    // because the download script legitimately carries the name, which meant a weight committed
+    // there would have passed. The criterion is about model weights, not about a word in a
+    // filename.
+    func test_noGFPGANModelWeightIsTracked_RT088_5() throws {
+        let weightExtensions = ["pth", "mlpackage", "mlmodelc", "mlmodel"]
 
-        // 2. Check formula has no GFPGAN resource
-        let formula = try String(contentsOfFile:
-            projectRoot.appendingPathComponent("Formula/superscale.rb").path)
-        XCTAssertFalse(
-            formula.lowercased().contains("gfpgan"),
-            "Formula should not contain any GFPGAN references")
-
-        // 3. Check GFPGAN model is not in git tracked files
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/git")
@@ -77,17 +71,20 @@ final class FaceEnhancerTests: XCTestCase {
         process.standardOutput = pipe
         try process.run()
         process.waitUntilExit()
+
         let trackedFiles = String(
             data: pipe.fileHandleForReading.readDataToEndOfFile(),
             encoding: .utf8) ?? ""
-        // Exclude scripts — only flag model/weight files containing "gfpgan"
-        let gfpganFiles = trackedFiles
+        let trackedWeights = trackedFiles
             .components(separatedBy: "\n")
-            .filter { $0.lowercased().contains("gfpgan") }
-            .filter { !$0.hasPrefix("scripts/") }
+            .filter { path in
+                let lowercased = path.lowercased()
+                return weightExtensions.contains { lowercased.hasSuffix(".\($0)") }
+            }
+
         XCTAssertTrue(
-            gfpganFiles.isEmpty,
-            "No GFPGAN model files should be tracked in git: \(gfpganFiles)")
+            trackedWeights.isEmpty,
+            "No model weight should be tracked in the repository: \(trackedWeights)")
     }
 
     // RT-043: Face detection runs without error and returns face rectangles

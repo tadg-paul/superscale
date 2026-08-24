@@ -220,6 +220,12 @@ struct SettingsView: View {
             .disabled(!state.isAccountAdministrationConfigured || account.state == .loading)
             .accessibilityIdentifier("refreshAccountButton")
         }
+        // The row is a container, not an element. An accessibility identifier on a stack makes
+        // SwiftUI treat that stack as one element and absorb its children, which left the
+        // summary and the refresh button unreachable to VoiceOver and to anything else that
+        // addresses controls by identity. The pricing row above carries no identifier and its
+        // button was always reachable, which is what isolated this.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("accountState")
 
         if case let .available(summary) = account.state, !summary.billingEvents.isEmpty {
