@@ -148,10 +148,11 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     // RT-73.8: Settings exposes separate credentials, defaults, and prompt packs.
+    //
+    // Navigation rewritten by #87: Settings is a scene opened with Cmd+comma, not a mode. AC73.5
+    // is about which controls exist, and that is unchanged; only the way in has moved.
     func test_settings_workspace_controls_RT73_8() {
-        let settingsMode = app.staticTexts["modeSettings"]
-        XCTAssertTrue(settingsMode.waitForExistence(timeout: 5))
-        settingsMode.click()
+        openSettings()
 
         XCTAssertTrue(app.secureTextFields["generationKeyField"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.secureTextFields["accountAdministrationKeyField"].exists)
@@ -241,10 +242,13 @@ final class SuperscaleAppUITests: XCTestCase {
         }
     }
 
-    private func openSettings() {
-        let settingsMode = app.staticTexts["modeSettings"]
-        XCTAssertTrue(settingsMode.waitForExistence(timeout: 5))
-        settingsMode.click()
+    /// Opens the Settings scene, which #87 made a real macOS Settings window rather than a mode.
+    @discardableResult
+    private func openSettings() -> XCUIElement {
+        app.typeKey(",", modifierFlags: .command)
+        let settings = app.windows["Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "Cmd+comma should open the Settings scene")
+        return settings
     }
 
     // MARK: - OT-004: GUI scaffold (#44)
@@ -1040,66 +1044,171 @@ final class SuperscaleAppUITests: XCTestCase {
                       "Info panel should reappear after clicking restore")
     }
 
-    // RT-75.1: Generate exposes the MVP controls and defaults.
+    // RT-75.1: the filter controls are present in the workspace.
+    //
+    // Rewritten by #87 against the panel that replaced the Generate workspace. What survives of
+    // AC75.1 is filter selection, prompt entry and an execute control. What goes is superseded by
+    // AC87.6: the model picker, because the MVP ships one model; the aspect picker, because the
+    // aspect is the working image's; and the three reference wells, because the working image is
+    // the reference.
     func test_generate_workspace_controls_RT75_1() {
-        app.staticTexts["modeGenerate"].click()
-        attachScreenshot(named: "Generate workspace")
+        attachScreenshot(named: "Workspace")
 
-        XCTAssertTrue(element(identifier: "generationPromptPackPicker").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(identifier: "filterCatalogue").waitForExistence(timeout: 5))
         XCTAssertTrue(element(identifier: "generationPromptField").exists
                       || app.textViews.firstMatch.exists)
-        XCTAssertTrue(element(identifier: "generationModelPicker").exists)
-        XCTAssertTrue(element(identifier: "generationAspectPicker").exists)
-        let referenceWells = app.buttons.matching(NSPredicate(format: "label == 'Add image'"))
-        XCTAssertEqual(referenceWells.count, 3)
-        XCTAssertTrue(element(identifier: "estimateCostButton").exists
-                      || app.buttons["Estimate Cost"].exists)
-        XCTAssertTrue(element(identifier: "generateButton").exists
-                      || app.buttons["Generate"].exists)
-        XCTAssertTrue(element(identifier: "cancelGenerationButton").exists
-                      || app.buttons["Cancel"].exists)
+        XCTAssertTrue(element(identifier: "applyFilterButton").exists)
+        XCTAssertTrue(element(identifier: "filterCost").exists)
     }
 
-    // RT-75.5, RT-75.6, RT-75.7, RT-77.3, RT-77.4, RT-77.6
-    func test_fixtureGenerationUpscalesAndAppearsInHistory() {
-        app.staticTexts["modeGenerate"].click()
+    // RT-75.5, RT-75.6, RT-75.7, RT-77.3, RT-77.4: applying a filter to the working image, and
+    // the result reaching the canvas.
+    //
+    // Rewritten by #87 for the single workspace. The journey survives: text goes in, a filter is
+    // applied, the result becomes what the canvas shows and can be upscaled and saved. What goes
+    // is the mode-switching this used to perform between Generate, Settings and History, which is
+    // the defect that framing caused rather than a behaviour worth keeping.
+    func test_applyingAFilterProducesAResultOnTheCanvas() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
         let prompt = element(identifier: "generationPromptField")
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.click()
         prompt.typeText("UI fixture generation")
 
-        let generate = app.buttons["generateButton"]
-        XCTAssertTrue(generate.isEnabled)
-        generate.click()
-        let confirmation = app.sheets.firstMatch
-        XCTAssertTrue(confirmation.waitForExistence(timeout: 3))
-        confirmation.buttons["Generate"].click()
+        let apply = app.buttons["applyFilterButton"]
+        XCTAssertTrue(apply.isEnabled, "applying should be available with an image and a prompt")
+        apply.click()
 
-        let sendToUpscale = app.buttons["generatedSendToUpscale"]
-        XCTAssertTrue(sendToUpscale.waitForExistence(timeout: 10))
-        XCTAssertTrue(element(identifier: "generatedSessionDetails").exists
-                      || app.staticTexts["Session details"].exists)
-        XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'UI fixture generation' OR label CONTAINS 'UI fixture generation'")
-        ).firstMatch.exists)
-        XCTAssertTrue(app.buttons["generatedSaveAs"].isEnabled)
-        XCTAssertTrue(app.buttons["generatedRetry"].isEnabled)
-        XCTAssertTrue(app.buttons["generatedReveal"].isEnabled)
+        XCTAssertTrue(waitForUpscaleComplete(), "the filter result should reach the canvas")
+        XCTAssertTrue(app.buttons["saveButton"].isEnabled)
+    }
 
-        // Rebuilding Generate after a mode change must not lose the history linkage.
-        app.staticTexts["modeSettings"].click()
-        XCTAssertTrue(element(identifier: "settingsWorkspace").waitForExistence(timeout: 5))
-        app.staticTexts["modeGenerate"].click()
-        XCTAssertTrue(sendToUpscale.waitForExistence(timeout: 5))
-        sendToUpscale.click()
+    // RT-87.15: no reference wells exist. The working image is the reference.
+    func test_theWorkspacePresentsNoReferenceWell_RT087_15() {
+        let referenceWells = app.buttons.matching(NSPredicate(format: "label == 'Add image'"))
 
-        XCTAssertTrue(waitForUpscaleComplete())
-        app.staticTexts["modeHistory"].click()
-        app.radioButtons["Upscaled"].click()
-        let session = app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'UI fixture generation' OR label CONTAINS 'UI fixture generation'")
-        ).firstMatch
-        XCTAssertTrue(session.waitForExistence(timeout: 5))
+        XCTAssertEqual(referenceWells.count, 0)
+    }
+
+    // RT-87.25: the canvas offers somewhere to put an image before there is one.
+    func test_theCanvasOffersTheImportTargetWithNoImage_RT087_25() {
+        XCTAssertTrue(app.buttons["fileChooser"].waitForExistence(timeout: 5))
+    }
+
+    // RT-87.1: no mode list.
+    func test_theWorkspaceShowsNoModeList_RT087_1() {
+        for mode in ["modeUpscale", "modeGenerate", "modeHistory", "modeSettings"] {
+            XCTAssertFalse(element(identifier: mode).exists, "\(mode) should not exist")
+        }
+    }
+
+    // RT-87.2: the canvas and the filter panel are one surface, seen together.
+    func test_theCanvasAndTheFilterPanelAreVisibleTogether_RT087_2() {
+        XCTAssertTrue(element(identifier: "workspaceCanvas").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(identifier: "filterPanel").exists)
+    }
+
+    // RT-87.3: Generate, History and Settings are not navigable surfaces in the window.
+    func test_noFormerModeIsANavigableSurface_RT087_3() {
+        XCTAssertFalse(element(identifier: "settingsWorkspace").exists)
+        XCTAssertFalse(element(identifier: "historySessionList").exists)
+        XCTAssertFalse(element(identifier: "generationModelPicker").exists)
+    }
+
+    // RT-87.4: the image is the focus, asserted at the declared minimum window size, which is the
+    // adversarial case: any larger window makes dominance easier.
+    func test_theCanvasDominatesTheWindow_RT087_4() {
+        let window = app.windows.firstMatch
+        let canvas = element(identifier: "workspaceCanvas")
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+
+        let ratio = canvas.frame.width / window.frame.width
+
+        XCTAssertGreaterThanOrEqual(
+            ratio, 0.6,
+            "the canvas took \(Int(ratio * 100))% of the window's width; the image is the focus"
+        )
+    }
+
+    // RT-87.5: the canvas and the panel coexist rather than replacing one another.
+    func test_theFilterPanelDoesNotReplaceTheCanvas_RT087_5() {
+        let canvas = element(identifier: "workspaceCanvas")
+        let panel = element(identifier: "filterPanel")
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+
+        XCTAssertTrue(canvas.frame.width > 0 && panel.frame.width > 0)
+        XCTAssertFalse(canvas.frame.intersects(panel.frame), "they sit beside each other")
+    }
+
+    // RT-87.6: Settings opens as a scene and the workspace stays where it was.
+    func test_settingsOpensAsASceneLeavingTheWorkspace_RT087_6() {
+        openSettings()
+
+        XCTAssertTrue(element(identifier: "workspaceCanvas").exists, "the workspace remains behind it")
+    }
+
+    // RT-87.7: the workspace itself holds no Settings surface.
+    func test_theWorkspaceHoldsNoSettingsSurface_RT087_7() {
+        XCTAssertFalse(element(identifier: "settingsWorkspace").exists)
+    }
+
+    // RT-87.8, RT-87.9: filters are reachable within their categories.
+    func test_filtersAreListedWithinTheirCategories_RT087_8() {
+        let catalogue = element(identifier: "filterCatalogue")
+        XCTAssertTrue(catalogue.waitForExistence(timeout: 5))
+
+        for category in ["Lighting", "Print", "Sketch", "Zeitgeist"] {
+            XCTAssertTrue(
+                catalogue.staticTexts[category].exists,
+                "\(category) should be a heading in the catalogue"
+            )
+        }
+        XCTAssertTrue(element(identifier: "filter-image-lighting-film-noir").exists)
+        XCTAssertTrue(element(identifier: "filter-image-print-linocut").exists)
+    }
+
+    // RT-87.10: nothing is unreachable.
+    func test_everyFilterTheApplicationReportsIsReachable_RT087_10() {
+        XCTAssertTrue(element(identifier: "filterCount").waitForExistence(timeout: 5))
+        let reported = textContent(of: element(identifier: "filterCount"))
+
+        XCTAssertEqual(reported, "86", "the panel should offer every filter the catalogue loads")
+    }
+
+    // RT-87.11: choosing a filter fills the prompt area.
+    func test_choosingAFilterFillsThePromptArea_RT087_11() {
+        let filter = element(identifier: "filter-image-lighting-film-noir")
+        XCTAssertTrue(filter.waitForExistence(timeout: 5))
+        filter.click()
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(textContent(of: prompt).localizedCaseInsensitiveContains("noir"))
+    }
+
+    // RT-87.23: no History surface.
+    func test_theWorkspaceHoldsNoHistorySurface_RT087_23() {
+        XCTAssertFalse(element(identifier: "historySessionList").exists)
+        XCTAssertFalse(element(identifier: "historyOpenInGenerate").exists)
+    }
+
+    // RT-87.22: prior sessions are reachable from the File menu.
+    func test_priorSessionsAreReachableFromTheFileMenu_RT087_22() {
+        let fileMenu = app.menuBars.menuBarItems["File"]
+        XCTAssertTrue(fileMenu.waitForExistence(timeout: 5))
+        fileMenu.click()
+
+        let openRecent = app.menuBars.menuItems["Open Recent"]
+        XCTAssertTrue(openRecent.waitForExistence(timeout: 3))
+        openRecent.hover()
+
+        XCTAssertTrue(
+            app.menuBars.menuItems.matching(
+                NSPredicate(format: "title CONTAINS 'History fixture'")
+            ).firstMatch.waitForExistence(timeout: 3),
+            "the seeded fixture session should be offered"
+        )
     }
 
     // 🚫 RT-76.6, removed by #88. Its identifier is not reused.
@@ -1114,46 +1223,15 @@ final class SuperscaleAppUITests: XCTestCase {
     // a documented flat rate, covered by AC87.7. AC76.3's remaining coverage is RT-76.5, and the
     // criterion itself is superseded when the cost-confirmation policy goes.
 
-    // RT-77.5: History exposes filters and selected-session actions.
-    func test_history_workspace_controls_RT77_5() {
-        app.staticTexts["modeHistory"].click()
-        attachScreenshot(named: "History workspace")
-
-        XCTAssertTrue(element(identifier: "historyFilter").waitForExistence(timeout: 2)
-                      || app.buttons["All"].exists
-                      || app.staticTexts["All"].exists)
-        XCTAssertTrue(element(identifier: "historySessionList").exists
-                      || app.staticTexts["No history selected"].exists)
-        XCTAssertTrue(element(identifier: "historySearchField").exists)
-        XCTAssertTrue(element(identifier: "historyOpenInGenerate").exists)
-        XCTAssertTrue(element(identifier: "historySendToUpscale").exists)
-        XCTAssertTrue(element(identifier: "historySaveAs").exists)
-        XCTAssertTrue(element(identifier: "historyReveal").exists)
-    }
-
-    // RT-77.6
-    func test_history_fixtureEnablesSessionActions() {
-        app.staticTexts["modeHistory"].click()
-        let fixture = app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'History fixture' OR label CONTAINS 'History fixture'")
-        ).firstMatch
-        XCTAssertTrue(fixture.waitForExistence(timeout: 5))
-        fixture.click()
-
-        XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS 'xai/grok-imagine-image' OR label CONTAINS 'xai/grok-imagine-image'")
-        ).firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts.matching(
-            NSPredicate(format: "value CONTAINS '$0.01' OR label CONTAINS '$0.01'")
-        ).firstMatch.exists)
-
-        XCTAssertTrue(app.buttons["historyOpenInGenerate"].isEnabled)
-        XCTAssertTrue(app.buttons["historySendToUpscale"].isEnabled)
-        XCTAssertTrue(app.buttons["historySaveAs"].isEnabled)
-        XCTAssertTrue(app.buttons["historyReveal"].isEnabled)
-        app.buttons["historyOpenInGenerate"].click()
-        let prompt = element(identifier: "generationPromptField")
-        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
-        XCTAssertTrue(textContent(of: prompt).contains("History fixture"))
-    }
+    // 🚫 RT-77.5 and RT-77.6, removed by #87. Their identifiers are not reused.
+    //
+    // Both drove the History workspace: its filter control, its session list, its search field and
+    // its four session actions. Section 3.9 removes History as a surface. What a user wants
+    // mid-session is the iteration in front of them, which the lock chain gives them in slice 9b;
+    // reaching older work is what `File > Open Recent` is for, and it is the native answer.
+    //
+    // Superseded behaviour rather than violated behaviour. Session *storage* is untouched and its
+    // criteria still hold; what goes is the place it was browsed. AC87.9 covers the replacement,
+    // with RT-87.21, RT-87.22, RT-87.32 and RT-87.33 asserting ordering, reachability, the cap and
+    // a session whose image has been deleted.
 }

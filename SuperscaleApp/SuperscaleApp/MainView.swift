@@ -1,5 +1,5 @@
-// ABOUTME: Main window view for the Superscale GUI.
-// ABOUTME: Contains drag-and-drop target, model picker, result display, and progress overlay.
+// ABOUTME: The single Superscale workspace: the image on the canvas, the filters beside it.
+// ABOUTME: Holds the base image a filter reads and the candidate a filter produced.
 
 import SuperscaleKit
 import SuperscaleUXCore
@@ -8,14 +8,14 @@ import SwiftUI
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @ObservedObject var settingsState: GenerationSettingsState
-    @ObservedObject var pricingCoordinator: GenerationPricingCoordinator
-    @ObservedObject var accountCoordinator: GenerationAccountCoordinator
-    @StateObject private var navigation = AppNavigation()
     @StateObject private var generationCoordinator: GenerationCoordinator
+    @State private var selection = FilterSelection()
     @State private var showAbout = false
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
-    @State private var reopenedSession: GenerationSessionRecord?
+    @State private var didLoadDefaults = false
+    /// The image a filter reads. Never the candidate, and never the upscaled rendering.
+    @State private var baseImageURL: URL?
 
     private let sessionStore: GenerationSessionStore
 
@@ -23,14 +23,10 @@ struct MainView: View {
         viewModel: UpscaleViewModel,
         settingsState: GenerationSettingsState,
         generationCoordinator: GenerationCoordinator? = nil,
-        pricingCoordinator: GenerationPricingCoordinator? = nil,
-        accountCoordinator: GenerationAccountCoordinator? = nil,
         sessionStore: GenerationSessionStore? = nil
     ) {
         self.viewModel = viewModel
         self.settingsState = settingsState
-        self.pricingCoordinator = pricingCoordinator ?? GenerationPricingCoordinator()
-        self.accountCoordinator = accountCoordinator ?? GenerationAccountCoordinator()
         _generationCoordinator = StateObject(
             wrappedValue: generationCoordinator
                 ?? GenerationCoordinator(outputDirectory: V2AppPaths.generated)
@@ -41,147 +37,151 @@ struct MainView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            NavigationSplitView {
-                sidebar
-            } detail: {
-                workspace
+            toolbar
+            Divider()
+            HStack(spacing: 0) {
+                canvas
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityIdentifier("workspaceCanvas")
+                Divider()
+                FilterPanel(
+                    selection: $selection,
+                    catalogueFailure: settingsState.lastError,
+                    isGenerationConfigured: settingsState.isGenerationConfigured,
+                    hasWorkingImage: baseImageURL != nil,
+                    isApplying: generationCoordinator.phase == .generating,
+                    onApply: applyFilter,
+                    onCancel: generationCoordinator.cancel,
+                    onOpenSettings: openSettings
+                )
             }
             Divider()
             statusBar
         }
         .navigationTitle(windowTitle)
+        .onAppear(perform: loadDefaults)
+        .onChange(of: viewModel.inputURL) { _, url in
+            // An image arriving by any route becomes the base a filter reads.
+            if let url, url != candidateURL { baseImageURL = url }
+        }
+        .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
         .alert("Error", isPresented: showError, actions: {
             Button("OK") { viewModel.errorMessage = nil }
         }, message: {
             Text(viewModel.errorMessage ?? "")
         })
-        .onChange(of: viewModel.resultData) { _, data in
-            associateCompletedUpscale(data)
-        }
     }
 
-    private var sidebar: some View {
-        List(selection: selectedMode) {
-            Section("Superscale") {
-                ForEach(AppMode.allCases) { mode in
-                    Label(mode.rawValue, systemImage: icon(for: mode))
-                        .tag(mode)
-                        .accessibilityIdentifier("mode\(mode.rawValue)")
-                }
-            }
-        }
-        .listStyle(.sidebar)
-        .navigationSplitViewColumnWidth(min: 150, ideal: 180, max: 220)
-    }
+    // MARK: - Canvas
 
     @ViewBuilder
-    private var workspace: some View {
-        switch navigation.selectedMode {
-        case .upscale:
-            upscaleWorkspace
-        case .generate:
-            GenerateView(
-                settings: settingsState,
-                coordinator: generationCoordinator,
-                pricing: pricingCoordinator,
-                sessionStore: sessionStore,
-                reopenedSession: reopenedSession,
-                onSendToUpscale: sendToUpscale,
-                onOpenSettings: { navigation.select(.settings) }
-            )
-        case .history:
-            HistoryView(
-                store: sessionStore,
-                onOpenInGenerate: { session in
-                    reopenedSession = session
-                    navigation.select(.generate)
-                },
-                onSendToUpscale: { session in
-                    if let source = session.upscaleSource { sendToUpscale(source) }
-                }
-            )
-        case .settings:
-            SettingsView(
-                state: settingsState,
-                pricing: pricingCoordinator,
-                account: accountCoordinator
-            )
-        }
-    }
-
-    private func sendToUpscale(_ source: GUIUpscaleSource) {
-        let preferredModel = settingsState.defaultUpscaleModelID
-        if preferredModel == "auto" || ModelRegistry.model(named: preferredModel) != nil {
-            viewModel.selectedModelName = preferredModel
-        }
-        // The source carries its own attribution. Substituting the most recent session for a
-        // source that has none is attribution by timing, which is the defect this closes.
-        viewModel.upscale(source)
-        navigation.select(.upscale)
-    }
-
-    /// Writes a completed upscale back to the session its input came from.
-    ///
-    /// Attribution reads the input the result was produced from rather than a session identifier
-    /// held in view state, so an unrelated image dropped in the meantime cannot be recorded as
-    /// the output of a prompt.
-    private func associateCompletedUpscale(_ data: Data?) {
-        guard let data, let sessionID = viewModel.resultSource?.sessionID else { return }
-        do {
-            _ = try sessionStore.associateUpscaledAsset(
-                data,
-                fileExtension: "png",
-                withSessionID: sessionID
-            )
-        } catch {
-            viewModel.errorMessage = "Could not update generation history: \(error.localizedDescription)"
-        }
-    }
-
-    private var upscaleWorkspace: some View {
-        VStack(spacing: 0) {
-            toolbar
-            Divider()
-            ZStack(alignment: .top) {
-                content
-                if !infoPanelDismissed && !viewModel.showComparison {
-                    InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
-                }
-            }
-        }
-        .onChange(of: viewModel.selectedModelName) { infoPanelDismissed = false }
-        .onChange(of: viewModel.scaleSelection) { infoPanelDismissed = false }
-        .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
-        .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
-    }
-
-    private var selectedMode: Binding<AppMode?> {
-        Binding(
-            get: { navigation.selectedMode },
-            set: { mode in
-                if let mode {
-                    DispatchQueue.main.async {
-                        navigation.select(mode)
+    private var canvas: some View {
+        if viewModel.isProcessing {
+            ProgressOverlay(message: viewModel.progressMessage)
+        } else if let upscaled = viewModel.result {
+            if viewModel.showComparison, let original = viewModel.originalImage {
+                ComparisonView(original: original, upscaled: upscaled)
+                    .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDropProviders)
+            } else {
+                ZStack(alignment: .top) {
+                    resultView(image: upscaled)
+                    if !infoPanelDismissed {
+                        InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
                     }
                 }
             }
-        )
-    }
-
-    private func icon(for mode: AppMode) -> String {
-        switch mode {
-        case .upscale:
-            return "arrow.up.left.and.arrow.down.right"
-        case .generate:
-            return "sparkles"
-        case .history:
-            return "clock.arrow.circlepath"
-        case .settings:
-            return "gearshape"
+        } else {
+            DropTargetView(onDrop: viewModel.handleDrop)
         }
     }
 
-    // MARK: - Toolbar
+    private func resultView(image: NSImage) -> some View {
+        ZStack {
+            Image(nsImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .padding(16)
+
+            DropTargetView(onDrop: viewModel.handleDrop)
+                .opacity(0.01)
+        }
+    }
+
+    // MARK: - Applying a filter
+
+    /// The candidate a filter produced, shown on the canvas while the base stays put.
+    ///
+    /// Applying always reads the base, so a second filter replaces this rather than compounding
+    /// on it. Promoting a candidate to base is what Lock does, and Lock is slice 9b.
+    private var candidateURL: URL? {
+        generationCoordinator.output?.localURL
+    }
+
+    private var coordinatorOutputPath: String? {
+        candidateURL?.path
+    }
+
+    private func applyFilter() {
+        guard let baseImageURL else { return }
+        do {
+            let reference = try dataURL(for: baseImageURL)
+            var workspace = WorkspaceModel(
+                filters: selection.filters,
+                workingImage: WorkingImage(referenceValue: reference, hasWorkingImage: true),
+                isGenerationConfigured: settingsState.isGenerationConfigured
+            )
+            workspace.selection = selection
+            guard let request = workspace.applyRequest() else { return }
+            generationCoordinator.start(request, apiKey: settingsState.generationKey)
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Sends a filter result to the local upscale, so the canvas shows it the way it shows
+    /// anything else: upscaled when a scale is selected, untouched when it is not.
+    private func adoptFilterResult() {
+        // The coordinator's own input carries its attribution. Constructing one here from a
+        // location would be attribution by timing, which #86 closed.
+        guard let source = generationCoordinator.upscaleSource else { return }
+        upscale(source, arrival: .filterResult)
+    }
+
+    private func upscale(_ source: GUIUpscaleSource, arrival: ImageArrival) {
+        viewModel.selectedModelName = WorkspaceModel.resolvedUpscaleModelID(
+            preferred: settingsState.defaultUpscaleModelID,
+            arrival: arrival,
+            isKnown: { ModelRegistry.model(named: $0) != nil }
+        )
+        viewModel.upscale(source)
+    }
+
+    private func dataURL(for url: URL) throws -> String {
+        let data = try Data(contentsOf: url)
+        let mediaType: String
+        switch url.pathExtension.lowercased() {
+        case "jpg", "jpeg": mediaType = "image/jpeg"
+        case "heic": mediaType = "image/heic"
+        case "tif", "tiff": mediaType = "image/tiff"
+        default: mediaType = "image/png"
+        }
+        return "data:\(mediaType);base64,\(data.base64EncodedString())"
+    }
+
+    private func loadDefaults() {
+        guard !didLoadDefaults else { return }
+        didLoadDefaults = true
+        selection = FilterSelection(filters: settingsState.promptPackCatalogue.packs)
+        if let defaultFilterID = settingsState.defaultPromptPackID {
+            selection.choose(defaultFilterID)
+        }
+    }
+
+    private func openSettings() {
+        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+    }
+
+    // MARK: - Toolbar and status
 
     private var toolbar: some View {
         HStack(spacing: 12) {
@@ -244,9 +244,6 @@ struct MainView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer()
-            Text(navigation.selectedMode.rawValue)
-                .font(.caption)
-                .foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 12)
         .frame(height: 26)
@@ -257,16 +254,16 @@ struct MainView: View {
         if viewModel.isProcessing { return viewModel.progressMessage }
         switch generationCoordinator.phase {
         case .generating:
-            return "Generating with FAL"
-        case .failed:
-            return "Generation needs attention"
+            return "Applying filter"
+        case .failed(let message):
+            return message
         case .cancelled:
-            return "Generation cancelled"
+            return "Filter cancelled"
         case .succeeded:
-            return "Generated image ready"
+            return "Filter applied"
         case .idle:
             return settingsState.isGenerationConfigured
-                ? "Ready · FAL configured · local upscale available"
+                ? "Ready · filters available · local upscale available"
                 : "Ready · local upscale available · FAL key not configured"
         }
     }
@@ -276,40 +273,6 @@ struct MainView: View {
         if case .failed = generationCoordinator.phase { return .red }
         return .green
     }
-
-    // MARK: - Content
-
-    @ViewBuilder
-    private var content: some View {
-        if viewModel.isProcessing {
-            ProgressOverlay(message: viewModel.progressMessage)
-        } else if let upscaled = viewModel.result {
-            if viewModel.showComparison, let original = viewModel.originalImage {
-                ComparisonView(original: original, upscaled: upscaled)
-                    .onDrop(of: [.fileURL], isTargeted: nil) { providers in
-                        handleDropProviders(providers)
-                    }
-            } else {
-                resultView(image: upscaled)
-            }
-        } else {
-            DropTargetView(onDrop: viewModel.handleDrop)
-        }
-    }
-
-    private func resultView(image: NSImage) -> some View {
-        ZStack {
-            Image(nsImage: image)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .padding(16)
-
-            DropTargetView(onDrop: viewModel.handleDrop)
-                .opacity(0.01)
-        }
-    }
-
-    // MARK: - Face enhance button
 
     private var faceEnhanceButton: some View {
         Button {
@@ -371,22 +334,16 @@ struct MainView: View {
 
 #Preview("Empty") {
     MainView(viewModel: UpscaleViewModel(), settingsState: previewSettingsState())
-        .frame(width: 700, height: 500)
-}
-
-#Preview("Processing") {
-    let vm = UpscaleViewModel()
-    vm.isProcessing = true
-    vm.progressMessage = "Processing tile 2 of 4..."
-    return MainView(viewModel: vm, settingsState: previewSettingsState())
-        .frame(width: 700, height: 500)
+        .frame(width: 900, height: 600)
 }
 
 @MainActor
 private func previewSettingsState() -> GenerationSettingsState {
     GenerationSettingsState(
-        credentials: GenerationCredentialService(storage: KeychainCredentialStorage(service: "org.tigoss.superscale.preview")),
+        credentials: GenerationCredentialService(
+            storage: KeychainCredentialStorage(service: "org.tigoss.superscale.preview")
+        ),
         preferencesStore: GenerationPreferencesStore(),
-        promptPackCatalogue: (try? PromptPackCatalogue.bundled()) ?? PromptPackCatalogue(packs: [])
+        loadingCatalogue: { try PromptPackCatalogue.bundled() }
     )
 }

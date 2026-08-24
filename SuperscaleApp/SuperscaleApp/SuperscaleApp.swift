@@ -6,6 +6,21 @@ import FalGenerationKit
 import SuperscaleKit
 import SuperscaleUXCore
 
+/// Where the application keeps what it produces.
+///
+/// Lived in `GenerateView` until #87 deleted that surface. Application-level locations belong
+/// with the application rather than with any one view.
+enum V2AppPaths {
+    static var root: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        return base.appendingPathComponent("Superscale", isDirectory: true)
+    }
+
+    static var generated: URL { root.appendingPathComponent("Generated", isDirectory: true) }
+    static var history: URL { root.appendingPathComponent("History", isDirectory: true) }
+}
+
 @main
 struct SuperscaleApp: App {
     @StateObject private var viewModel = UpscaleViewModel()
@@ -71,8 +86,6 @@ struct SuperscaleApp: App {
                 viewModel: viewModel,
                 settingsState: settingsState,
                 generationCoordinator: generationCoordinator,
-                pricingCoordinator: pricingCoordinator,
-                accountCoordinator: accountCoordinator,
                 sessionStore: sessionStore
             )
                 .frame(minWidth: 780, minHeight: 500)
@@ -85,6 +98,59 @@ struct SuperscaleApp: App {
                 .keyboardShortcut("s", modifiers: [.command])
                 .disabled(viewModel.result == nil)
             }
+            // Prior sessions reach the user here rather than through a History surface. What a
+            // user wants mid-session is the iteration in front of them; reaching older work is
+            // what the File menu is for, and it is the native answer.
+            CommandGroup(after: .newItem) {
+                Menu("Open Recent") {
+                    if recentSessions.isEmpty {
+                        Text("No Recent Sessions")
+                    } else {
+                        ForEach(recentSessions) { session in
+                            Button(recentTitle(session)) { open(session) }
+                        }
+                    }
+                }
+                .accessibilityIdentifier("openRecentMenu")
+            }
+        }
+
+        // Settings is a scene, not a mode. Removing modes forces this, and it is the correct
+        // destination anyway: Cmd+comma, its own window, and the workspace stays where it was.
+        Settings {
+            SettingsView(
+                state: settingsState,
+                pricing: pricingCoordinator,
+                account: accountCoordinator
+            )
+            .frame(minWidth: 620, minHeight: 460)
+        }
+    }
+
+    private var recentSessions: [GenerationSessionRecord] {
+        let sessions = (try? sessionStore.sessions()) ?? []
+        return WorkspaceModel.recentSessions(from: sessions)
+    }
+
+    private func recentTitle(_ session: GenerationSessionRecord) -> String {
+        let prompt = session.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let firstLine = prompt.split(separator: "\n").first.map(String.init) ?? prompt
+        return firstLine.count > 60 ? String(firstLine.prefix(60)) + "…" : firstLine
+    }
+
+    private func open(_ session: GenerationSessionRecord) {
+        do {
+            // Resolved first so a session whose image has been deleted reports why. The source
+            // itself comes from the record, which carries its own attribution.
+            _ = try WorkspaceModel.workingImage(for: session)
+            guard let source = session.upscaleSource else {
+                throw WorkspaceError.sessionImageMissing(session.generatedAssetPath ?? "unknown path")
+            }
+            viewModel.upscale(source)
+        } catch {
+            // Session assets live in Application Support, which users clear out. A menu entry
+            // whose image is gone reports why rather than doing nothing.
+            viewModel.errorMessage = error.localizedDescription
         }
     }
 }
