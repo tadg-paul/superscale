@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC73.5 from #73 on 2026-08-24, with AC73.6 backfilled beside it by #88
+Last migrated: AC87.12 from #87 on 2026-08-24
 
 ---
 
@@ -514,5 +514,129 @@ Last migrated: AC73.5 from #73 on 2026-08-24, with AC73.6 backfilled beside it b
   carries no container identifier and whose button was always reachable. RT-88.3 states the rule
   rather than the two instances, because the same mistake elsewhere in the panel would leave RT-88.1
   and RT-88.2 passing.
+
+**Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
+
+---
+
+## The single workspace
+
+### AC87.1 - The application presents one workspace, with no navigation between upscaling and filtering as peer surfaces within the window.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.1: the running application shows no mode list
+  - ✅ RT-87.2: the workspace shows the canvas and the filter panel together
+  - ✅ RT-87.3: no navigable surface named Generate, History or Settings exists in the window
+- Note: `AppMode` and `AppNavigation` are deleted rather than reduced to a single case. RT-70.4 and
+  RT-70.5, which exercised them, are marked removed with their identifiers retired.
+
+### AC87.2 - The working image occupies the canvas whether or not an upscale is selected, and filter controls occupy a panel beside it rather than above it.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.4: at the declared minimum window size, the canvas occupies at least 60% of the width
+  - ✅ RT-87.5: the filter panel and the canvas are visible at the same time
+  - ✅ RT-87.35: an image imported with no scale selected occupies the canvas
+- Note: RT-87.35 was added from a defect found in use. With the scale off there is no upscaled
+  output, by AC82.6, and the canvas drew only the upscaled result, so an image imported in that
+  state loaded, set the base, and drew nothing. Filtering without upscaling is a use in its own
+  right. RT-87.4 asserts at the minimum window size because any larger window makes dominance
+  easier.
+
+### AC87.3 - Settings opens as a macOS Settings scene rather than replacing the workspace.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.6: the Settings scene opens and the workspace remains behind it
+  - ✅ RT-87.7: the workspace contains no Settings surface
+
+### AC87.4 - Every category the catalogue declares narrows the filter list in one action, widens it again in one, and is reachable alongside a search that cuts across categories; a catalogue that fails to load leaves the panel stating why.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.8: every category the catalogue declares is offered as a one-click narrowing
+  - ✅ RT-87.9: choosing a category narrows the list to the filters that declare it
+  - ✅ RT-87.36: choosing the active category again clears the narrowing
+  - ✅ RT-87.37: search reaches across categories
+  - ✅ RT-87.10: with no category chosen, every filter the catalogue loads is offered
+  - ✅ RT-87.31: when the catalogue fails to load, the panel is given the reason to state
+- Note: reworded after the first implementation was rejected on sight. It read "every bundled
+  filter is reachable within its category", which section headings satisfy: 86 filters in one
+  scroll with headings between them is grouping rather than choosing. A filter bar rather than a
+  drill-down, because the requirement is flexibility with few clicks rather than a fixed number of
+  steps.
+
+### AC87.5 - Choosing a filter fills the editable prompt area and issues no request; applying sends that text.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.11: choosing a filter fills the prompt area
+  - ✅ RT-87.12: choosing a filter issues no request
+  - ✅ RT-87.13: applying issues one request carrying the prompt area's text
+
+### AC87.6 - Applying a filter uses the working image at its own resolution as the single reference, never the upscaled rendering of it, and no separate reference wells exist.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.14: the reference is the image as imported rather than its upscaled rendering
+  - ✅ RT-87.15: the workspace presents no reference well
+  - ✅ RT-87.24: with an upscale rendered, an applied filter still carries the unupscaled image
+- Note: supersedes AC75.1's "up to three reference image wells". The canvas shows the upscaled
+  rendering by default, so sending what is on screen is the obvious implementation and would
+  breach AC79.2 and invariant I1.
+
+### AC87.7 - The cost shown beside Apply is the documented flat rate, obtained without contacting the provider.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.16: the cost beside Apply reads the documented rate
+  - ✅ RT-87.17: the workspace issues no pricing request
+
+### AC87.8 - An upscale honours the configured default upscale model however the image arrived, and falls back to automatic selection when that model no longer exists.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.18: a dropped image upscales with the configured default model
+  - ✅ RT-87.19: an image from a filter result upscales with the same model
+  - ✅ RT-87.20: a model chosen in the toolbar overrides the default
+  - ✅ RT-87.34: a stored default naming no real model falls back to automatic selection
+- Note: closes D8. Both arrival paths resolve through one function, with the arrival as a
+  parameter so a future divergence has to be written deliberately rather than left out.
+
+### AC87.9 - Prior generation sessions are reachable from the File menu, most recent first and bounded to the ten most recent, and no History surface exists.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.21: recent sessions are listed most recent first
+  - ✅ RT-87.22: the File menu offers the seeded session
+  - ✅ RT-87.23: the workspace contains no History surface
+  - ✅ RT-87.32: at most ten sessions are listed
+  - ✅ RT-87.33: a session whose image is missing is reported rather than failing silently
+- Note: supersedes #77's History surface criteria. Session storage is untouched; what goes is the
+  place it was browsed. RT-77.5 and RT-77.6 are marked removed with their identifiers retired.
+
+### AC87.10 - With no working image, the canvas offers the import target and applying is unavailable.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.25: on launch with no image, the canvas shows the import target
+  - ✅ RT-87.26: with no working image, applying is unavailable however the prompt area is filled
+
+### AC87.11 - Without a generation key, filters are unavailable with a route to Settings, and local upscaling is unaffected.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.27: with no key, applying is unavailable and the panel offers a route to Settings
+  - ✅ RT-87.28: with no key, an image still imports and upscales
+- Note: section 2.8 of the implementation guide requires local upscaling to work fully when
+  filters are unavailable.
+
+### AC87.12 - An application in flight can be cancelled, and cancelling leaves the working image as it was.
+- Introduced: #87 (closed 2026-08-24)
+- Migrated: 2026-08-24
+- Tests:
+  - ✅ RT-87.29: an application in flight offers a cancel action
+  - ✅ RT-87.30: cancelling leaves the working image unchanged and produces no candidate
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
