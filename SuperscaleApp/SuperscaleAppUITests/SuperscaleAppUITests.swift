@@ -7,8 +7,17 @@ final class SuperscaleAppUITests: XCTestCase {
 
     let app = XCUIApplication()
 
-    /// Absolute path to a small test image for upscale tests.
-    /// Uses icon3.png (224×207, smallest test image) for speed.
+    /// Absolute path to the test image the GUI suite drives.
+    ///
+    /// `toby-small.jpg`, 240×320: photographic content with a face in it, which `icon3.png` was
+    /// not — an icon has no photographic texture for the upscale to work on and no face for face
+    /// enhancement to find, so a test could pass against output that would be visibly wrong on a
+    /// real photograph.
+    ///
+    /// Small deliberately. The full `toby.jpg` is 605×806, which at 4× is an 8-megapixel Core ML
+    /// upscale *per test*, across the fifteen or so tests here that upscale. Real content matters;
+    /// paying twenty minutes for it does not. `toby.jpg` at full size is what the SSIM quality
+    /// gate and the visual tests use, where the point is the output rather than the interface.
     private var testImagePath: String {
         // The test runner's working directory varies, so use an absolute path
         // derived from the source file location.
@@ -17,7 +26,7 @@ final class SuperscaleAppUITests: XCTestCase {
             .deletingLastPathComponent()  // SuperscaleAppUITests/
             .deletingLastPathComponent()  // SuperscaleApp/
             .deletingLastPathComponent()  // project root
-        return projectRoot.appendingPathComponent("Tests/images/icon3.png").path
+        return projectRoot.appendingPathComponent("Tests/images/toby-small.jpg").path
     }
 
     private var projectRoot: URL {
@@ -242,6 +251,40 @@ final class SuperscaleAppUITests: XCTestCase {
     /// Addressed by the menu item rather than by window title: the title a `Settings` scene gives
     /// its window is the platform's business and has changed across macOS releases, whereas the
     /// menu item is the route a user actually takes.
+    // RT-90.18: turning the scale off and on again shows the upscale.
+    //
+    // The reported sequence: turn the upscale off, drop an image, turn it on — which works — then
+    // off, then on again, and nothing happens.
+    func test_turningTheScaleOffAndOnAgainUpscales_RT090_18() {
+        let scaleFour = app.buttons["scale4x"]
+        XCTAssertTrue(scaleFour.waitForExistence(timeout: 5))
+
+        scaleFour.click()                       // off
+        dismissInfoPanelIfPresent()
+        XCTAssertTrue(loadTestImage(), "an image should import with no scale selected")
+        XCTAssertTrue(element(identifier: "workingImage").waitForExistence(timeout: 10))
+
+        scaleFour.click()                       // on
+        XCTAssertTrue(waitForUpscaleComplete(), "the first upscale should complete")
+
+        scaleFour.click()                       // off again
+        XCTAssertFalse(
+            app.buttons["saveButton"].waitForExistence(timeout: 2),
+            "turning the scale off releases the upscaled output"
+        )
+
+        scaleFour.click()                       // on again
+        XCTAssertTrue(
+            waitForUpscaleComplete(timeout: 60),
+            "choosing the same scale again should upscale again rather than doing nothing"
+        )
+    }
+
+    private func dismissInfoPanelIfPresent() {
+        let dismiss = app.buttons["infoPanelDismiss"]
+        if dismiss.waitForExistence(timeout: 2) { dismiss.click() }
+    }
+
     // RT-89.27: with no candidate, the filter toggle is unavailable.
     //
     // There is nothing to compare the base against until a filter has produced something.

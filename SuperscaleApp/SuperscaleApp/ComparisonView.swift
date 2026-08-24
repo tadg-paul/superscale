@@ -1,58 +1,37 @@
-// ABOUTME: Before/after comparison view with magnifier loupe and slider modes.
-// ABOUTME: Default magnifier mode shows a split loupe at the cursor; slider mode overlays with a divider.
+// ABOUTME: Before/after comparison: a curtain divider dragged across the image.
+// ABOUTME: The original is left of the divider, the derived image right of it.
 
 import SwiftUI
 
-/// Comparison mode for the before/after view.
-enum ComparisonMode: String {
-    case magnifier
-    case slider
-}
-
+/// The comparison, which is a curtain and nothing else.
+///
+/// A magnifier loupe was the default until #90 removed it. The loupe hid the system cursor and
+/// drew its own at the pointer, which is brittle and reads as such in use; a divider dragged
+/// across the image is the instrument this comparison wants. `MagnifierView` is deleted rather
+/// than left unreferenced, so a loupe returning would be a compile error rather than a review
+/// question.
 struct ComparisonView: View {
     let original: NSImage
     let upscaled: NSImage
 
-    @State private var comparisonMode: ComparisonMode = .magnifier
-
-    // Magnifier state
-    @State private var mousePosition: CGPoint?
-    @State private var cursorHidden = false
-
-    // Slider state
     @State private var dividerPosition: CGFloat = 0.35
     @State private var zoom: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var dragStart: CGSize = .zero
     @State private var scrollMonitor: Any?
 
-    private static let loupeDiameter: CGFloat = 200
-    private static let loupeMagnification: CGFloat = 4.0
-
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
 
             ZStack {
-                switch comparisonMode {
-                case .magnifier:
-                    magnifierContent(size: size)
-                case .slider:
-                    sliderContent(size: size)
-                }
+                sliderContent(size: size)
 
-                // Controls (top-right): mode toggle + zoom (slider mode only)
                 VStack {
                     HStack {
                         Spacer()
-                        VStack(spacing: 6) {
-                            modeToggle
-
-                            if comparisonMode == .slider {
-                                zoomControls
-                            }
-                        }
-                        .padding(12)
+                        zoomControls
+                            .padding(12)
                     }
                     Spacer()
                 }
@@ -60,88 +39,7 @@ struct ComparisonView: View {
         }
     }
 
-    // MARK: - Mode toggle
-
-    private var modeToggle: some View {
-        Button {
-            let next: ComparisonMode = comparisonMode == .magnifier ? .slider : .magnifier
-            switchToMode(next)
-        } label: {
-            Image(systemName: comparisonMode == .magnifier
-                  ? "magnifyingglass" : "slider.horizontal.below.rectangle")
-                .font(.system(size: 14, weight: .semibold))
-                .frame(width: 32, height: 28)
-        }
-        .buttonStyle(.bordered)
-        .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityIdentifier("comparisonModeToggle")
-    }
-
-    private func switchToMode(_ mode: ComparisonMode) {
-        if comparisonMode != mode {
-            // Clean up current mode state
-            if comparisonMode == .magnifier {
-                restoreCursor()
-            } else {
-                removeScrollMonitor()
-            }
-            comparisonMode = mode
-        }
-    }
-
-    // MARK: - Magnifier mode
-
-    private func magnifierContent(size: CGSize) -> some View {
-        ZStack {
-            // Full upscaled image at best-fit
-            Image(nsImage: upscaled)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: size.width, height: size.height)
-
-            // Loupe overlay at cursor position
-            if let pos = mousePosition,
-               isMouseOverImage(
-                   position: pos, imageSize: upscaled.size, viewSize: size) {
-                MagnifierView(
-                    original: original,
-                    upscaled: upscaled,
-                    position: pos,
-                    viewSize: size,
-                    diameter: Self.loupeDiameter,
-                    magnification: Self.loupeMagnification)
-                .position(pos)
-            }
-        }
-        .onContinuousHover { phase in
-            switch phase {
-            case .active(let location):
-                let overImage = isMouseOverImage(
-                    position: location, imageSize: upscaled.size, viewSize: size)
-                mousePosition = overImage ? location : nil
-                if overImage && !cursorHidden {
-                    NSCursor.hide()
-                    cursorHidden = true
-                } else if !overImage && cursorHidden {
-                    NSCursor.unhide()
-                    cursorHidden = false
-                }
-            case .ended:
-                mousePosition = nil
-                restoreCursor()
-            }
-        }
-        .onDisappear { restoreCursor() }
-    }
-
-    private func restoreCursor() {
-        if cursorHidden {
-            NSCursor.unhide()
-            cursorHidden = false
-        }
-    }
-
-    // MARK: - Slider mode
+    // MARK: - The curtain
 
     private func sliderContent(size: CGSize) -> some View {
         let dividerX = size.width * dividerPosition

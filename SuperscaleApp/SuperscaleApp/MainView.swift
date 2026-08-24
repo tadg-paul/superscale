@@ -95,34 +95,46 @@ struct MainView: View {
     private var canvas: some View {
         ZStack(alignment: .top) {
             canvasContent
-            // The info panel sits over the canvas in every state, including before an image
-            // arrives, which is where it explains what the current model and scale will do.
+            // Progress sits *over* the image rather than in place of it. Replacing the picture
+            // with a spinner threw away the thing the user came for and made a drop look as
+            // though it had been ignored.
+            if viewModel.isProcessing {
+                ProgressOverlay(message: viewModel.progressMessage)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.top, 24)
+                    .accessibilityIdentifier("workingIndicator")
+            }
             if !infoPanelDismissed && !viewModel.showComparison {
                 InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
             }
         }
     }
 
+    /// What the canvas draws, decided by `CanvasContent`: the base always, the derivation when one
+    /// exists and is what the user has chosen to look at, and the curtain when there are two
+    /// different images to compare.
     @ViewBuilder
     private var canvasContent: some View {
-        if viewModel.isProcessing {
-            ProgressOverlay(message: viewModel.progressMessage)
-        } else if let upscaled = viewModel.result {
-            if viewModel.showComparison, let original = viewModel.originalImage {
-                ComparisonView(original: original, upscaled: upscaled)
+        if let base = viewModel.originalImage {
+            if viewModel.showComparison, let derived = derivedImage {
+                ComparisonView(original: base, upscaled: derived)
                     .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDropProviders)
             } else {
-                resultView(image: upscaled)
+                resultView(image: displayedImage ?? base)
             }
-        } else if let original = viewModel.originalImage {
-            // No upscale selected, so there is no upscaled output to show — AC82.6 — but there is
-            // still a working image, and filtering it is a legitimate thing to do on its own.
-            // Drawing only the upscaled result made the canvas look as though the drop had been
-            // ignored.
-            resultView(image: original)
         } else {
             DropTargetView(onDrop: viewModel.handleDrop)
         }
+    }
+
+    /// The output of the last operation, when there is one.
+    private var derivedImage: NSImage? {
+        viewModel.result
+    }
+
+    /// The image on the canvas: the derivation unless the user has asked for the base.
+    private var displayedImage: NSImage? {
+        workspace.showsBase ? viewModel.originalImage : (derivedImage ?? viewModel.originalImage)
     }
 
     private func resultView(image: NSImage) -> some View {
