@@ -1265,7 +1265,15 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     // RT-87.11: choosing a filter fills the prompt area.
+    //
+    // Narrowed to its category first, which is what the chips are for and what a user does: with
+    // all 86 listed, a row far down the list is in the tree but scrolled out of view, so it has no
+    // hit point.
     func test_choosingAFilterFillsThePromptArea_RT087_11() {
+        let lighting = element(identifier: "category-lighting")
+        XCTAssertTrue(lighting.waitForExistence(timeout: 5))
+        lighting.click()
+
         let filter = element(identifier: "filter-image-lighting-film-noir")
         XCTAssertTrue(filter.waitForExistence(timeout: 5))
         filter.click()
