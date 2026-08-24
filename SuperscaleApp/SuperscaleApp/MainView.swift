@@ -69,6 +69,12 @@ struct MainView: View {
             if let url, url != candidateURL { baseImageURL = url }
         }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
+        // A setting change makes the info panel's summary stale, so it comes back to say what the
+        // new setting will do.
+        .onChange(of: viewModel.selectedModelName) { infoPanelDismissed = false }
+        .onChange(of: viewModel.scaleSelection) { infoPanelDismissed = false }
+        .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
+        .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
         .alert("Error", isPresented: showError, actions: {
             Button("OK") { viewModel.errorMessage = nil }
         }, message: {
@@ -78,8 +84,19 @@ struct MainView: View {
 
     // MARK: - Canvas
 
-    @ViewBuilder
     private var canvas: some View {
+        ZStack(alignment: .top) {
+            canvasContent
+            // The info panel sits over the canvas in every state, including before an image
+            // arrives, which is where it explains what the current model and scale will do.
+            if !infoPanelDismissed && !viewModel.showComparison {
+                InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var canvasContent: some View {
         if viewModel.isProcessing {
             ProgressOverlay(message: viewModel.progressMessage)
         } else if let upscaled = viewModel.result {
@@ -87,12 +104,7 @@ struct MainView: View {
                 ComparisonView(original: original, upscaled: upscaled)
                     .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDropProviders)
             } else {
-                ZStack(alignment: .top) {
-                    resultView(image: upscaled)
-                    if !infoPanelDismissed {
-                        InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
-                    }
-                }
+                resultView(image: upscaled)
             }
         } else {
             DropTargetView(onDrop: viewModel.handleDrop)
