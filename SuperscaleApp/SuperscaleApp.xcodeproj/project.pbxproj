@@ -24,6 +24,7 @@
 		F100000D /* FaceModelDownloadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F200000D /* FaceModelDownloadView.swift */; };
 		F1000012 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000012 /* SettingsView.swift */; };
 		F1000013 /* FilterPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000013 /* FilterPanel.swift */; };
+		F1000014 /* LockChainStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000014 /* LockChainStrip.swift */; };
 		F1000010 /* SuperscaleKit in Frameworks */ = {isa = PBXBuildFile; productRef = F5000001 /* SuperscaleKit */; };
 		F1000011 /* SuperscaleUXCore in Frameworks */ = {isa = PBXBuildFile; productRef = F5000003 /* SuperscaleUXCore */; };
 		F1000030 /* SuperscaleAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2000030 /* SuperscaleAppUITests.swift */; };
@@ -48,6 +49,7 @@
 		F200000F /* LICENCE_CC_BY_NC_SA.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENCE_CC_BY_NC_SA.txt; sourceTree = "<group>"; };
 		F2000012 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		F2000013 /* FilterPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanel.swift; sourceTree = "<group>"; };
+		F2000014 /* LockChainStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockChainStrip.swift; sourceTree = "<group>"; };
 		F2000030 /* SuperscaleAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperscaleAppUITests.swift; sourceTree = "<group>"; };
 		F2000021 /* SuperscaleAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SuperscaleAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2000020 /* Superscale.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Superscale.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -92,6 +94,7 @@
 				F200000D /* FaceModelDownloadView.swift */,
 				F2000012 /* SettingsView.swift */,
 				F2000013 /* FilterPanel.swift */,
+				F2000014 /* LockChainStrip.swift */,
 				F2000008 /* Assets.xcassets */,
 				F4000004 /* Resources */,
 				F2000009 /* Superscale.entitlements */,
@@ -247,6 +250,7 @@
 				F100000D /* FaceModelDownloadView.swift in Sources */,
 				F1000012 /* SettingsView.swift in Sources */,
 				F1000013 /* FilterPanel.swift in Sources */,
+				F1000014 /* LockChainStrip.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

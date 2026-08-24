@@ -76,6 +76,15 @@ public struct Asset: Identifiable, Equatable, Sendable {
     public let pixelSize: CGSize
     public let parentID: UUID?
     public let provenance: Provenance?
+
+    /// How to name this asset back to the graph.
+    ///
+    /// `AssetReference` is deliberately not constructible from outside the package, so that a
+    /// caller cannot invent one for a file it happens to know about. An asset the graph has
+    /// already handed out is a different matter: it exists, so naming it is safe.
+    public var reference: AssetReference {
+        AssetReference(id: id)
+    }
 }
 
 public enum AssetGraphStage: Sendable {

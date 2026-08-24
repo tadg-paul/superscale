@@ -62,6 +62,13 @@ struct MainView: View {
                     onLock: lockCandidate
                 )
             }
+            if !workspace.lockedIterations.isEmpty {
+                Divider()
+                LockChainStrip(
+                    iterations: workspace.lockedIterations,
+                    onSelect: showIteration
+                )
+            }
             Divider()
             statusBar
         }
@@ -192,6 +199,18 @@ struct MainView: View {
         do {
             let locked = try workspace.lock()
             try display(locked)
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+        }
+    }
+
+    /// Shows a locked iteration, so an earlier step can be returned to and saved.
+    ///
+    /// Viewing does not move the base: the chain is a record of what was made, and looking at an
+    /// earlier entry is not the same as deciding to work from it again.
+    private func showIteration(_ reference: AssetReference) {
+        do {
+            try display(reference)
         } catch {
             viewModel.errorMessage = error.localizedDescription
         }
