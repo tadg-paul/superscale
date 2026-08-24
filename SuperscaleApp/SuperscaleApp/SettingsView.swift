@@ -9,8 +9,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var state: GenerationSettingsState
-    @ObservedObject var pricing: GenerationPricingCoordinator
-    @ObservedObject var account: GenerationAccountCoordinator
     @State private var localError: String?
     @State private var notice: String?
 
@@ -28,18 +26,16 @@ struct SettingsView: View {
                         save: saveGenerationKey,
                         clear: clearGenerationKey
                     )
-                    HStack {
-                        pricingSummary
-                            .accessibilityIdentifier("generationPricingSummary")
-                        Spacer()
-                        Button {
-                            Task { await pricing.refresh(modelID: state.defaultModelID, apiKey: state.generationKey) }
-                        } label: {
-                            Label("Check Pricing", systemImage: "dollarsign.circle")
-                        }
-                        .disabled(!state.isGenerationConfigured || pricing.state == .loading)
-                        .accessibilityIdentifier("checkPricingButton")
-                    }
+                    // 🚫 The pricing summary, the Check Pricing control, the account summary, the
+                    // Refresh Account control and the billing list are removed by #89. Section 6
+                    // of the implementation guide takes the pricing client, the account client,
+                    // the session cache and the cost-confirmation policy out of MVP scope: grok is
+                    // a known flat rate, held as a documented constant beside Apply. Controls left
+                    // in place would have gone on contacting a provider the MVP excludes, which is
+                    // what made the removal this slice's business rather than a tidy-up.
+                    //
+                    // This supersedes the "account state" part of AC73.5. The credential fields,
+                    // the defaults and the filter selection it also names are unaffected.
 
                     credentialRow(
                         title: "Account/admin key",
@@ -49,7 +45,6 @@ struct SettingsView: View {
                         save: saveAccountKey,
                         clear: clearAccountKey
                     )
-                    accountContent
                 }
 
                 Section("Defaults") {
@@ -191,76 +186,6 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var pricingSummary: some View {
-        switch pricing.state {
-        case .idle:
-            Text("Pricing not checked").foregroundStyle(.secondary)
-        case .loading:
-            Label("Checking pricing", systemImage: "hourglass")
-        case let .available(value):
-            Text("\(value.unitPrice.amount.formatted(.currency(code: value.unitPrice.currency))) per \(value.unitPrice.unit); typical call \(value.estimatedCost.formatted(.currency(code: value.currency)))")
-        case let .unavailable(message):
-            Label(message, systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    @ViewBuilder
-    private var accountContent: some View {
-        HStack {
-            accountSummary
-                .accessibilityIdentifier("accountSummaryState")
-            Spacer()
-            Button {
-                Task { await account.refresh(accountKey: state.accountAdministrationKey) }
-            } label: {
-                Label("Refresh Account", systemImage: "arrow.clockwise")
-            }
-            .disabled(!state.isAccountAdministrationConfigured || account.state == .loading)
-            .accessibilityIdentifier("refreshAccountButton")
-        }
-        // The row is a container, not an element. An accessibility identifier on a stack makes
-        // SwiftUI treat that stack as one element and absorb its children, which left the
-        // summary and the refresh button unreachable to VoiceOver and to anything else that
-        // addresses controls by identity. The pricing row above carries no identifier and its
-        // button was always reachable, which is what isolated this.
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("accountState")
-
-        if case let .available(summary) = account.state, !summary.billingEvents.isEmpty {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Recent billing").font(.headline)
-                ForEach(summary.billingEvents.prefix(5), id: \.requestID) { event in
-                    HStack {
-                        Text(event.endpointID).lineLimit(1)
-                        Spacer()
-                        Text(eventCost(event).formatted(.currency(code: summary.currency)))
-                            .monospacedDigit()
-                        Text(event.timestamp).foregroundStyle(.secondary).lineLimit(1)
-                    }
-                    .font(.caption)
-                }
-            }
-            .accessibilityIdentifier("billingEvents")
-        }
-    }
-
-    @ViewBuilder
-    private var accountSummary: some View {
-        switch account.state {
-        case .idle:
-            Text("Account not loaded").foregroundStyle(.secondary)
-        case .loading:
-            Label("Loading account", systemImage: "hourglass")
-        case let .available(summary):
-            Text("\(summary.username) · \(summary.balance.formatted(.currency(code: summary.currency))) balance · \(summary.recentUsageCost.formatted(.currency(code: summary.currency))) recent usage")
-        case let .unavailable(message):
-            Label(message, systemImage: "exclamationmark.triangle")
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private var outputFolderPath: Binding<String> {
         Binding(
             get: { state.outputFolder?.path ?? "" },
@@ -282,10 +207,6 @@ struct SettingsView: View {
         )
     }
 
-    private func eventCost(_ event: FalBillingEvent) -> Double {
-        Double(event.costEstimateNanoUSD) / 1_000_000_000
-    }
-
     private func chooseOutputFolder() {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
@@ -301,10 +222,7 @@ struct SettingsView: View {
     }
 
     private func clearGenerationKey() {
-        perform("Generation key removed") {
-            try state.clearGenerationCredential()
-            pricing.reset()
-        }
+        perform("Generation key removed") { try state.clearGenerationCredential() }
     }
 
     private func saveAccountKey() {
@@ -312,10 +230,7 @@ struct SettingsView: View {
     }
 
     private func clearAccountKey() {
-        perform("Account key removed") {
-            try state.clearAccountAdministrationCredential()
-            account.reset()
-        }
+        perform("Account key removed") { try state.clearAccountAdministrationCredential() }
     }
 
     private func saveDefaults() {

@@ -161,11 +161,11 @@ final class SuperscaleAppUITests: XCTestCase {
 
         XCTAssertTrue(app.secureTextFields["generationKeyField"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.secureTextFields["accountAdministrationKeyField"].exists)
-        // Addressed generically rather than as `otherElements` or `staticTexts`: making the row
-        // a container that keeps its children reachable, which is what AC73.6 requires, changes
-        // the element type the row reports. What AC73.5 specifies is that the account state
-        // control is present, not which AppKit class represents it.
-        XCTAssertTrue(element(identifier: "accountState").exists)
+        // 🚫 The account state assertion is removed by #89 with the control it named. AC73.5's
+        // "account state" clause is superseded: pricing and account are out of MVP scope, so the
+        // summary and its refresh control go rather than sitting there calling a client the MVP
+        // excludes. The credential fields, defaults and filter selection AC73.5 also names are
+        // asserted above and below, unaffected.
         XCTAssertTrue(app.popUpButtons["defaultGenerationModelPicker"].exists)
         XCTAssertTrue(app.popUpButtons["defaultUpscaleModelPicker"].exists)
         XCTAssertTrue(app.textFields["outputFolderField"].exists)
@@ -194,25 +194,17 @@ final class SuperscaleAppUITests: XCTestCase {
     // children and leaves them unreachable. The pricing row two sections above is the control
     // case: same structure, no identifier on the container, children reachable.
 
-    // RT-88.1
-    func test_accountRefreshControlIsReachable_RT088_1() {
-        openSettings()
-
-        XCTAssertTrue(
-            element(identifier: "refreshAccountButton").waitForExistence(timeout: 5),
-            "The account refresh control should be addressable in its own right"
-        )
-    }
-
-    // RT-88.2
-    func test_accountSummaryIsReachable_RT088_2() {
-        openSettings()
-
-        XCTAssertTrue(
-            element(identifier: "accountSummaryState").waitForExistence(timeout: 5),
-            "The account summary should be addressable in its own right"
-        )
-    }
+    // 🚫 RT-88.1 and RT-88.2, removed by #89. Their identifiers are not reused.
+    //
+    // Both asserted that a specific account control was reachable in the accessibility tree, and
+    // #89 removes those controls: section 6 of the implementation guide takes the pricing and
+    // account clients out of MVP scope, so a Refresh Account button would go on contacting a
+    // provider the MVP excludes.
+    //
+    // **AC73.6 is unaffected.** The rule those tests were written for — that no control is
+    // absorbed by the row containing it — survives in RT-88.3, which asserts it across the
+    // controls Settings still offers. What goes is two instances naming controls that no longer
+    // exist, not the criterion.
 
     // RT-88.3
     //
@@ -229,8 +221,6 @@ final class SuperscaleAppUITests: XCTestCase {
             "accountAdministrationKeyField",
             "saveAccountKeyButton",
             "removeAccountKeyButton",
-            "accountSummaryState",
-            "refreshAccountButton",
             "defaultGenerationModelPicker",
             "defaultUpscaleModelPicker",
             "outputFolderField",
@@ -252,6 +242,28 @@ final class SuperscaleAppUITests: XCTestCase {
     /// Addressed by the menu item rather than by window title: the title a `Settings` scene gives
     /// its window is the platform's business and has changed across macOS releases, whereas the
     /// menu item is the route a user actually takes.
+    // RT-89.20: Settings presents no pricing control.
+    func test_settingsPresentsNoPricingControl_RT089_20() {
+        openSettings()
+
+        XCTAssertTrue(app.secureTextFields["generationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(identifier: "checkPricingButton").exists)
+        XCTAssertFalse(element(identifier: "generationPricingSummary").exists)
+    }
+
+    // RT-89.21: Settings presents no account control.
+    //
+    // The clients remain in `FalGenerationKit` for the version that needs them; what goes is the
+    // application reaching for a provider the MVP excludes.
+    func test_settingsPresentsNoAccountControl_RT089_21() {
+        openSettings()
+
+        XCTAssertTrue(app.secureTextFields["accountAdministrationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(identifier: "refreshAccountButton").exists)
+        XCTAssertFalse(element(identifier: "accountSummaryState").exists)
+        XCTAssertFalse(element(identifier: "billingEvents").exists)
+    }
+
     @discardableResult
     private func openSettings() -> XCUIElement {
         let appMenu = app.menuBars.menuBarItems.element(boundBy: 1)

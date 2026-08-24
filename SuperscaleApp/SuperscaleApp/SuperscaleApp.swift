@@ -26,8 +26,6 @@ struct SuperscaleApp: App {
     @StateObject private var viewModel = UpscaleViewModel()
     @StateObject private var settingsState: GenerationSettingsState
     @StateObject private var generationCoordinator: GenerationCoordinator
-    @StateObject private var pricingCoordinator: GenerationPricingCoordinator
-    @StateObject private var accountCoordinator: GenerationAccountCoordinator
     private let sessionStore: GenerationSessionStore
 
     init() {
@@ -35,8 +33,6 @@ struct SuperscaleApp: App {
 
         var credentialStorage: any CredentialStorage = KeychainCredentialStorage()
         var coordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
-        var pricing = GenerationPricingCoordinator()
-        var account = GenerationAccountCoordinator()
         var store = GenerationSessionStore(rootDirectory: V2AppPaths.history)
 
 #if DEBUG
@@ -52,8 +48,6 @@ struct SuperscaleApp: App {
                     directory: root.appendingPathComponent("Generated", isDirectory: true)
                 )
             )
-            pricing = GenerationPricingCoordinator(service: UITestPricingService())
-            account = GenerationAccountCoordinator(service: UITestAccountService())
             store = GenerationSessionStore(
                 rootDirectory: root.appendingPathComponent("History", isDirectory: true)
             )
@@ -75,8 +69,6 @@ struct SuperscaleApp: App {
             )
         )
         _generationCoordinator = StateObject(wrappedValue: coordinator)
-        _pricingCoordinator = StateObject(wrappedValue: pricing)
-        _accountCoordinator = StateObject(wrappedValue: account)
         sessionStore = store
     }
 
@@ -118,12 +110,8 @@ struct SuperscaleApp: App {
         // Settings is a scene, not a mode. Removing modes forces this, and it is the correct
         // destination anyway: Cmd+comma, its own window, and the workspace stays where it was.
         Settings {
-            SettingsView(
-                state: settingsState,
-                pricing: pricingCoordinator,
-                account: accountCoordinator
-            )
-            .frame(minWidth: 620, minHeight: 460)
+            SettingsView(state: settingsState)
+                .frame(minWidth: 620, minHeight: 460)
         }
     }
 
