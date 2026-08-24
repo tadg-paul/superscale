@@ -55,8 +55,7 @@ struct MainView: View {
                     hasWorkingImage: baseImageURL != nil,
                     isApplying: generationCoordinator.phase == .generating,
                     onApply: applyFilter,
-                    onCancel: generationCoordinator.cancel,
-                    onOpenSettings: openSettings
+                    onCancel: generationCoordinator.cancel
                 )
             }
             Divider()
@@ -200,9 +199,6 @@ struct MainView: View {
         }
     }
 
-    private func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-    }
 
     // MARK: - Toolbar and status
 

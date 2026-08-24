@@ -18,7 +18,6 @@ struct FilterPanel: View {
     let isApplying: Bool
     let onApply: () -> Void
     let onCancel: () -> Void
-    let onOpenSettings: () -> Void
 
     @State private var activeCategory: String?
     @State private var search = ""
@@ -205,8 +204,14 @@ struct FilterPanel: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Settings", action: onOpenSettings)
-                        .accessibilityIdentifier("openGenerationSettings")
+                    // `SettingsLink` opens the Settings scene through the supported API. Reaching
+                    // it by `NSApp.sendAction(Selector(("showSettingsWindow:")))` works but is a
+                    // string naming a method the platform owns, which fails at runtime rather
+                    // than at compile time when it changes.
+                    SettingsLink {
+                        Text("Settings")
+                    }
+                    .accessibilityIdentifier("openGenerationSettings")
                 }
             }
 
