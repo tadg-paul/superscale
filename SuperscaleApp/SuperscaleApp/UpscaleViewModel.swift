@@ -220,7 +220,12 @@ final class UpscaleViewModel: ObservableObject {
                 case .off:
                     self.releaseUpscaledResult()
                 case .preset:
-                    self.reupscaleIfNeeded()
+                    // The emitted value, not the property. `@Published` publishes in `willSet`, so
+                    // inside this sink `self.scaleSelection` is still the *previous* selection.
+                    // Reading it back made choosing a scale after turning upscaling off do
+                    // nothing at all — the guard saw `.off` and returned — and made a change from
+                    // one preset to another run at the scale being replaced.
+                    self.reupscaleIfNeeded(with: selection)
                 case .custom:
                     break  // debounced by the dimension subscribers below
                 }
@@ -252,9 +257,14 @@ final class UpscaleViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func reupscaleIfNeeded() {
-        guard !scaleSelection.isOff, let url = inputURL, !isProcessing else { return }
-        processImage(source: currentInputSource ?? .imported(url))
+    /// Re-runs the upscale for a selection.
+    ///
+    /// Takes the selection rather than reading it, so a caller inside a `@Published` sink passes
+    /// the value being published rather than the one it is replacing.
+    private func reupscaleIfNeeded(with selection: ScaleSelection? = nil) {
+        let selection = selection ?? scaleSelection
+        guard !selection.isOff, let url = inputURL, !isProcessing else { return }
+        processImage(source: currentInputSource ?? .imported(url), selection: selection)
     }
 
     /// Re-upscale for face enhance toggle only — preserves scale settings.
@@ -421,7 +431,9 @@ final class UpscaleViewModel: ObservableObject {
 
     // MARK: - Private
 
-    private func processImage(source: GUIUpscaleSource) {
+    /// - Parameter selection: the scale to run at, when the caller holds a newer one than the
+    ///   property does. A `@Published` sink is such a caller.
+    private func processImage(source: GUIUpscaleSource, selection: ScaleSelection? = nil) {
         let url = source.url
         let isNewImage = inputURL != url
         currentInputSource = source
@@ -465,7 +477,7 @@ final class UpscaleViewModel: ObservableObject {
             adoptNativeScale(nativeScale)
         }
 
-        guard let options = coordinatorOptions() else {
+        guard let options = coordinatorOptions(for: selection ?? scaleSelection) else {
             isProcessing = false
             progressMessage = ""
             return
@@ -575,9 +587,9 @@ final class UpscaleViewModel: ObservableObject {
     }
 
     /// The options for a run, or nothing when no scale is selected and no run is due.
-    private func coordinatorOptions() -> GUIUpscaleOptions? {
+    private func coordinatorOptions(for selection: ScaleSelection) -> GUIUpscaleOptions? {
         let sizing: GUIUpscaleSizing
-        switch scaleSelection {
+        switch selection {
         case .off:
             return nil
         case let .preset(scale):
