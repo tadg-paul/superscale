@@ -1119,10 +1119,16 @@ final class SuperscaleAppUITests: XCTestCase {
     // upscaled result, so an image imported in that state appeared not to arrive at all. Filtering
     // without upscaling is a legitimate use on its own, and so is doing both.
     func test_theWorkingImageIsShownWithTheScaleOff_RT087_35() {
+        // 4x is the selection on launch, so choosing it once empties the selection — AC82.7.
+        // Clicking twice would turn the scale off and straight back on.
         let scaleFour = app.buttons["scale4x"]
         XCTAssertTrue(scaleFour.waitForExistence(timeout: 5))
         scaleFour.click()
-        scaleFour.click()
+
+        // Changing a setting brings the info panel back, and it sits over the top of the canvas
+        // where the import control is.
+        let dismiss = app.buttons["infoPanelDismiss"]
+        if dismiss.waitForExistence(timeout: 2) { dismiss.click() }
 
         XCTAssertTrue(loadTestImage(), "an image should import with no scale selected")
 
