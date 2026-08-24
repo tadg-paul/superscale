@@ -20,6 +20,9 @@ struct FilterPanel: View {
     let onCancel: () -> Void
     let onOpenSettings: () -> Void
 
+    @State private var activeCategory: String?
+    @State private var search = ""
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -39,7 +42,7 @@ struct FilterPanel: View {
         HStack {
             Text("Filters").font(.headline)
             Spacer()
-            Text("\(selection.filters.count)")
+            Text("\(visibleFilters.count)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("filterCount")
@@ -65,18 +68,101 @@ struct FilterPanel: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .accessibilityIdentifier("filterCatalogueFailure")
         } else {
-            List {
+            VStack(spacing: 0) {
+                searchField
+                categoryChips
+                Divider()
+                List {
+                    ForEach(visibleFilters, id: \.id) { filter in
+                        filterRow(filter)
+                    }
+                }
+                .listStyle(.inset)
+                .accessibilityIdentifier("filterCatalogue")
+            }
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+                .font(.caption)
+            TextField("Search filters", text: $search)
+                .textFieldStyle(.plain)
+                .accessibilityIdentifier("filterSearchField")
+            if !search.isEmpty {
+                Button {
+                    search = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityIdentifier("clearFilterSearch")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    /// Category chips: one click narrows, the same click again widens.
+    ///
+    /// A filter bar rather than a drill-down. Narrowing costs one click, clearing costs one
+    /// click, and search cuts across categories, so nothing is hidden behind navigation.
+    private var categoryChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                chip(title: "All", isOn: activeCategory == nil, identifier: "category-all") {
+                    activeCategory = nil
+                }
                 ForEach(categories, id: \.self) { category in
-                    Section(category) {
-                        ForEach(filters(in: category), id: \.id) { filter in
-                            filterRow(filter)
-                        }
+                    chip(
+                        title: category,
+                        isOn: activeCategory == category,
+                        identifier: "category-\(category.lowercased())"
+                    ) {
+                        activeCategory = activeCategory == category ? nil : category
                     }
                 }
             }
-            .listStyle(.sidebar)
-            .accessibilityIdentifier("filterCatalogue")
+            .padding(.horizontal, 12)
+            .padding(.bottom, 8)
         }
+    }
+
+    private func chip(
+        title: String,
+        isOn: Bool,
+        identifier: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule().fill(isOn ? Color.accentColor.opacity(0.85) : Color.secondary.opacity(0.15))
+                )
+                .foregroundStyle(isOn ? Color.white : Color.primary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+
+    /// What the list shows: the active category if one is chosen, narrowed further by the search
+    /// text, which matches a filter's name or its category.
+    private var visibleFilters: [PromptPack] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return selection.filters
+            .filter { activeCategory == nil || $0.category == activeCategory }
+            .filter {
+                query.isEmpty
+                    || $0.displayName.localizedCaseInsensitiveContains(query)
+                    || $0.category.localizedCaseInsensitiveContains(query)
+            }
+            .sorted { ($0.category, $0.displayName) < ($1.category, $1.displayName) }
     }
 
     private func filterRow(_ filter: PromptPack) -> some View {
@@ -84,7 +170,14 @@ struct FilterPanel: View {
             selection.choose(filter.id)
         } label: {
             HStack {
-                Text(filter.displayName)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(filter.displayName)
+                    // Kept visible even when a category is active, so a search result across
+                    // categories still says where each filter came from.
+                    Text(filter.category)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if selection.selectedID == filter.id {
                     Image(systemName: "checkmark").foregroundStyle(.tint)
@@ -149,9 +242,4 @@ struct FilterPanel: View {
         .sorted()
     }
 
-    private func filters(in category: String) -> [PromptPack] {
-        selection.filters
-            .filter { $0.category == category }
-            .sorted { $0.displayName < $1.displayName }
-    }
 }

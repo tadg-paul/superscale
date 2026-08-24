@@ -1107,6 +1107,27 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(referenceWells.count, 0)
     }
 
+    // RT-87.35, under AC87.2: the working image occupies the canvas whether or not an upscale is
+    // selected.
+    //
+    // With the scale off there is no upscaled output — AC82.6 — and the canvas drew only the
+    // upscaled result, so an image imported in that state appeared not to arrive at all. Filtering
+    // without upscaling is a legitimate use on its own, and so is doing both.
+    func test_theWorkingImageIsShownWithTheScaleOff_RT087_35() {
+        let scaleFour = app.buttons["scale4x"]
+        XCTAssertTrue(scaleFour.waitForExistence(timeout: 5))
+        scaleFour.click()
+        scaleFour.click()
+
+        XCTAssertTrue(loadTestImage(), "an image should import with no scale selected")
+
+        XCTAssertTrue(
+            element(identifier: "workingImage").waitForExistence(timeout: 10),
+            "the imported image should occupy the canvas even with no upscale selected"
+        )
+        XCTAssertFalse(app.buttons["saveButton"].exists, "there is no upscaled output to save")
+    }
+
     // RT-87.25: the canvas offers somewhere to put an image before there is one.
     func test_theCanvasOffersTheImportTargetWithNoImage_RT087_25() {
         XCTAssertTrue(app.buttons["fileChooser"].waitForExistence(timeout: 5))

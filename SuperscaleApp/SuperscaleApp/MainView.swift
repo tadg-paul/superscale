@@ -106,6 +106,12 @@ struct MainView: View {
             } else {
                 resultView(image: upscaled)
             }
+        } else if let original = viewModel.originalImage {
+            // No upscale selected, so there is no upscaled output to show — AC82.6 — but there is
+            // still a working image, and filtering it is a legitimate thing to do on its own.
+            // Drawing only the upscaled result made the canvas look as though the drop had been
+            // ignored.
+            resultView(image: original)
         } else {
             DropTargetView(onDrop: viewModel.handleDrop)
         }
@@ -117,6 +123,7 @@ struct MainView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .padding(16)
+                .accessibilityIdentifier("workingImage")
 
             DropTargetView(onDrop: viewModel.handleDrop)
                 .opacity(0.01)
