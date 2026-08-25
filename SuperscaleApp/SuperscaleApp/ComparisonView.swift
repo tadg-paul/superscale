@@ -103,8 +103,13 @@ struct ComparisonView: View {
                 pointerIsOverPicture = false
             }
         }
-        // The pan reaches the accessibility tree as a value. Expressed only as a rendered offset it
-        // reaches nobody — not VoiceOver, and not a test asking whether the picture moved.
+        // The pan reaches the accessibility tree as a **label as well as a value**. Expressed only
+        // as a rendered offset it reaches nobody — not VoiceOver, and not a test asking whether the
+        // picture moved. Expressed only as a value it reaches nobody either: this element declares
+        // `children: .contain`, and a container reports its label where it does not reliably report
+        // its value. That is the fifth accessibility mechanism in this delivery and the second of
+        // its kind, after #95's credential badge.
+        .accessibilityLabel("Comparison, panned \(Int(offset.width)) by \(Int(offset.height))")
         .accessibilityValue("panned \(Int(offset.width)) by \(Int(offset.height))")
         // A container, not an element. Without this the identifier makes SwiftUI treat the whole
         // curtain as one element and absorb the divider, its rule and the zoom controls — the

@@ -720,7 +720,21 @@ final class SuperscaleAppUITests: XCTestCase {
     /// reaches nobody — not VoiceOver, and not a test asking whether the picture moved. RT-94.18 is
     /// that the value exists at all; the scroll tests read it to see whether it changed.
     private func reportedPan() -> String {
-        element(identifier: "curtainPicture").value as? String ?? ""
+        let curtain = element(identifier: "curtainPicture")
+        // Label *and* value. `curtainPicture` declares `children: .contain`, and a container
+        // reports its label where it does not reliably report its value — the same trap as #95's
+        // credential badge, one element type along.
+        return "\(curtain.label) \(curtain.value as? String ?? "")"
+    }
+
+    /// Leaves the curtain, so the canvas shows one picture.
+    ///
+    /// Comparison is **entered automatically** when an upscale completes, so a test wanting the
+    /// plain canvas has to ask for it. `compareButton` reads "Full View" while the curtain is up.
+    private func leaveComparison() {
+        let button = app.buttons["compareButton"]
+        guard button.waitForExistence(timeout: 5) else { return }
+        if button.label != "Compare" { button.click() }
     }
 
     // RT-94.18
@@ -731,9 +745,9 @@ final class SuperscaleAppUITests: XCTestCase {
 
         let curtain = element(identifier: "curtainPicture")
         XCTAssertTrue(curtain.waitForExistence(timeout: 5))
-        XCTAssertFalse(
-            reportedPan().isEmpty,
-            "the pan is a value, not only a rendered offset")
+        XCTAssertTrue(
+            reportedPan().localizedCaseInsensitiveContains("panned"),
+            "the pan is a value, not only a rendered offset: \"\(reportedPan())\"")
     }
 
     // RT-94.11, RT-94.12
@@ -765,9 +779,15 @@ final class SuperscaleAppUITests: XCTestCase {
         curtain.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
         curtain.scroll(byDeltaX: 0, deltaY: -120)
 
-        XCTAssertNotEqual(
-            reportedPan(), before,
-            "scrolling the picture pans it")
+        // Waited for rather than read immediately: the pan travels from an `NSEvent` monitor
+        // through `@State` to a re-rendered accessibility value, and none of that is synchronous
+        // with the scroll returning.
+        let moved = expectation(
+            for: NSPredicate { _, _ in self.reportedPan() != before },
+            evaluatedWith: curtain)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [moved], timeout: 10), .completed,
+            "scrolling the picture pans it; still \(reportedPan())")
     }
 
     // RT-94.13
@@ -778,7 +798,10 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
 
-        // Deliberately *not* entering comparison.
+        // Comparison is entered automatically when an upscale completes, so leaving it is a
+        // deliberate act rather than the starting state. The first version of this test assumed
+        // otherwise and failed on its own premise.
+        leaveComparison()
         let canvas = element(identifier: "workspaceCanvas")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
         XCTAssertFalse(
@@ -787,11 +810,15 @@ final class SuperscaleAppUITests: XCTestCase {
         canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
         canvas.scroll(byDeltaX: 0, deltaY: -120)
 
-        // The claim is that nothing was panned, and with no curtain there is nothing that could
-        // report a pan. What can be checked is that the scroll did not conjure one, and that the
-        // picture is where it was.
-        XCTAssertFalse(element(identifier: "curtainPicture").exists)
-        XCTAssertTrue(app.images["workingImage"].exists, "the picture is undisturbed")
+        // Nothing was panned, and the way to see that is to go back to the curtain and ask it. A
+        // scroll that reached the monitor while no comparison was on screen would show here.
+        enterComparison()
+        XCTAssertTrue(
+            element(identifier: "curtainPicture").waitForExistence(timeout: 5),
+            "the curtain is available again")
+        XCTAssertTrue(
+            reportedPan().contains("panned 0 by 0"),
+            "the scroll reached nothing: \(reportedPan())")
     }
 
     // MARK: - AC93.3: the face controls follow the scale (#93)
