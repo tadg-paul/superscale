@@ -587,10 +587,13 @@ final class UpscaleViewModel: ObservableObject {
         if isNewImage {
             inputURL = url
             originalImage = NSImage(contentsOfFile: url.path)
-            // Use ImageLoader for accurate pixel dimensions (not DPI-adjusted)
-            if let loaded = try? ImageLoader.load(from: url) {
-                inputWidth = loaded.image.width
-                inputHeight = loaded.image.height
+            // Through the one function that measures a picture. This path was already correct and
+            // the view's was not, which is exactly the problem: two measurements, no way to tell
+            // them apart, and months of disagreement about the same file.
+            let measured = ImageDimensions.pixelSize(of: url)
+            if measured != .zero {
+                inputWidth = Int(measured.width)
+                inputHeight = Int(measured.height)
             }
             // Re-cap custom dimensions against new image's 8× limit
             reapplyDimensionCap()

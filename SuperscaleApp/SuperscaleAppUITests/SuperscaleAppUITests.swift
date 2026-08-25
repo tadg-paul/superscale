@@ -1,7 +1,9 @@
 // ABOUTME: XCUITest suite for the Superscale GUI app.
 // ABOUTME: Covers launch state, accessibility identifiers, element existence, and interaction flows.
 
+import CoreGraphics
 import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 
 final class SuperscaleAppUITests: XCTestCase {
@@ -78,7 +80,11 @@ final class SuperscaleAppUITests: XCTestCase {
 
     /// Opens the file chooser, types a path, and clicks Open.
     /// Returns true if the panel was successfully navigated.
-    private func loadTestImage() -> Bool {
+    ///
+    /// - Parameter path: the picture to open, defaulting to the suite's 240 x 320 fixture. Named
+    ///   explicitly by RT-100.10, which needs a picture whose stored resolution is not 72 dpi.
+    private func loadTestImage(path: String? = nil) -> Bool {
+        let path = path ?? testImagePath
         let chooser = app.buttons["fileChooser"]
         guard chooser.waitForExistence(timeout: 5) else { return false }
         chooser.click()
@@ -103,7 +109,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // Clear existing text and type the test image path
         goToField.click()
         goToField.typeKey("a", modifierFlags: .command)
-        goToField.typeText(testImagePath)
+        goToField.typeText(path)
 
         // Press Enter to navigate to the file
         goToField.typeKey(.return, modifierFlags: [])
@@ -678,6 +684,69 @@ final class SuperscaleAppUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(settings.waitForExistence(timeout: 5), "Settings should open as its own window")
         return settings
+    }
+
+    // MARK: - AC100.2: a high-resolution picture is measured in pixels (#100)
+
+    // RT-100.10
+    //
+    // **The only one of this issue's ten tests that would have failed against the broken code end
+    // to end.** `MainView.importedPixelSize` used `NSImage.size`, which reports points adjusted by
+    // the file's stored resolution, so this 2048 x 1536 photograph measured about 492 x 369 — well
+    // under the 1024 floor. The application would raise it 4x it does not need, alter the user's
+    // picture before sending it, and turn their scale selection off.
+    //
+    // The fixture is generated at runtime rather than committed: a picture whose only purpose is to
+    // carry an unusual resolution is a thing a later reader has to work out.
+    func test_aHighResolutionPictureAboveTheFloorIsNotRaised_RT100_10() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dpi-gui-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        let url = directory.appendingPathComponent("high-resolution.png")
+        let width = 2048, height = 1536
+        let context = try XCTUnwrap(
+            CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(red: 0.4, green: 0.4, blue: 0.5, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        let destination = try XCTUnwrap(
+            CGImageDestinationCreateWithURL(
+                url as CFURL, UTType.png.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(
+            destination, try XCTUnwrap(context.makeImage()),
+            [kCGImagePropertyDPIWidth: 300, kCGImagePropertyDPIHeight: 300] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(destination), "the fixture was written")
+
+        XCTAssertTrue(loadTestImage(path: url.path), "the high-resolution picture should load")
+        XCTAssertTrue(
+            element(identifier: "workingImage").waitForExistence(timeout: 30),
+            "and occupy the canvas")
+
+        // The floor is checked at Apply, so applying is what would raise it.
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 10))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+
+        // Asserted on the notice's *content*, not its absence. This picture is 2048 x 1536, so at a
+        // selected scale its output may legitimately exceed the area ceiling and produce a
+        // reduction notice. What must not appear is the minimum-resolution one.
+        let notice = element(identifier: "noticeMessage")
+        let said = notice.exists
+            ? "\(notice.value as? String ?? "") \(notice.label)"
+            : ""
+        XCTAssertFalse(
+            said.contains("1024"),
+            "a 2048-pixel picture is above the floor and must not be raised: \"\(said)\"")
+        XCTAssertFalse(
+            said.localizedCaseInsensitiveContains("minimum for filtering"),
+            "and nothing claims it was: \"\(said)\"")
     }
 
     // MARK: - AC96.1: the raise reaches the window (#96)

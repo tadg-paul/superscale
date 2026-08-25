@@ -225,7 +225,7 @@ struct MainView: View {
         guard let url,
               url != generationCoordinator.output?.localURL,
               url != currentlyDisplayedFileURL else { return }
-        workspace.importImage(fileURL: url, pixelSize: importedPixelSize(url))
+        workspace.importImage(fileURL: url, pixelSize: ImageDimensions.pixelSize(of:url))
     }
 
     /// Applies the selected filter, raising the base to the filterable minimum first if it falls
@@ -276,7 +276,7 @@ struct MainView: View {
             // the floor to be re-enforced whenever a change drops the working image below it, and
             // this is what makes that check answer honestly.
             try workspace.adoptRaise(
-                allocation.reference, producedSize: importedPixelSize(allocation.fileURL))
+                allocation.reference, producedSize: ImageDimensions.pixelSize(of:allocation.fileURL))
 
             // Guide 2.5's own reasoning: with the raised picture as the base and the scale off, the
             // application stops re-upscaling a picture that is already the size the provider wants.
@@ -349,7 +349,7 @@ struct MainView: View {
             candidate = try workspace.recordFilter(
                 named: selection.selectedID ?? "",
                 fileURL: source.url,
-                pixelSize: importedPixelSize(source.url),
+                pixelSize: ImageDimensions.pixelSize(of:source.url),
                 modelID: FalGenerationRequest.defaultModelID,
                 prompt: selection.promptToApply,
                 sessionID: source.sessionID,
@@ -420,19 +420,11 @@ struct MainView: View {
         return asset.fileURL
     }
 
-    /// The picture's **pixel** dimensions.
-    ///
-    /// `NSImage.size` is in points and is DPI-adjusted, so a 300 dpi photograph reports a quarter of
-    /// its pixel count. Everything downstream of this — the floor, the area ceiling, the scale
-    /// readout — is arithmetic on pixels, so `ImageLoader` is asked first and `NSImage` is the
-    /// fallback for a file it cannot read at all.
-    private func importedPixelSize(_ url: URL) -> CGSize {
-        if let loaded = try? ImageLoader.load(from: url) {
-            return CGSize(width: loaded.image.width, height: loaded.image.height)
-        }
-        guard let image = NSImage(contentsOf: url) else { return .zero }
-        return image.size
-    }
+    // 🚫 `importedPixelSize` is removed by #100. It was the application's second way of measuring a
+    // picture, private to this view and exercised by nothing, and for months it used `NSImage.size`
+    // — which reports points adjusted by the file's stored resolution, so a 300 dpi photograph
+    // measured a quarter of its true size. `ImageDimensions.pixelSize(of:)` is now the only one,
+    // and it is covered by RT-100.7 to RT-100.9.
 
     private func upscale(_ source: GUIUpscaleSource, arrival: ImageArrival) {
         viewModel.selectedModelName = WorkspaceModel.resolvedUpscaleModelID(
