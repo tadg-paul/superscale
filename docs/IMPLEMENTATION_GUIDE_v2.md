@@ -1,4 +1,4 @@
-<!-- Version: 3.19 | Last updated: 2026-08-25 -->
+<!-- Version: 3.20 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -183,6 +183,15 @@ asset rather than recomputed by the view. What was sent is not always the parent
 --- the area ceiling reduces a picture before it goes and the minimum-resolution
 floor raises one --- so a view deriving the answer from the parent's size would
 be describing the graph while appearing to describe the provider.
+
+**And the user is told.** Recording it is not the criterion: a user who sees a
+square result from a portrait photograph has to be able to tell whether this
+application or the provider did it, and a fact held only on the asset answers
+that for nobody. The notice goes to the status bar, on the same channel as the
+minimum-resolution raise and the area reduction --- unobtrusive, because the
+application has handled the situation correctly and is reporting rather than
+asking. Where either size is unrecorded, nothing is said: telling a user
+something on a guess is worse than staying quiet.
 
 ### 2.4 Lock
 
@@ -1150,6 +1159,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.20 (2026-08-25):** Section 2.3 records that a reshaped return is reported to the *user*, not
+  only recorded on the asset. AC96.5 says "identifiable as such", the provenance held the fact and
+  nothing displayed it, so the criterion was delivered to its tests and not to anybody using the
+  application --- the third time in this delivery that re-reading criteria against what ships found a
+  slice complete in its package and absent from the window.
 - **3.19 (2026-08-25):** Recorded in section 2.5 the four consequences of enforcing the floor at
   Apply, none of which the criterion describes: a raise reports because it is work; it records what
   it produced rather than what it targeted; the floor reads pixels rather than DPI-adjusted points;
