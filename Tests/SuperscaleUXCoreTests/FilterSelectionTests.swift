@@ -247,6 +247,13 @@ final class FilterSelectionTests: XCTestCase {
 @MainActor
 private final class FixtureFilterService: GenerationServing {
     private(set) var requests: [FalGenerationRequest] = []
+    private(set) var uploads: [String] = []
+
+    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+        uploads.append(fileName)
+        return URL(string: "https://v3.fal.media/files/fixture/\(fileName)")
+            ?? URL(fileURLWithPath: fileName)
+    }
 
     func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
         requests.append(request)

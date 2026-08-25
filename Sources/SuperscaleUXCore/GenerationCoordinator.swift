@@ -8,17 +8,36 @@ import Foundation
 @MainActor
 public protocol GenerationServing: Sendable {
     func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage
+
+    /// Puts a reference where the provider can fetch it, and says where that is.
+    ///
+    /// Behind the same seam as `generate` because it is the same provider and the same credential.
+    /// Called directly from the view instead, it reached `rest.fal.ai` from the GUI suite — which
+    /// makes the tests depend on a network and on somebody else's uptime, and was caught only
+    /// because a filter then produced no candidate to lock.
+    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL
 }
 
 public struct FalGenerationService: GenerationServing {
     private let client: FalGenerationClient
+    private let storage: FalStorageClient
 
-    public init(client: FalGenerationClient = FalGenerationClient()) {
+    public init(
+        client: FalGenerationClient = FalGenerationClient(),
+        storage: FalStorageClient = FalStorageClient()
+    ) {
         self.client = client
+        self.storage = storage
     }
 
     public func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
         try await client.generate(request, apiKey: apiKey)
+    }
+
+    public func uploadReference(
+        _ data: Data, fileName: String, apiKey: String
+    ) async throws -> URL {
+        try await storage.upload(data, fileName: fileName, apiKey: apiKey)
     }
 }
 
@@ -161,6 +180,16 @@ public final class GenerationCoordinator: ObservableObject {
         operation = Task { [weak self] in
             await self?.generate(request, apiKey: apiKey)
         }
+    }
+
+    /// Puts a reference where the provider can fetch it.
+    ///
+    /// Routed through the coordinator's own service rather than constructed at the call site, so a
+    /// stubbed provider is stubbed for both halves of the exchange.
+    public func uploadReference(
+        _ data: Data, fileName: String, apiKey: String
+    ) async throws -> URL {
+        try await service.uploadReference(data, fileName: fileName, apiKey: apiKey)
     }
 
     public func generate(_ request: FalGenerationRequest, apiKey: String) async {

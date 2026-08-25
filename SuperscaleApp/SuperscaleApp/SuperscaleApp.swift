@@ -198,6 +198,19 @@ private struct UITestGenerationService: GenerationServing {
     let imageURL: URL
     var fails = false
 
+    /// Answers with a plausible provider URL and reaches no network.
+    ///
+    /// The suite's fixture is on disk and the provider is stubbed, so there is nothing to upload
+    /// and nowhere to upload it to. What matters is that a reference URL comes back, because that
+    /// is what the request carries.
+    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+        if fails {
+            throw FalFailure(kind: .provider, diagnostic: "Storage is unavailable. (ui-test)")
+        }
+        return URL(string: "https://v3.fal.media/files/ui-test/\(fileName)")
+            ?? URL(fileURLWithPath: fileName)
+    }
+
     func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
         if fails {
             // A classified failure carrying the provider's own words, which is what a real one is.

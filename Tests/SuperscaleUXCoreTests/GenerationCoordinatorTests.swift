@@ -222,9 +222,51 @@ final class GenerationCoordinatorTests: XCTestCase {
 }
 
 @MainActor
+/// Both halves of the provider exchange go through the coordinator's own service.
+///
+/// The upload was constructed at the call site, in `MainView`, with a `FalStorageClient()` written
+/// there — so the GUI suite reached `rest.fal.ai` for real while believing the provider was stubbed.
+/// It failed with a fake key, no candidate was produced, and the only test that noticed was one
+/// asking whether an iteration could be locked.
+///
+/// **A stubbed provider has to be stubbed for everything it does.** A seam that covers one call and
+/// not the other is not a seam.
+final class GenerationSeamTests: XCTestCase {
+    func test_uploadingAReferenceGoesThroughTheCoordinatorsOwnService() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("seam-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        let service = FixtureGenerationService(
+            result: .success(
+                FalGeneratedImage(
+                    remoteURL: URL(fileURLWithPath: "/dev/null"),
+                    data: Data("filtered".utf8),
+                    contentType: "image/png",
+                    warnings: [])))
+        let coordinator = GenerationCoordinator(
+            service: service,
+            outputStore: GeneratedImageStore(directory: directory))
+
+        let reference = try await coordinator.uploadReference(
+            Data("pixels".utf8), fileName: "toby.png", apiKey: "fixture-key")
+
+        XCTAssertEqual(service.uploads, ["toby.png"], "the stub saw it, so no network did")
+        XCTAssertTrue(reference.absoluteString.contains("toby.png"), reference.absoluteString)
+    }
+}
+
 private final class FixtureGenerationService: GenerationServing {
     private(set) var requests: [FalGenerationRequest] = []
+    private(set) var uploads: [String] = []
     let result: Result<FalGeneratedImage, Error>
+
+    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+        uploads.append(fileName)
+        return URL(string: "https://v3.fal.media/files/fixture/\(fileName)")
+            ?? URL(fileURLWithPath: fileName)
+    }
 
     init(result: Result<FalGeneratedImage, Error>) {
         self.result = result

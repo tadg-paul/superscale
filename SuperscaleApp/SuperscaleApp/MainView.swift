@@ -312,7 +312,11 @@ struct MainView: View {
               let asset = try? workspace.graph.asset(for: input) else { return }
         do {
             let bytes = try Data(contentsOf: asset.fileURL)
-            let reference = try await FalStorageClient().upload(
+            // Through the coordinator, whose service is the same seam `generate` goes through.
+            // Constructing a client here reached `rest.fal.ai` from the GUI suite, because only the
+            // *generation* half was stubbed — and nothing said so until a filter produced no
+            // candidate to lock.
+            let reference = try await generationCoordinator.uploadReference(
                 bytes,
                 fileName: asset.fileURL.lastPathComponent,
                 apiKey: settingsState.generationKey)
