@@ -59,6 +59,17 @@ public final class RenderingStore {
         touch(key)
     }
 
+    /// Takes in a rendering that has already been produced elsewhere.
+    ///
+    /// The producer form below is the one to prefer, because it cannot forget to look first. This
+    /// exists for a caller whose production is driven by something other than the call site — a
+    /// Combine pipeline that publishes when a run completes, in this application's case.
+    public func admit(_ image: RenderedImage, for key: RenderingKey) {
+        entries[key] = image
+        touch(key)
+        evictIfNeeded()
+    }
+
     /// The rendering for `key`, produced only if it is not already held.
     ///
     /// A producer that throws leaves the store untouched, so a failed operation contributes no
@@ -77,6 +88,17 @@ public final class RenderingStore {
         touch(key)
         evictIfNeeded()
         return produced
+    }
+
+    /// Drops everything, for when the working picture is replaced outright.
+    ///
+    /// Not ordinarily needed — a new picture mints a new asset identity, so its renderings miss and
+    /// the bound retires the old ones in due course. Used where the session genuinely restarts, so
+    /// that memory does not carry a picture the user has moved on from until four more arrive.
+    public func forget() {
+        entries.removeAll()
+        recency.removeAll()
+        displayed = nil
     }
 
     private func touch(_ key: RenderingKey) {

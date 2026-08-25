@@ -140,6 +140,25 @@ final class RenderingStoreTests: XCTestCase {
         XCTAssertEqual(producer.count, 1, "the failure left nothing behind to serve")
     }
 
+    // A rendering produced elsewhere is held on the same terms as one produced here, bound
+    // included. Without this the Combine-driven caller would have a second, unbounded path in.
+    func test_aRenderingAdmittedFromElsewhereIsHeldAndBounded() async throws {
+        let store = RenderingStore()
+        let producer = Producer()
+
+        for index in 0..<6 {
+            store.admit(RenderedImage(id: "r\(index)"), for: key(asset: "asset\(index)"))
+        }
+
+        XCTAssertEqual(store.count, RenderingStore.bound)
+        XCTAssertEqual(store.held(for: key(asset: "asset5")), RenderedImage(id: "r5"))
+
+        let reused = try await store.rendering(
+            for: key(asset: "asset5"), producedBy: producer.produce("rebuilt"))
+        XCTAssertEqual(reused, RenderedImage(id: "r5"))
+        XCTAssertEqual(producer.count, 0, "what was admitted is what is served")
+    }
+
     // MARK: - The bound
 
     // RT-90.22

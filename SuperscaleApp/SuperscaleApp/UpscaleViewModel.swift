@@ -42,8 +42,20 @@ final class UpscaleViewModel: ObservableObject {
     @Published var inputURL: URL?
 
     /// Cached upscale results for instant face enhancement toggling.
-    private var cachedWithFaces: NSImage?
-    private var cachedWithoutFaces: NSImage?
+    /// Renderings already produced, keyed by what produced them.
+    ///
+    /// Replaces a pair of `cachedWithFaces` / `cachedWithoutFaces` fields, which held one asset at
+    /// one setting and had to be nilled by hand wherever anything changed. Keying by asset, model,
+    /// sizing and face setting makes invalidation fall out: a key that no longer matches simply
+    /// misses.
+    private let renderings = RenderingStore()
+
+    /// The images themselves, alongside the identities the store holds.
+    ///
+    /// `RenderedImage` is an identity, deliberately, so that the decision about *which* picture to
+    /// draw stays testable without AppKit. The pixels have to live somewhere, and this is the one
+    /// place that knows both.
+    private var renderedImages: [String: NSImage] = [:]
     @Published var inputWidth: Int?
     @Published var inputHeight: Int?
     @Published var errorMessage: String?
@@ -180,10 +192,11 @@ final class UpscaleViewModel: ObservableObject {
             .dropFirst()
             .sink { [weak self] enabled in
                 guard let self, self.inputURL != nil else { return }
-                if enabled, let cached = self.cachedWithFaces {
-                    self.result = cached
-                } else if !enabled, let cached = self.cachedWithoutFaces {
-                    self.result = cached
+                // Both versions are renderings of one operation rather than one being a fallback
+                // for the other, so the display holds until the new one exists. A rendering already
+                // built comes back without being rebuilt; otherwise the work is done.
+                if let held = self.heldRendering(facesEnhanced: enabled) {
+                    self.result = held
                 } else {
                     self.reupscaleForFaceToggle()
                 }
@@ -373,8 +386,8 @@ final class UpscaleViewModel: ObservableObject {
         result = nil
         resultData = nil
         resultSource = nil
-        cachedWithFaces = nil
-        cachedWithoutFaces = nil
+        renderings.forget()
+        renderedImages.removeAll()
         showComparison = false
         progressMessage = ""
     }
@@ -441,14 +454,20 @@ final class UpscaleViewModel: ObservableObject {
         errorMessage = nil
         isProcessing = true
         progressMessage = "Loading..."
-        result = nil
-        resultData = nil
-        resultSource = nil
-        showComparison = false
 
-        // Invalidate face enhancement cache and upscale metadata
-        cachedWithFaces = nil
-        cachedWithoutFaces = nil
+        // The previous rendering stays on the canvas until the new one exists. Clearing it here is
+        // what emptied the canvas the moment anything was adjusted, and falling back to the base
+        // mid-operation would be a regression dressed as a fix. A *new* picture is different: its
+        // predecessor's upscale describes something the user is no longer looking at, so it goes.
+        if isNewImage {
+            result = nil
+            resultData = nil
+            resultSource = nil
+            showComparison = false
+            renderings.forget()
+        }
+
+        // Upscale metadata describes the run that is starting, not the one that finished.
         lastUpscaleModelName = nil
         lastUpscaleFaceCount = 0
         lastUpscaleWasAutoDetect = false
@@ -547,6 +566,57 @@ final class UpscaleViewModel: ObservableObject {
         return progress.detail ?? ""
     }
 
+    // MARK: - Renderings already produced
+
+    /// What produced the rendering the current settings call for.
+    ///
+    /// `nil` when there is nothing to key: no picture, or no scale selected, in which case there is
+    /// no upscale to hold and nothing to look up.
+    /// The sizing, as a value two runs can be compared on.
+    ///
+    /// Custom dimensions are part of it: a rendering at 1920 wide is not a rendering at 800 wide,
+    /// and a key that said only "custom" would serve one for the other.
+    private var renderingSizingDescription: String {
+        switch scaleSelection {
+        case .off:
+            return "off"
+        case let .preset(scale):
+            return "preset:\(scale)"
+        case .custom:
+            return "custom:\(customWidth)x\(customHeight):\(stretchEnabled)"
+        }
+    }
+
+    private func renderingKey(facesEnhanced: Bool) -> RenderingKey? {
+        guard let inputURL, !scaleSelection.isOff else { return nil }
+        return RenderingKey(
+            assetID: inputURL.path,
+            modelID: selectedModelName,
+            sizing: renderingSizingDescription,
+            facesEnhanced: facesEnhanced)
+    }
+
+    private func heldRendering(facesEnhanced: Bool) -> NSImage? {
+        guard let key = renderingKey(facesEnhanced: facesEnhanced),
+            let identity = renderings.held(for: key)
+        else { return nil }
+
+        if let image = renderedImages[identity.id] {
+            renderings.markDisplayed(key)
+            return image
+        }
+        return nil
+    }
+
+    private func hold(_ image: NSImage, facesEnhanced: Bool, displayed: Bool) {
+        guard let key = renderingKey(facesEnhanced: facesEnhanced) else { return }
+        let identity = RenderedImage(
+            id: "\(key.assetID)|\(key.modelID)|\(key.sizing)|\(key.facesEnhanced)")
+        renderedImages[identity.id] = image
+        renderings.admit(identity, for: key)
+        if displayed { renderings.markDisplayed(key) }
+    }
+
     private func publish(
         _ output: GUIUpscaleResult,
         from run: UUID,
@@ -562,12 +632,15 @@ final class UpscaleViewModel: ObservableObject {
         // rather than the input of the previous run.
         resultSource = output.source
         resultData = output.imageData
-        if faceEnhanceWasEnabled {
-            cachedWithFaces = image
-            cachedWithoutFaces = preFaceImage ?? image
-        } else {
-            cachedWithoutFaces = image
-            // cachedWithFaces stays nil — toggling on will trigger re-upscale
+
+        // A run with face enhancement produces both versions, because the un-enhanced image is
+        // what the enhancement was applied to. A run without it produces only the one, so toggling
+        // enhancement on afterwards is a real rebuild rather than a lookup.
+        if let image {
+            hold(image, facesEnhanced: faceEnhanceWasEnabled, displayed: true)
+        }
+        if faceEnhanceWasEnabled, let preFaceImage {
+            hold(preFaceImage, facesEnhanced: false, displayed: false)
         }
         lastUpscaleModelName = output.resolvedModelName
         lastUpscaleWasAutoDetect = output.wasAutoDetect
