@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-visual inspect-gui-release clean install uninstall release release-gui release-models sync convert-models download-models
+.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-live test-visual inspect-gui-release clean install uninstall release release-gui release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -57,8 +57,11 @@ test-one-off: ## Run one-off tests (separate package; never run by `make test`)
 ifdef ISSUE
 	@./scripts/run-one-off.sh "$(ISSUE)"
 else
-	swift test --package-path OneOff
+	swift test --package-path OneOff --skip LiveTests
 endif
+
+test-live: ## Run live-API one-off tests (sources .env; grok costs real money; never run by `make test`)
+	@./scripts/run-live-ot.sh
 
 test-visual: build-debug ## Upscale test images for visual inspection (UT-002)
 	@if [ -d Tests/visual_output ] && ls Tests/visual_output/* >/dev/null 2>&1; then \
