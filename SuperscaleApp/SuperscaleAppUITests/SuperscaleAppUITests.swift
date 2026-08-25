@@ -704,8 +704,18 @@ final class SuperscaleAppUITests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
 
+        // 1200 x 900 at 300 dpi, chosen so the test proves one thing and only one thing.
+        //
+        // Its long edge is 1200, comfortably above the 1024 floor, so a correct application raises
+        // nothing. In points it is 288 x 216, far below the floor, so the broken one raises it.
+        // And 4x of it is 17 megapixels, under the 32-megapixel ceiling, so no *reduction* notice
+        // appears either — which means the assertion can be the clean one, that there is no notice
+        // at all, rather than a search through the text of whichever notice did appear.
+        //
+        // A 2048 x 1536 fixture was tried first and its upscale left the application unresponsive
+        // long enough that the accessibility hierarchy returned no snapshot to query.
         let url = directory.appendingPathComponent("high-resolution.png")
-        let width = 2048, height = 1536
+        let width = 1200, height = 900
         let context = try XCTUnwrap(
             CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
@@ -734,19 +744,17 @@ final class SuperscaleAppUITests: XCTestCase {
         app.buttons["applyFilterButton"].click()
         XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
 
-        // Asserted on the notice's *content*, not its absence. This picture is 2048 x 1536, so at a
-        // selected scale its output may legitimately exceed the area ceiling and produce a
-        // reduction notice. What must not appear is the minimum-resolution one.
+        // Absence, asserted only after a positive signal that the work finished. `waitForFilterResult`
+        // is that signal; reading the tree before it returns can find an application still busy and
+        // yield no snapshot at all, which is indistinguishable from an empty one.
         let notice = element(identifier: "noticeMessage")
-        let said = notice.exists
+        let said = notice.waitForExistence(timeout: 5)
             ? "\(notice.value as? String ?? "") \(notice.label)"
             : ""
-        XCTAssertFalse(
-            said.contains("1024"),
-            "a 2048-pixel picture is above the floor and must not be raised: \"\(said)\"")
-        XCTAssertFalse(
-            said.localizedCaseInsensitiveContains("minimum for filtering"),
-            "and nothing claims it was: \"\(said)\"")
+        XCTAssertTrue(
+            said.isEmpty,
+            "a 1200-pixel picture is above the floor and fits the ceiling, so nothing is said "
+                + "about it: \"\(said)\"")
     }
 
     // MARK: - AC96.1: the raise reaches the window (#96)
