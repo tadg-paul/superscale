@@ -167,12 +167,15 @@ struct MainView: View {
     @ViewBuilder
     private var canvasContent: some View {
         if let base = viewModel.originalImage {
-            // Two *assets*, not two objects: an object-identity test here was always true, because
-            // the base is loaded separately from the rendering and two `NSImage`s of one file are
-            // never identical. Lineage is the only form of the question that means anything.
-            if viewModel.showComparison, let derived = derivedImage, let against = comparisonBase,
-               workspace.hasTwoAssetsToCompare(
-                   displaying: workspace.displayedAsset(upscaledWhenAvailable: true)) {
+            // Whether the two sides are one asset is `CanvasContent`'s decision, not this view's.
+            //
+            // A graph-based guard sat here and suppressed the curtain outright: the view model
+            // performs its own upscales without recording them on the graph, so the graph's
+            // displayed asset *is* the base, and "displayed equals base" read as nothing to
+            // compare. The GUI suite caught it — the curtain stopped appearing at all — which no
+            // package test could have, because the graph and the view model agree perfectly in
+            // isolation and disagree only once both are running.
+            if viewModel.showComparison, let derived = derivedImage, let against = comparisonBase {
                 ComparisonView(original: against, upscaled: derived)
                     .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDropProviders)
             } else {

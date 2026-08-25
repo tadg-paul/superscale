@@ -210,8 +210,8 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_settings_workspace_controls_RT73_8() {
         openSettings()
 
-        XCTAssertTrue(app.secureTextFields["generationKeyField"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.secureTextFields["accountAdministrationKeyField"].exists)
+        XCTAssertTrue(app.textFields["generationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["accountAdministrationKeyField"].exists)
         // 🚫 The account state assertion is removed by #89 with the control it named. AC73.5's
         // "account state" clause is superseded: pricing and account are out of MVP scope, so the
         // summary and its refresh control go rather than sitting there calling a client the MVP
@@ -348,7 +348,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_settingsPresentsNoPricingControl_RT089_20() {
         openSettings()
 
-        XCTAssertTrue(app.secureTextFields["generationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["generationKeyField"].waitForExistence(timeout: 5))
         XCTAssertFalse(element(identifier: "checkPricingButton").exists)
         XCTAssertFalse(element(identifier: "generationPricingSummary").exists)
     }
@@ -360,7 +360,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_settingsPresentsNoAccountControl_RT089_21() {
         openSettings()
 
-        XCTAssertTrue(app.secureTextFields["accountAdministrationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["accountAdministrationKeyField"].waitForExistence(timeout: 5))
         XCTAssertFalse(element(identifier: "refreshAccountButton").exists)
         XCTAssertFalse(element(identifier: "accountSummaryState").exists)
         XCTAssertFalse(element(identifier: "billingEvents").exists)
