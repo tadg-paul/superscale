@@ -1,4 +1,4 @@
-<!-- Version: 3.20 | Last updated: 2026-08-25 -->
+<!-- Version: 3.21 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -995,6 +995,15 @@ the pricing client, the account client, the session cache and the
 cost-confirmation policy from scope. They return when a second model makes a
 flat rate untenable.
 
+**Out of scope and out of the tree are different things, and by now three of
+those four are one and one is the other.** The pricing client, the account
+client and the session cache are **still present** in `FalGenerationKit`,
+unreferenced by the application and safer than they were, waiting for the
+version that needs them. The **cost-confirmation policy is gone**: #95 removed
+the control that configured it and the preference that stored it, and #103
+removed `GenerationCostPolicy` itself once nothing consulted it. It is preserved
+in git history rather than in the tree, and AC76.3 is marked superseded on #76.
+
 Excluded and following separately: output fidelity
 polish, and release hardening.
 
@@ -1159,6 +1168,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.21 (2026-08-25):** Section 6 distinguishes "out of MVP scope" from "removed from the tree".
+  Three of the four paused pieces are still present and unreferenced; the cost-confirmation policy is
+  gone, removed by #95 and #103, and AC76.3 is superseded. A reader planning pricing's return needs
+  to know which is which.
 - **3.20 (2026-08-25):** Section 2.3 records that a reshaped return is reported to the *user*, not
   only recorded on the asset. AC96.5 says "identifiable as such", the provenance held the fact and
   nothing displayed it, so the criterion was delivered to its tests and not to anybody using the

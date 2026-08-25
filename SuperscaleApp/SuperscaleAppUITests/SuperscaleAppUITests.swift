@@ -719,10 +719,27 @@ final class SuperscaleAppUITests: XCTestCase {
     ///
     /// A container reports its label where it does not reliably report its value, and this delivery
     /// has already been caught by that twice in two different element types.
-    private func statusBarText(of identifier: String) -> String {
+    private func statusBarText(of identifier: String, timeout: TimeInterval = 10) -> String {
         let element = element(identifier: identifier)
-        guard element.waitForExistence(timeout: 10) else { return "" }
+        guard element.waitForExistence(timeout: timeout) else { return "" }
         return "\(element.label) \(element.value as? String ?? "")"
+    }
+
+    /// Selects a scale, having first made sure it is not the one already in effect.
+    ///
+    /// The scale buttons are a toggle group: pressing the active choice **clears** it, so a test
+    /// that names a scale without checking can silently turn upscaling off and then wait for a
+    /// result that will never come. Which scale is active follows the model's native scale rather
+    /// than a constant, so it cannot be assumed.
+    private func selectScale(_ scale: Int) {
+        let button = app.buttons["scale\(scale)x"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "scale\(scale)x exists")
+        let value = (button.value as? String ?? "").lowercased()
+        let alreadyInEffect = value.contains("in effect") && !value.contains("not in effect")
+        XCTAssertFalse(
+            alreadyInEffect,
+            "scale\(scale)x is already in effect; clicking it would turn upscaling off")
+        button.click()
     }
 
     // RT-101.1, RT-101.2
@@ -741,9 +758,12 @@ final class SuperscaleAppUITests: XCTestCase {
             element(identifier: "workingImage").waitForExistence(timeout: 30),
             "and occupy the canvas")
 
-        app.buttons["scale8x"].click()
+        selectScale(8)
 
-        let said = statusBarText(of: "noticeMessage")
+        // Waited generously rather than read at once: `noticeMessage` is set in `publish`, when the
+        // upscale **completes**, and 3200 x 2560 is real work on the Neural Engine. Ten seconds is
+        // not enough, which is what failed the first run of this test.
+        let said = statusBarText(of: "noticeMessage", timeout: 120)
         XCTAssertFalse(said.isEmpty, "the reduction is reported")
         XCTAssertTrue(
             said.localizedCaseInsensitiveContains("memory"),
@@ -777,10 +797,11 @@ final class SuperscaleAppUITests: XCTestCase {
             statusBarText(of: "statusText").trimmingCharacters(in: .whitespaces).isEmpty,
             "the status text is reachable and says something")
 
-        // RT-101.3: and the notice, once there is one.
-        app.buttons["scale8x"].click()
+        // RT-101.3: and the notice, once there is one. The wait is generous for the same reason as
+        // RT-101.1: the notice appears when the upscale completes, not when the scale is chosen.
+        selectScale(8)
         XCTAssertFalse(
-            statusBarText(of: "noticeMessage").isEmpty,
+            statusBarText(of: "noticeMessage", timeout: 120).isEmpty,
             "the notice is reachable rather than absorbed")
     }
 
