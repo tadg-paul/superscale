@@ -95,20 +95,28 @@ struct MainView: View {
     private var canvas: some View {
         ZStack(alignment: .top) {
             canvasContent
-            // Progress sits *over* the image rather than in place of it. Replacing the picture
-            // with a spinner threw away the thing the user came for and made a drop look as
-            // though it had been ignored.
-            if viewModel.isProcessing {
-                // The indicator carries its own background, within its own bounds. Nothing is
-                // drawn across the picture: a material applied here covered the whole canvas,
-                // because the overlay used to be full-size.
-                ProgressOverlay(message: viewModel.progressMessage)
-                    .padding(.top, 24)
-                    .accessibilityIdentifier("workingIndicator")
+
+            // Both pieces of top chrome stack rather than overlap. They previously sat as separate
+            // children of this ZStack, both anchored to the top, and the info panel was drawn last
+            // over a material background several lines tall — so the indicator was invisible behind
+            // it. It went unnoticed because the indicator used to fill the canvas and centre its
+            // spinner well below the panel; shrinking it to a badge put it underneath.
+            VStack(spacing: 8) {
+                // Progress sits *over* the image rather than in place of it. Replacing the picture
+                // with a spinner threw away the thing the user came for and made a drop look as
+                // though it had been ignored.
+                if viewModel.isProcessing {
+                    // The indicator carries its own background, within its own bounds. Nothing is
+                    // drawn across the picture: a material applied here covered the whole canvas,
+                    // because the overlay used to be full-size.
+                    ProgressOverlay(message: viewModel.progressMessage)
+                        .accessibilityIdentifier("workingIndicator")
+                }
+                if !infoPanelDismissed && !viewModel.showComparison {
+                    InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
+                }
             }
-            if !infoPanelDismissed && !viewModel.showComparison {
-                InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
-            }
+            .padding(.top, 16)
         }
     }
 
@@ -428,7 +436,13 @@ struct MainView: View {
         }
         .foregroundStyle(viewModel.faceEnhance && FaceModelRegistry.isInstalled
                          ? Color.accentColor : Color.secondary)
-        .help("Face enhancement (GFPGAN) — detects and enhances faces in upscaled images")
+        // Face enhancement is a stage of the upscale. With no scale selected there is no upscale
+        // for it to be a stage of, so the control is inert and says so rather than offering a
+        // setting that changes nothing.
+        .disabled(viewModel.scaleSelection.isOff)
+        .help(viewModel.scaleSelection.isOff
+              ? "Face enhancement applies to an upscale. Select a scale to enable it."
+              : "Face enhancement (GFPGAN) — detects and enhances faces in upscaled images")
         .accessibilityIdentifier("faceEnhanceButton")
         .sheet(isPresented: $showFaceDownload) {
             FaceModelDownloadView(isPresented: $showFaceDownload) {

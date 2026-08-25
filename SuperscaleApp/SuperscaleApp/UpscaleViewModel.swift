@@ -508,6 +508,20 @@ final class UpscaleViewModel: ObservableObject {
             progressMessage = ""
             return
         }
+
+        // A rendering already produced for this asset, model, sizing and face setting is shown
+        // again rather than rebuilt. The store was consulted on the face-enhancement path only, so
+        // toggling the scale off and on again rebuilt from scratch every time while toggling faces
+        // was instant — the asymmetry the author noticed, and the evidence for where the omission
+        // was.
+        if let held = heldRendering(facesEnhanced: faceEnhance) {
+            result = held
+            isProcessing = false
+            progressMessage = ""
+            showComparison = true
+            return
+        }
+
         start(source: source, options: options)
     }
 
