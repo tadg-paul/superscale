@@ -16,9 +16,10 @@ import SuperscaleUXCore
 /// image that actually decodes. Same types, same defaults, same chain as `MainView.submitFilter`.
 ///
 /// **Cost discipline, per the author's authorization of 2026-08-25:** one grok call per run of this
-/// suite, to be run once — or at most three times until passing. It lives behind
-/// `make test-live` / `scripts/run-live-ot.sh` and is skipped by `make test-one-off`, so no other
-/// command can spend money by accident.
+/// suite. It ran once, passed, and one-offs are not repeated — there is deliberately no make
+/// target for it. The only entry point is `scripts/run-live-ot.sh`, `make test-one-off` skips
+/// `LiveTests`, and `make test` cannot reach this package at all, so nothing can spend money or
+/// touch the network by accident.
 ///
 /// Credentials as in `FalStorageLiveTests`: `FAL_KEY` from the environment (the wrapper sources
 /// `.env`; nothing parses it), else the application's own Keychain slot, else skip.

@@ -60,8 +60,10 @@ else
 	swift test --package-path OneOff --skip LiveTests
 endif
 
-test-live: ## Run live-API one-off tests (sources .env; grok costs real money; never run by `make test`)
-	@./scripts/run-live-ot.sh
+# The live-API one-offs (OT-107.x) have no make target on purpose: they passed, one-offs
+# are not repeated, and the ones against grok cost real money. The author's ruling of
+# 2026-08-25. If they are ever needed again — a provider protocol change, say — the
+# entry point is ./scripts/run-live-ot.sh, which sources .env and is documented on #107.
 
 test-visual: build-debug ## Upscale test images for visual inspection (UT-002)
 	@if [ -d Tests/visual_output ] && ls Tests/visual_output/* >/dev/null 2>&1; then \

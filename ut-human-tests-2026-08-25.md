@@ -18,7 +18,11 @@ the upload (#107, now fixed). Write verdicts straight into this file.
 - **Judging:** Can you find the iteration you want? Does opening it feel like
   returning to that point in the work?
 
-→
+→ Lock seems to do something, i can see thumbnails appear at the bottom in a panel as expected. But when i click on  a previously locked image, it loads that image, and the lock panel disappears, so i can not navigate to any other previously locked images.
+
+→ when a FAL filter is applied, there is no curtain tool for comparison
+
+
 
 ## UT-94.1 --- Apply responds immediately (AC94.1, from #94)
 
