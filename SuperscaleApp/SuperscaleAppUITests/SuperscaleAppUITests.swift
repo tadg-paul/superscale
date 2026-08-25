@@ -131,6 +131,19 @@ final class SuperscaleAppUITests: XCTestCase {
         }
     }
 
+    /// Enters comparison, whatever state it is currently in.
+    ///
+    /// `compareButton` *toggles*, and a completed upscale already sets the comparison showing — so
+    /// clicking it unconditionally leaves comparison rather than entering it. Three tests did
+    /// exactly that and then looked for a curtain they had just dismissed.
+    private func enterComparison() {
+        let comparisonButton = app.buttons["compareButton"]
+        guard comparisonButton.waitForExistence(timeout: 5) else { return }
+        if comparisonButton.label == "Compare" {
+            comparisonButton.click()
+        }
+    }
+
     private func textContent(of element: XCUIElement) -> String {
         (element.value as? String) ?? element.label
     }
@@ -1110,7 +1123,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // `comparisonModeToggle` chose between the loupe and the curtain. #90 removed the loupe, so
         // there is nothing to toggle between and the comparison is entered directly. The zoom
         // buttons this test is actually about are unaffected: only the way in changed.
-        app.buttons["compareButton"].click()
+        enterComparison()
 
         XCTAssertTrue(app.buttons["zoomInButton"].waitForExistence(timeout: 3),
                       "Zoom + button should be visible in slider comparison mode")
@@ -1529,7 +1542,7 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        app.buttons["compareButton"].click()
+        enterComparison()
 
         let divider = app.otherElements["curtainDivider"]
         XCTAssertTrue(
@@ -1557,7 +1570,7 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        app.buttons["compareButton"].click()
+        enterComparison()
 
         let divider = app.otherElements["curtainDivider"]
         let canvas = app.otherElements["workspaceCanvas"]
