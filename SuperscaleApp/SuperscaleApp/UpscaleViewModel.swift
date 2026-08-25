@@ -454,6 +454,25 @@ final class UpscaleViewModel: ObservableObject {
     func renderRaise(
         _ source: GUIUpscaleSource, scale: Int, sourceSize: CGSize
     ) async throws -> Data {
+        // **It reports.** A raise runs the same Neural Engine work as any other upscale and takes
+        // the same seconds, and AC94.1 requires work of any kind on the working image to show
+        // progress on the canvas. Pressing Apply on a small picture and watching nothing happen for
+        // several seconds is the defect #94 fixed for the filter, arriving on a new path.
+        isProcessing = true
+        progressMessage = "Preparing for filtering…"
+        defer {
+            isProcessing = false
+            progressMessage = ""
+        }
+
+        let (reports, continuation) = AsyncStream<StageProgress>.makeStream()
+        let observer = Task { @MainActor [weak self] in
+            for await progress in reports {
+                self?.progressMessage = progress.detail ?? "Preparing for filtering…"
+            }
+        }
+        defer { observer.cancel() }
+
         let result = try await upscaleCoordinator.process(
             source: source,
             options: GUIUpscaleOptions(
@@ -462,8 +481,11 @@ final class UpscaleViewModel: ObservableObject {
                 // the way to the provider, so it borrows nothing from that choice.
                 faceEnhance: false,
                 sizing: .preset(scale: scale)),
-            sourceSize: sourceSize,
-            onProgress: { _ in })
+            sourceSize: sourceSize
+        ) { progress in
+            continuation.yield(UpscaleProgressReader.progress(for: progress))
+        }
+        continuation.finish()
         return result.imageData
     }
 

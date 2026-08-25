@@ -128,6 +128,24 @@ final class CanvasWorkTests: XCTestCase {
         XCTAssertTrue(handedOver.message.lowercased().contains("tile"), handedOver.message)
     }
 
+    /// Raising a picture to the filterable minimum is work, and it reports.
+    ///
+    /// It runs the same Neural Engine work as any other upscale and takes the same seconds. AC94.1
+    /// covers **work of any kind** on the working image, so a new path that runs silently is the
+    /// defect #94 fixed for the filter arriving somewhere else: pressing Apply on a small picture
+    /// and watching nothing happen.
+    func test_raisingToTheMinimumIsReportedAsWork() {
+        let raising = CanvasWork.of(
+            isUpscaling: true, isApplyingFilter: false,
+            upscaleMessage: "Preparing for filtering…")
+
+        XCTAssertTrue(raising.isBusy)
+        XCTAssertEqual(raising.message, "Preparing for filtering…")
+        XCTAssertNotEqual(
+            raising.message, CanvasWork.filterMessage,
+            "the provider has not been contacted yet; this is local work")
+    }
+
     /// An upscale with nothing to say still says something.
     ///
     /// The kit reports per tile, and there is a gap between "started" and the first report. An empty

@@ -409,7 +409,16 @@ struct MainView: View {
         return asset.fileURL
     }
 
+    /// The picture's **pixel** dimensions.
+    ///
+    /// `NSImage.size` is in points and is DPI-adjusted, so a 300 dpi photograph reports a quarter of
+    /// its pixel count. Everything downstream of this — the floor, the area ceiling, the scale
+    /// readout — is arithmetic on pixels, so `ImageLoader` is asked first and `NSImage` is the
+    /// fallback for a file it cannot read at all.
     private func importedPixelSize(_ url: URL) -> CGSize {
+        if let loaded = try? ImageLoader.load(from: url) {
+            return CGSize(width: loaded.image.width, height: loaded.image.height)
+        }
         guard let image = NSImage(contentsOf: url) else { return .zero }
         return image.size
     }
