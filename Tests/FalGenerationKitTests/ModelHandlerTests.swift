@@ -52,7 +52,9 @@ final class ModelHandlerTests: XCTestCase {
     func test_aTextToImageRequestDoesCarrySizing_RT097_2() throws {
         let payload = try body(for: request())
 
-        XCTAssertEqual(payload["aspect_ratio"] as? String, "3:4")
+        // A supported ratio, not necessarily the one asked for: 3:4 is not on offer and snaps.
+        let sent = try XCTUnwrap(payload["aspect_ratio"] as? String)
+        XCTAssertTrue(FalAspectRatio.supported.contains(sent), sent)
     }
 
     // RT-97.3
@@ -70,7 +72,8 @@ final class ModelHandlerTests: XCTestCase {
         let payload = try body(
             for: request(modelID: "fal-ai/flux-pro/kontext", references: [reference]))
 
-        XCTAssertEqual(payload["aspect_ratio"] as? String, "3:4")
+        let sent = try XCTUnwrap(payload["aspect_ratio"] as? String)
+        XCTAssertTrue(FalAspectRatio.supported.contains(sent), sent)
     }
 
     // MARK: - The reference's form
@@ -106,9 +109,68 @@ final class ModelHandlerTests: XCTestCase {
             request(modelID: "fal-ai/flux-pro/kontext", references: [reference] + extras),
             apiKey: apiKey)
 
-        XCTAssertEqual(
-            prepared.warnings,
-            [.extraReferencesIgnored(modelID: "fal-ai/flux-pro/kontext", accepted: 1, provided: 3)])
+        // Contained rather than sole: kontext's edit endpoint accepts sizing, so a snap warning
+        // legitimately accompanies this one.
+        XCTAssertTrue(
+            prepared.warnings.contains(
+                .extraReferencesIgnored(modelID: "fal-ai/flux-pro/kontext", accepted: 1, provided: 3)),
+            "\(prepared.warnings)")
+    }
+
+    // MARK: - The aspect ratio the provider actually offers
+
+    // RT-97.9
+    func test_anUnsupportedRatioSnapsToTheNearestSupported_RT097_9() throws {
+        // 3:4 is 0.75; the supported set is 9:16 (0.5625), 1:1, 4:3 (1.333) and 16:9 (1.778).
+        let payload = try body(for: request())
+
+        let sent = try XCTUnwrap(payload["aspect_ratio"] as? String)
+        XCTAssertTrue(FalAspectRatio.supported.contains(sent), sent)
+        XCTAssertNotEqual(sent, "3:4", "3:4 is not on offer")
+    }
+
+    // RT-97.10
+    func test_aSupportedRatioPassesThroughUnchanged_RT097_10() throws {
+        let payload = try body(
+            for: FalGenerationRequest(
+                prompt: "a portrait", aspectRatio: "16:9", referenceImageURLs: []))
+
+        XCTAssertEqual(payload["aspect_ratio"] as? String, "16:9")
+    }
+
+    // RT-97.11
+    //
+    // A snap is a silent adjustment to what the user asked for. Dropped references are already
+    // reported this way, so the mechanism exists.
+    func test_aSnappedRatioProducesAWarningNamingBoth_RT097_11() throws {
+        let prepared = try FalRequestBuilder().prepare(request(), apiKey: apiKey)
+
+        let snapped = prepared.warnings.compactMap { warning -> (String, String)? in
+            if case let .aspectRatioSnapped(requested, sent) = warning { return (requested, sent) }
+            return nil
+        }
+        XCTAssertEqual(snapped.count, 1)
+        XCTAssertEqual(snapped.first?.0, "3:4", "what was asked for")
+        XCTAssertTrue(FalAspectRatio.supported.contains(snapped.first?.1 ?? ""), "and what went")
+    }
+
+    func test_aSupportedRatioProducesNoSnapWarning() throws {
+        let prepared = try FalRequestBuilder().prepare(
+            FalGenerationRequest(prompt: "a portrait", aspectRatio: "1:1"), apiKey: apiKey)
+
+        XCTAssertTrue(prepared.warnings.isEmpty)
+    }
+
+    // Nearest by the ratio's value, not by where it sorts: 2:3 is 0.667, closer to 9:16's 0.5625
+    // than to 1:1.
+    func test_theNearestIsFoundByValueRatherThanByOrder() {
+        XCTAssertEqual(FalAspectRatio.snap("2:3").sent, "9:16")
+        XCTAssertEqual(FalAspectRatio.snap("2:1").sent, "16:9")
+    }
+
+    func test_anUnparseableRatioFallsBackRatherThanGuessing() {
+        XCTAssertEqual(FalAspectRatio.snap("wide-ish").sent, "1:1")
+        XCTAssertEqual(FalAspectRatio.snap("4:0").sent, "1:1")
     }
 
     // MARK: - The handlers are a table

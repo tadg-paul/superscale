@@ -58,7 +58,14 @@ public struct FalRequestBuilder: Sendable {
         // parameter does not produce the sizing asked for — it produces whatever the model does by
         // default, which is one candidate explanation for filtered results coming back square.
         if !isEdit || handler.editAcceptsSizing {
-            payload[handler.sizingField] = request.aspectRatio
+            // Snapped to what the provider offers, and reported when it differs. An unsupported
+            // ratio does not produce that shape; it produces whatever the model does instead.
+            let snapped = FalAspectRatio.snap(request.aspectRatio)
+            payload[handler.sizingField] = snapped.sent
+            if snapped.wasSnapped {
+                warnings.append(
+                    .aspectRatioSnapped(requested: request.aspectRatio, sent: snapped.sent))
+            }
         }
         if let referenceField = handler.referenceField, let first = acceptedReferences.first {
             // In the form the field expects, which is a property of the field rather than of how

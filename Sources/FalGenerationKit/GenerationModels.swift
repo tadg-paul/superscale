@@ -67,6 +67,11 @@ public struct FalGenerationRequest: Equatable, Sendable {
 
 public enum FalGenerationWarning: Equatable, Sendable {
     case extraReferencesIgnored(modelID: String, accepted: Int, provided: Int)
+    /// The requested aspect ratio is not one the model offers, so the nearest was sent instead.
+    ///
+    /// Reported rather than applied silently: the user asked for one shape and is getting another,
+    /// and dropped references are already reported the same way.
+    case aspectRatioSnapped(requested: String, sent: String)
 }
 
 public struct FalGeneratedImage: Equatable, Sendable {
