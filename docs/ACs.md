@@ -280,6 +280,28 @@ Last migrated: AC87.12 from #87 on 2026-08-24
   and the only formatting of a phase in that executable. Running the built binary would be a
   build-system invocation, which `TESTING.md` keeps out of the regression pack.
 
+### AC83.7 - An upscale's output never exceeds the supported area, whatever asked for it: a scale is reduced to the largest that fits, a custom target is reduced proportionally, and the reduction is reported while the scale selection continues to show what was asked for. A picture that cannot fit at any scale is left as it is, with the reason given. The minimum long edge required for filtering is unaffected by that ceiling.
+- Introduced: #91 (closed 2026-08-25), backfilled against the #83 family
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-91.1: an output above the ceiling is reduced to the largest scale that fits
+  - ✅ RT-91.2: the decision reports what was asked for and what is used, and the selection is unchanged
+  - ✅ RT-91.3: an output that fits is produced unreduced
+  - ✅ RT-91.4: the ceiling is area, so a wide short picture and a tall narrow one of equal area are treated alike
+  - ✅ RT-91.5: the reported case, a 2000-pixel-wide picture at 4x, yields a sizing that fits
+  - ✅ RT-91.6: a small picture is still raised toward the filterable minimum, unblocked by the ceiling
+  - ✅ RT-91.7: a picture that fits at no scale is left alone, with the reason given
+  - ✅ RT-91.8: a custom target above the ceiling is reduced proportionally, preserving its aspect
+  - ✅ RT-91.9: the ceiling binds the output produced rather than the request typed
+  - ✅ RT-91.10: the coordinator asks its processor for an output within the ceiling
+  - ⏳ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive — pending on master #79's roll-up
+- Note: **backfilled, not pre-existing.** #91 first cited AC83.7 as a legacy criterion on #83. It did
+  not exist: #83 carries AC83.1 to AC83.6, and the resolution caps were only ever prose in
+  `IMPLEMENTATION_GUIDE_v2.md` 2.5 and 3.8 plus a residual-risk note. The bound was acknowledged and
+  never specified, which is how an 8000-pixel output came to sit between a warning at 4096 and a
+  refusal at 8192 — permitted, and fatal. Backfilled under the second path in `ISSUES.md`
+  §"Bug-fix issues reference existing ACs".
+
 ---
 
 ## Pipeline reuse
