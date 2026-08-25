@@ -138,6 +138,17 @@ The MVP is the smallest release that demonstrates the combined product, supports
 credible human validation and provides a stable basis for detailed interaction
 design. It is not the full end state.
 
+> **Superseded as written --- 2026-08-25.** This MVP definition predates the
+> author's ruling of 2026-08-23 (#79, log entry L14) that redefined the MVP
+> around one workspace, and the delivered MVP differs from the list below in
+> exactly the ways "Where the Build Stands" describes: **no modes** (one
+> workspace; Generate and History are not surfaces), **no text-to-image**,
+> **one reference** (the working image), **no cost estimates or account
+> visibility** (a documented flat rate instead). The list is retained as the
+> record of what was planned before user contact reshaped it; the delivered
+> scope is `IMPLEMENTATION_GUIDE_v2.md` sections 2 and 6 and the criteria in
+> `ACs.md`.
+
 ### MVP Capabilities
 
 - One native app shell with Upscale, Generate, History and Settings modes.
