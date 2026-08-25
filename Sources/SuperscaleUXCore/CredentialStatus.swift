@@ -23,4 +23,37 @@ public enum CredentialStatus: Equatable, Sendable {
     public var isPresent: Bool {
         self != .absent
     }
+
+    /// What the badge says, in words.
+    ///
+    /// Held here rather than in the view because it is the value a test reads and the sentence
+    /// VoiceOver speaks, and a state that exists only as a tint reaches neither. A rejection carries
+    /// the provider's own reason: "rejected" without one leaves the user guessing between a typo, an
+    /// expired key and a key for the wrong account.
+    public var badgeDescription: String {
+        switch self {
+        case .absent:
+            return "not configured"
+        case .stored:
+            return "stored, not checked"
+        case .verified:
+            return "working"
+        case let .rejected(reason):
+            return "rejected: \(reason)"
+        }
+    }
+
+    /// The SF Symbol drawn for this state.
+    public var badgeSymbol: String {
+        switch self {
+        case .absent:
+            return "minus.circle"
+        case .stored:
+            return "questionmark.circle"
+        case .verified:
+            return "checkmark.circle.fill"
+        case .rejected:
+            return "exclamationmark.circle.fill"
+        }
+    }
 }

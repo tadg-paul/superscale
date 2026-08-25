@@ -152,6 +152,17 @@ final class SuperscaleAppUITests: XCTestCase {
         app.descendants(matching: .any)[identifier]
     }
 
+    /// Replaces a field's contents rather than appending to them.
+    ///
+    /// The UI-test credential storage seeds both key fields, so a bare `typeText` produces the
+    /// seeded key with the new one stuck on the end — a value neither the test nor the application
+    /// meant, and one that would fail for a reason that has nothing to do with the criterion.
+    private func replaceContents(of field: XCUIElement, with text: String) {
+        field.click()
+        field.typeKey("a", modifierFlags: .command)
+        field.typeText(text)
+    }
+
     private func attachScreenshot(named name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
@@ -220,7 +231,11 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(app.popUpButtons["defaultGenerationModelPicker"].exists)
         XCTAssertTrue(app.popUpButtons["defaultUpscaleModelPicker"].exists)
         XCTAssertTrue(app.textFields["outputFolderField"].exists)
-        XCTAssertTrue(app.textFields["costThresholdField"].exists)
+        // 🚫 The cost-threshold assertion is removed by #95 with the control it named. Guide
+        // section 6 takes the cost-confirmation policy out of MVP scope along with the pricing and
+        // account clients it belonged to; grok is a flat rate held as a constant beside Apply, so
+        // there is no threshold for a user to configure. The rest of AC73.5's controls are
+        // unaffected and asserted around it. RT-95.12 asserts the control's absence.
         XCTAssertTrue(app.popUpButtons["defaultPromptPackPicker"].exists)
         XCTAssertTrue(element(identifier: "saveGenerationKeyButton").exists)
         XCTAssertTrue(element(identifier: "removeGenerationKeyButton").isEnabled)
@@ -236,6 +251,155 @@ final class SuperscaleAppUITests: XCTestCase {
             NSPredicate(format: "value CONTAINS[c] 'bundled image filters' OR label CONTAINS[c] 'bundled image filters'")
         ).firstMatch.exists)
         XCTAssertTrue(app.buttons["saveSettingsButton"].isEnabled)
+    }
+
+    // MARK: - AC95.1, AC95.2, AC95.5: what the Settings window contains (#95)
+
+    // RT-95.1
+    //
+    // The row read *"Generation key ●●●●●●●● Generation key ✓ 🗑"*: `LabeledContent(title)` named
+    // it, and the same `title` went into the field as its own label, which macOS drew beside it.
+    //
+    // Counting matches in the tree would not catch this. `.labelsHidden()` hides a label *visually*
+    // while the element may keep it as its accessibility label, so the count can be identical before
+    // and after the fix. The row's own name therefore carries an identifier and the assertion is
+    // that exactly one element has it.
+    func test_theGenerationKeyRowNamesItselfOnce_RT095_1() {
+        openSettings()
+
+        let label = app.staticTexts["generationKeyLabel"]
+        XCTAssertTrue(label.waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            app.staticTexts.matching(identifier: "generationKeyLabel").count, 1,
+            "the row names itself once")
+
+        let field = app.textFields["generationKeyField"]
+        XCTAssertTrue(field.exists)
+        XCTAssertNotEqual(
+            field.label, label.label,
+            "the field must not repeat the row's name beside it")
+    }
+
+    // RT-95.2
+    func test_theAccountKeyRowNamesItselfOnce_RT095_2() {
+        openSettings()
+
+        let label = app.staticTexts["accountKeyLabel"]
+        XCTAssertTrue(label.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "accountKeyLabel").count, 1)
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.exists)
+        XCTAssertNotEqual(field.label, label.label)
+    }
+
+    // RT-95.3
+    //
+    // A FAL key is a bearer credential, not a password recited from memory. Masking it prevents the
+    // one check anybody performs on a pasted key: looking at it.
+    //
+    // Asserted as *no secure field exists*, not as *this element is a text field*. A `SecureField`
+    // is reported in `secureTextFields`, so the unfixed view would leave `textFields` empty and this
+    // would fail for the right reason either way.
+    func test_aTypedKeyIsReadableInTheField_RT095_3() {
+        openSettings()
+
+        let field = app.textFields["generationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            app.secureTextFields.matching(identifier: "generationKeyField").count, 0,
+            "the key is not masked")
+
+        replaceContents(of: field, with: "visible-key-not-a-real-credential")
+
+        XCTAssertEqual(field.value as? String, "visible-key-not-a-real-credential")
+    }
+
+    // RT-95.4
+    //
+    // The check that matters: a key is looked at when the user returns to Settings wondering whether
+    // the right one is in there. Saving and reopening is the journey, not just typing.
+    func test_aSavedKeyIsReadableWhenSettingsIsReopened_RT095_4() {
+        let settings = openSettings()
+
+        let field = app.textFields["generationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "saved-key-not-a-real-credential")
+        app.buttons["saveGenerationKeyButton"].click()
+
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+        openSettings()
+
+        let reopened = app.textFields["generationKeyField"]
+        XCTAssertTrue(reopened.waitForExistence(timeout: 5))
+        XCTAssertEqual(reopened.value as? String, "saved-key-not-a-real-credential")
+    }
+
+    // RT-95.12
+    //
+    // Guide section 6 takes the cost-confirmation policy out of MVP scope with the pricing and
+    // account clients. Asserted by identifier *and* by the visible words, because a control renamed
+    // rather than removed would pass the first check alone.
+    func test_noCostConfirmationControlIsPresent_RT095_12() {
+        openSettings()
+
+        XCTAssertTrue(app.textFields["generationKeyField"].waitForExistence(timeout: 5))
+        XCTAssertFalse(element(identifier: "costThresholdField").exists)
+        XCTAssertEqual(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] 'Confirm generation'")
+            ).count, 0)
+    }
+
+    // RT-95.13
+    func test_noPricingOrAccountBalanceControlIsPresent_RT095_13() {
+        openSettings()
+
+        XCTAssertTrue(app.textFields["generationKeyField"].waitForExistence(timeout: 5))
+        for identifier in ["checkPricingButton", "refreshAccountButton", "accountSummary"] {
+            XCTAssertFalse(element(identifier: identifier).exists, identifier)
+        }
+        XCTAssertEqual(
+            app.staticTexts.matching(
+                NSPredicate(format: "label CONTAINS[c] 'balance' OR label CONTAINS[c] 'pricing'")
+            ).count, 0)
+    }
+
+    // RT-95.15
+    //
+    // The line AC95.5 draws is between *storing* a credential for later and *operating* a paused
+    // feature. The account key row stores; it does not operate. Guide 2.7 retains the credential
+    // while noting no MVP feature uses it, so the row stays and stays usable.
+    func test_theAccountKeyRowIsPresentAndUsable_RT095_15() {
+        openSettings()
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "account-key-not-a-real-credential")
+
+        let save = app.buttons["saveAccountKeyButton"]
+        XCTAssertTrue(save.isEnabled)
+        save.click()
+
+        let remove = app.buttons["removeAccountKeyButton"]
+        XCTAssertTrue(remove.isEnabled, "a stored key can be removed")
+        remove.click()
+        XCTAssertEqual(field.value as? String ?? "", "")
+    }
+
+    /// The badge says what it means in words, not only in colour.
+    ///
+    /// A green tick and a grey question mark are the same element to VoiceOver, and to anyone who
+    /// cannot distinguish them, unless the state is a value. Nothing here reaches the provider: an
+    /// unsaved, unchecked key is `stored` by definition.
+    func test_theCredentialBadgeCarriesItsStateAsAValue() {
+        openSettings()
+
+        let badge = element(identifier: "generationKeyStatusBadge")
+        XCTAssertTrue(badge.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            (badge.value as? String ?? "").isEmpty,
+            "the badge's state must be readable, not only visible")
     }
 
     // MARK: - AC73.6: Settings controls are individually addressable (#88)
@@ -275,7 +439,10 @@ final class SuperscaleAppUITests: XCTestCase {
             "defaultGenerationModelPicker",
             "defaultUpscaleModelPicker",
             "outputFolderField",
-            "costThresholdField",
+            // 🚫 costThresholdField is removed by #95 with the control it named; see RT-73.8.
+            "chooseOutputFolderButton",
+            "generationKeyStatusBadge",
+            "accountKeyStatusBadge",
             "defaultPromptPackPicker",
             "saveSettingsButton",
         ]

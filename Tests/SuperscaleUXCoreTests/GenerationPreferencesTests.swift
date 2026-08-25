@@ -51,7 +51,6 @@ final class GenerationPreferencesTests: XCTestCase {
 
         let preferences = GenerationPreferences(
             outputFolder: chosen,
-            costThreshold: GenerationPreferences.defaults.costThreshold,
             defaultModelID: GenerationPreferences.defaults.defaultModelID,
             defaultUpscaleModelID: GenerationPreferences.defaults.defaultUpscaleModelID,
             defaultPromptPackID: nil)
@@ -71,7 +70,6 @@ final class GenerationPreferencesTests: XCTestCase {
 
         let preferences = GenerationPreferences(
             outputFolder: vanished,
-            costThreshold: GenerationPreferences.defaults.costThreshold,
             defaultModelID: GenerationPreferences.defaults.defaultModelID,
             defaultUpscaleModelID: GenerationPreferences.defaults.defaultUpscaleModelID,
             defaultPromptPackID: nil)

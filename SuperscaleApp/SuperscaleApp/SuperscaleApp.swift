@@ -34,6 +34,7 @@ struct SuperscaleApp: App {
         var credentialStorage: any CredentialStorage = KeychainCredentialStorage()
         var coordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
         var store = GenerationSessionStore(rootDirectory: V2AppPaths.history)
+        var credentialVerifier = FalCredentialVerifier()
 
 #if DEBUG
         let environment = ProcessInfo.processInfo.environment
@@ -42,6 +43,10 @@ struct SuperscaleApp: App {
             let root = URL(fileURLWithPath: rootPath, isDirectory: true)
             let generatedImage = URL(fileURLWithPath: generatedImagePath)
             credentialStorage = UITestCredentialStorage()
+            // The generation service is already stubbed here; the verifier is stubbed for the same
+            // reason. A GUI test pressing save would otherwise reach `api.fal.ai` for real, which
+            // makes the suite depend on a network and on somebody else's uptime.
+            credentialVerifier = FalCredentialVerifier(transport: UITestVerificationTransport())
             coordinator = GenerationCoordinator(
                 service: UITestGenerationService(imageURL: generatedImage),
                 outputStore: GeneratedImageStore(
@@ -65,6 +70,7 @@ struct SuperscaleApp: App {
                 credentials: GenerationCredentialService(storage: credentialStorage),
                 preferencesStore: GenerationPreferencesStore(),
                 loadingCatalogue: { try PromptPackCatalogue.bundled() },
+                credentialVerifier: credentialVerifier,
                 startupError: startupError
             )
         )
@@ -160,6 +166,19 @@ private final class UITestCredentialStorage: CredentialStorage {
 
     func removeValue(for slot: CredentialSlot) throws {
         values.removeValue(forKey: slot)
+    }
+}
+
+/// Answers credential checks without a network.
+///
+/// The seeded key is accepted; anything else is refused, so a GUI test can reach either badge and
+/// neither answer costs anything or depends on somebody else's uptime.
+private struct UITestVerificationTransport: FalHTTPTransport {
+    func send(_ request: URLRequest) async throws -> FalHTTPResponse {
+        let offered = request.value(forHTTPHeaderField: "Authorization")
+        let accepted = offered == "Key ui-test-generation-key"
+        return FalHTTPResponse(
+            statusCode: accepted ? 200 : 401, headers: [:], body: Data("{}".utf8))
     }
 }
 

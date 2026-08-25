@@ -22,6 +22,7 @@ struct SettingsView: View {
                         title: "Generation key",
                         text: $state.generationKey,
                         status: state.generationKeyStatus,
+                        isChecking: state.isVerifyingGenerationKey,
                         fieldIdentifier: "generationKeyField",
                         save: saveGenerationKey,
                         clear: clearGenerationKey
@@ -44,6 +45,7 @@ struct SettingsView: View {
                         // calling an account or billing endpoint, which is the surface the MVP has
                         // paused. Stored or absent is all that can honestly be said about it.
                         status: state.isAccountAdministrationConfigured ? .stored : .absent,
+                        isChecking: false,
                         fieldIdentifier: "accountAdministrationKeyField",
                         save: saveAccountKey,
                         clear: clearAccountKey
@@ -77,18 +79,12 @@ struct SettingsView: View {
                         .accessibilityIdentifier("chooseOutputFolderButton")
                     }
 
-                    LabeledContent("Confirm generation above") {
-                        HStack(spacing: 4) {
-                            Text("$")
-                            TextField(
-                                "Threshold",
-                                value: $state.costThreshold,
-                                format: .number.precision(.fractionLength(2...4))
-                            )
-                            .frame(width: 90)
-                            .accessibilityIdentifier("costThresholdField")
-                        }
-                    }
+                    // 🚫 The cost-confirmation threshold is removed by #95. Section 6 of the
+                    // implementation guide takes the cost-confirmation policy out of MVP scope
+                    // along with the pricing and account clients, and grok is a known flat rate
+                    // held as a documented constant beside Apply. Nothing consulted this value:
+                    // it was a control that asked the user to configure a decision the
+                    // application no longer makes. Its stored preference goes with it.
                 }
 
                 Section("Prompt packs") {
@@ -152,6 +148,7 @@ struct SettingsView: View {
         title: String,
         text: Binding<String>,
         status: CredentialStatus,
+        isChecking: Bool,
         fieldIdentifier: String,
         save: @escaping () -> Void,
         clear: @escaping () -> Void
@@ -173,6 +170,7 @@ struct SettingsView: View {
                     Image(systemName: "checkmark")
                 }
                 .help("Save \(title.lowercased())")
+                .disabled(isChecking)
                 .accessibilityIdentifier(
                     fieldIdentifier == "generationKeyField"
                         ? "saveGenerationKeyButton"
@@ -182,13 +180,29 @@ struct SettingsView: View {
                     Image(systemName: "trash")
                 }
                 .help("Remove \(title.lowercased())")
-                .disabled(!status.isPresent)
+                .disabled(!status.isPresent || isChecking)
                 .accessibilityIdentifier(
                     fieldIdentifier == "generationKeyField"
                         ? "removeGenerationKeyButton"
                         : "removeAccountKeyButton"
                 )
-                credentialStatusBadge(for: status)
+                if isChecking {
+                    // Pressing save previously changed nothing visible: the key went to the
+                    // Keychain and the window looked exactly as it had. A check that reaches the
+                    // provider takes long enough for that silence to read as a broken button.
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("generationKeyCheckingIndicator")
+                        .accessibilityLabel("Checking the generation key")
+                } else {
+                    credentialStatusBadge(for: status)
+                        .accessibilityIdentifier(
+                            fieldIdentifier == "generationKeyField"
+                                ? "generationKeyStatusBadge"
+                                : "accountKeyStatusBadge"
+                        )
+                }
             }
         } label: {
             // The row's own name, identified so a test can assert there is exactly one of it. The
@@ -209,29 +223,28 @@ struct SettingsView: View {
     /// a key looks like before anyone has asked, and what it returns to when the provider cannot be
     /// reached — the difference between "we could not ask" and "the answer was no" being the
     /// difference between a user waiting and a user deleting a working key.
-    @ViewBuilder
     private func credentialStatusBadge(for status: CredentialStatus) -> some View {
+        // Declared as one element with an explicit label and value rather than left as a `Label`
+        // with `.iconOnly`, because what an icon-only label contributes to the accessibility tree
+        // is a rendering detail and this state has to be readable — by VoiceOver, and by a test
+        // asking what the badge says. Colour alone reaches neither.
+        Image(systemName: status.badgeSymbol)
+            .foregroundStyle(badgeTint(for: status))
+            .help(status.badgeDescription)
+            .accessibilityElement()
+            .accessibilityLabel("Credential status")
+            .accessibilityValue(status.badgeDescription)
+    }
+
+    /// Colour accompanies the badge's value; it never carries it alone.
+    private func badgeTint(for status: CredentialStatus) -> Color {
         switch status {
-        case .absent:
-            Label("Not configured", systemImage: "minus.circle")
-                .foregroundStyle(Color.secondary)
-                .labelStyle(.iconOnly)
-                .accessibilityValue("not configured")
-        case .stored:
-            Label("Stored, not checked", systemImage: "questionmark.circle")
-                .foregroundStyle(Color.secondary)
-                .labelStyle(.iconOnly)
-                .accessibilityValue("stored, not checked")
+        case .absent, .stored:
+            return .secondary
         case .verified:
-            Label("Working", systemImage: "checkmark.circle.fill")
-                .foregroundStyle(Color.green)
-                .labelStyle(.iconOnly)
-                .accessibilityValue("working")
-        case let .rejected(reason):
-            Label("Rejected: \(reason)", systemImage: "exclamationmark.circle.fill")
-                .foregroundStyle(Color.red)
-                .labelStyle(.iconOnly)
-                .accessibilityValue("rejected: \(reason)")
+            return .green
+        case .rejected:
+            return .red
         }
     }
 
@@ -266,8 +279,20 @@ struct SettingsView: View {
         }
     }
 
+    /// Saves the key and then asks the provider whether it works.
+    ///
+    /// One press, two outcomes. The notice reports the store, which is what the press did; the badge
+    /// reports the provider's answer when it arrives, which is a separate claim and used to be told
+    /// as if it were the same one.
     private func saveGenerationKey() {
-        perform("Generation key saved") { try state.saveGenerationCredential() }
+        Task {
+            do {
+                try await state.saveAndVerifyGenerationKey()
+                notice = "Generation key saved"
+            } catch {
+                localError = error.localizedDescription
+            }
+        }
     }
 
     private func clearGenerationKey() {

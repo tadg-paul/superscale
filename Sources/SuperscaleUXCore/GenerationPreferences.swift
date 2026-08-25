@@ -1,5 +1,5 @@
 // ABOUTME: Persists non-secret generation and upscale defaults in application preferences.
-// ABOUTME: Validates cost thresholds and output folders before changing stored values.
+// ABOUTME: Validates output folders and model defaults before changing stored values.
 
 import FalGenerationKit
 import Foundation
@@ -16,27 +16,23 @@ public struct GenerationPreferences: Equatable, Sendable {
 
     public static let defaults = GenerationPreferences(
         outputFolder: GenerationPreferences.defaultOutputFolder,
-        costThreshold: 0.05,
         defaultModelID: FalGenerationRequest.defaultModelID,
         defaultUpscaleModelID: "auto",
         defaultPromptPackID: nil
     )
 
     public let outputFolder: URL?
-    public let costThreshold: Double
     public let defaultModelID: String
     public let defaultUpscaleModelID: String
     public let defaultPromptPackID: String?
 
     public init(
         outputFolder: URL?,
-        costThreshold: Double,
         defaultModelID: String,
         defaultUpscaleModelID: String,
         defaultPromptPackID: String?
     ) {
         self.outputFolder = outputFolder
-        self.costThreshold = costThreshold
         self.defaultModelID = defaultModelID
         self.defaultUpscaleModelID = defaultUpscaleModelID
         self.defaultPromptPackID = defaultPromptPackID
@@ -46,10 +42,15 @@ public struct GenerationPreferences: Equatable, Sendable {
 public final class GenerationPreferencesStore {
     private enum Key {
         static let outputFolder = "v2.generation.outputFolder"
-        static let costThreshold = "v2.generation.costThreshold"
         static let modelID = "v2.generation.modelID"
         static let upscaleModelID = "v2.upscale.modelID"
         static let promptPackID = "v2.generation.promptPackID"
+
+        /// Written by versions before #95 and no longer read.
+        ///
+        /// Named here rather than forgotten: the cost-confirmation control it backed is removed by
+        /// guide section 6, and a key nobody names is a key nobody can clean up.
+        static let retiredCostThreshold = "v2.generation.costThreshold"
     }
 
     private let defaults: UserDefaults
@@ -65,7 +66,6 @@ public final class GenerationPreferencesStore {
     }
 
     public func load() -> GenerationPreferences {
-        let storedThreshold = defaults.object(forKey: Key.costThreshold) as? Double
         // A stored folder that has gone — an external disk, a directory the user deleted — falls
         // back rather than leaving the application with nowhere to write and nothing to say.
         let storedFolder = defaults.string(forKey: Key.outputFolder)
@@ -74,7 +74,6 @@ public final class GenerationPreferencesStore {
         let outputFolder = storedFolder ?? GenerationPreferences.defaultOutputFolder
         return GenerationPreferences(
             outputFolder: outputFolder,
-            costThreshold: storedThreshold ?? GenerationPreferences.defaults.costThreshold,
             defaultModelID: defaults.string(forKey: Key.modelID) ?? GenerationPreferences.defaults.defaultModelID,
             defaultUpscaleModelID: defaults.string(forKey: Key.upscaleModelID)
                 ?? GenerationPreferences.defaults.defaultUpscaleModelID,
@@ -83,9 +82,6 @@ public final class GenerationPreferencesStore {
     }
 
     public func save(_ preferences: GenerationPreferences) throws {
-        guard preferences.costThreshold.isFinite, preferences.costThreshold >= 0 else {
-            throw GenerationPreferencesError.invalidCostThreshold
-        }
         if let outputFolder = preferences.outputFolder, !folderValidator(outputFolder) {
             throw GenerationPreferencesError.invalidOutputFolder(outputFolder)
         }
@@ -94,10 +90,12 @@ public final class GenerationPreferencesStore {
         }
 
         defaults.set(preferences.outputFolder?.path, forKey: Key.outputFolder)
-        defaults.set(preferences.costThreshold, forKey: Key.costThreshold)
         defaults.set(preferences.defaultModelID, forKey: Key.modelID)
         defaults.set(preferences.defaultUpscaleModelID, forKey: Key.upscaleModelID)
         defaults.set(preferences.defaultPromptPackID, forKey: Key.promptPackID)
+        // The retired key goes when preferences are next written, so a machine that has run an
+        // earlier build does not keep a value nothing reads.
+        defaults.removeObject(forKey: Key.retiredCostThreshold)
     }
 
     private static func defaultFolderValidator(_ url: URL) -> Bool {
@@ -109,14 +107,11 @@ public final class GenerationPreferencesStore {
 }
 
 public enum GenerationPreferencesError: LocalizedError {
-    case invalidCostThreshold
     case invalidOutputFolder(URL)
     case invalidModelDefault
 
     public var errorDescription: String? {
         switch self {
-        case .invalidCostThreshold:
-            return "The cost threshold must be a finite value of zero or more."
         case let .invalidOutputFolder(url):
             return "The output folder is unavailable or not writable: \(url.path)"
         case .invalidModelDefault:

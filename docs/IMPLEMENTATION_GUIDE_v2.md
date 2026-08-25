@@ -761,6 +761,13 @@ a picture has been panned, whether a key is configured --- it carries an
 `accessibilityValue` alongside its identifier. A tint reaches nobody: not
 VoiceOver, and not a test asking what the state is.
 
+**A shape is not a control until it is declared one.** SwiftUI keeps `Circle`,
+`Rectangle` and their kin out of the accessibility tree entirely: they are
+decorative, and attaching a `.gesture` and an `.accessibilityIdentifier` does not
+change that. A shape a user can drag needs `.accessibilityElement()` and a label,
+or it should be a `Button`. The curtain's divider was a `Circle` with a drag
+gesture for five months and existed for nobody but a mouse.
+
 This is the same rule as the paragraph above, one level down: the first says a
 control must be *present* in the tree, this says its *state* must be. It has cost
 four separate criteria in this delivery, each found by an audit rather than by
@@ -958,6 +965,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.11 (2026-08-25):** Added the rule in 3.9 that a shape is not a control until it is declared
+  one. The curtain's divider was a `Circle` carrying a drag gesture and an identifier, and existed
+  for nobody but a mouse --- the fifth state in this delivery the accessibility tree could not see,
+  and the first that was never an element at all rather than one absorbed or expressed as colour.
 - **3.10 (2026-08-25):** Recorded four corrections to section 6's delivery table, each found while
   building the slice it describes: sizing was sent to the edit endpoint that rejects it; the model
   "registry" was a `switch` and so admitted no models as data; the 1024 floor was documented and
