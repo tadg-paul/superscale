@@ -71,6 +71,14 @@ public enum UpscaleCeiling {
     ) -> UpscaleDecision {
         let requested = GUIUpscaleSizing.preset(scale: requestedScale)
 
+        // A scale of zero or less is not an upscale, and `fits` would wave it through because no
+        // pixels is fewer than the ceiling. The control cannot produce one; the function is public
+        // and should not answer nonsense with a confident yes.
+        guard requestedScale >= 1 else {
+            return UpscaleDecision(
+                requested: requested, sizing: nil, outputSize: sourceSize, wasReduced: false)
+        }
+
         // What was asked for, when it already fits. Checked before the ladder rather than through
         // it, so correctness does not depend on the requested scale appearing in `presets`.
         let requestedOutput = CGSize(
