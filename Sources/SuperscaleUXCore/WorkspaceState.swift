@@ -194,7 +194,17 @@ public final class WorkspaceState: ObservableObject {
     }
 
     /// Makes an allocated raise the base, once its pixels exist.
-    public func adoptRaise(_ reference: AssetReference) throws {
+    ///
+    /// - Parameter producedSize: what the work actually produced, where the caller measured it. An
+    ///   allocation is made before the work runs, so its size is the *target* — and a model whose
+    ///   native scale is lower than the one requested delivers less than that. Recording the target
+    ///   would have the graph claim a floor it never reached, and `raiseToMinimumNeeded` would then
+    ///   answer that nothing more is needed. AC96.2's continuous enforcement depends on this being
+    ///   the truth.
+    public func adoptRaise(_ reference: AssetReference, producedSize: CGSize? = nil) throws {
+        if let producedSize, producedSize.width > 0, producedSize.height > 0 {
+            try graph.correctSize(of: reference, to: producedSize)
+        }
         try graph.promoteRaise(reference)
         showsBase = false
     }

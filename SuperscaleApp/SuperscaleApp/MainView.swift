@@ -274,7 +274,14 @@ struct MainView: View {
                 sourceSize: asset.pixelSize,
                 onProgress: { _ in })
             try result.imageData.write(to: allocation.fileURL, options: .atomic)
-            try workspace.adoptRaise(allocation.reference)
+            // Recorded at the size that was **produced**, not the size that was asked for. A model
+            // whose native scale is lower than the one requested delivers less, and the area ceiling
+            // can reduce a request outright — so a raise recorded at its target would claim a floor
+            // it had not reached, and the next apply would not know to try again. AC96.2 requires
+            // the floor to be re-enforced whenever a change drops the working image below it, and
+            // this is what makes that check answer honestly.
+            try workspace.adoptRaise(
+                allocation.reference, producedSize: importedPixelSize(allocation.fileURL))
 
             // Guide 2.5's own reasoning: with the raised picture as the base and the scale off, the
             // application stops re-upscaling a picture that is already the size the provider wants.

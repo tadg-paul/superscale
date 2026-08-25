@@ -285,6 +285,24 @@ public struct AssetGraph: Sendable {
         return UpscaleAllocation(reference: AssetReference(id: id), fileURL: fileURL)
     }
 
+    /// Corrects an allocated asset's recorded size to what the work actually produced.
+    ///
+    /// An allocation is made before the work runs, so its size is a target. Where the two differ —
+    /// a model whose native scale is lower than the one requested, or a target the area ceiling
+    /// reduced — the graph must hold the truth, because every later decision about that asset reads
+    /// its `pixelSize`.
+    public mutating func correctSize(of reference: AssetReference, to pixelSize: CGSize) throws {
+        let asset = try asset(for: reference)
+        assets[asset.id] = Asset(
+            id: asset.id,
+            role: asset.role,
+            fileURL: asset.fileURL,
+            pixelSize: pixelSize,
+            parentID: asset.parentID,
+            provenance: asset.provenance
+        )
+    }
+
     /// Makes an allocated raise the base, once its pixels exist.
     public mutating func promoteRaise(_ reference: AssetReference) throws {
         let asset = try asset(for: reference)

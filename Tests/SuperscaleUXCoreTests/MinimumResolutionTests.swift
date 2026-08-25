@@ -190,6 +190,90 @@ final class MinimumResolutionTests: XCTestCase {
         XCTAssertNil(workspace.raiseToMinimumNeeded(), "raised once, not repeatedly")
     }
 
+    // MARK: - AC96.2: the floor is enforced continuously
+
+    // RT-96.5, RT-96.6
+    //
+    // Guide 2.5: *"The floor is enforced continuously, not only on import."* The case that makes
+    // this real is a raise that **fell short of its own target** — a model whose native scale is
+    // lower than the one requested delivers less, and the area ceiling can reduce a request
+    // outright. A graph recording the target rather than what was produced would claim a floor it
+    // never reached, and the next apply would send an undersized picture believing it had been
+    // corrected.
+    @MainActor
+    func test_aRaiseThatFellShortIsRaisedAgainAndReportedAgain_RT096_5() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 240, height: 320))
+
+        let decision = try XCTUnwrap(workspace.raiseToMinimumNeeded())
+        XCTAssertEqual(decision.resultingSize, CGSize(width: 960, height: 1280), "4x was asked for")
+
+        // The work delivered 2x rather than the 4x requested — a model whose native scale is lower.
+        let allocation = try workspace.allocateRaiseToMinimum(
+            pixelSize: decision.resultingSize, promote: false)
+        try workspace.adoptRaise(
+            allocation.reference, producedSize: CGSize(width: 480, height: 640))
+
+        // RT-96.5: the floor is checked again, against what exists rather than what was intended.
+        let again = try XCTUnwrap(
+            workspace.raiseToMinimumNeeded(),
+            "640 is below 1024, so the floor still needs enforcing")
+        XCTAssertEqual(again.scale, 2, "the least further upscale that clears it")
+        XCTAssertEqual(again.resultingSize, CGSize(width: 960, height: 1280))
+
+        // RT-96.6: and the user is told again.
+        XCTAssertNotNil(again.report)
+    }
+
+    /// A raise that reached its target is not raised a second time.
+    ///
+    /// The other half of RT-96.5: a correction that records the truth must not turn every raise
+    /// into a loop.
+    @MainActor
+    func test_aRaiseThatReachedTheFloorIsNotRaisedAgain_RT096_5b() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 240, height: 320))
+
+        let decision = try XCTUnwrap(workspace.raiseToMinimumNeeded())
+        let allocation = try workspace.allocateRaiseToMinimum(
+            pixelSize: decision.resultingSize, promote: false)
+        try workspace.adoptRaise(allocation.reference, producedSize: decision.resultingSize)
+
+        XCTAssertNil(workspace.raiseToMinimumNeeded())
+    }
+
+    /// With no measurement to hand, the allocation's target stands.
+    ///
+    /// A caller that cannot measure what it produced should not silently zero the record.
+    @MainActor
+    func test_anUnmeasuredRaiseKeepsItsRecordedTarget() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 240, height: 320))
+
+        let decision = try XCTUnwrap(workspace.raiseToMinimumNeeded())
+        let allocation = try workspace.allocateRaiseToMinimum(
+            pixelSize: decision.resultingSize, promote: false)
+
+        try workspace.adoptRaise(allocation.reference, producedSize: .zero)
+
+        let base = try XCTUnwrap(workspace.graph.base)
+        XCTAssertEqual(
+            try workspace.graph.asset(for: base).pixelSize, decision.resultingSize,
+            "a zero measurement is no measurement, not a size")
+    }
+
     /// With nothing imported there is nothing to raise, and no message about it.
     @MainActor
     func test_withNoBaseThereIsNothingToRaise() throws {
