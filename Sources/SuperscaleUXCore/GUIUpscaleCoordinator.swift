@@ -100,6 +100,12 @@ public struct GUIUpscaleResult: Equatable, Sendable {
     public let preFaceImageData: Data?
     public let resolvedModelName: String
     public let wasAutoDetect: Bool
+    /// What the ceiling decided, when the source's dimensions were known.
+    ///
+    /// Carried as a value rather than announced, so the regression pack can assert what the user
+    /// will be told. The message is a rendering of this; without it the reporting would live in the
+    /// app target, which `make test` does not build.
+    public let reduction: UpscaleDecision?
 }
 
 public protocol GUIUpscaleProcessing: Sendable {
@@ -120,11 +126,35 @@ public struct GUIUpscaleCoordinator: Sendable {
         self.processor = processor
     }
 
+    /// Runs the upscale, within what memory allows.
+    ///
+    /// `sourceSize` is optional so that a caller which does not know the picture's dimensions still
+    /// compiles; the ceiling can only bind when it is supplied, and every caller in the application
+    /// supplies it. The decision is applied here rather than in the processor because it is
+    /// application policy about what a user may ask for, and `SuperscaleKit` allocates what it is
+    /// told to.
     public func process(
         source: GUIUpscaleSource,
         options: GUIUpscaleOptions,
+        sourceSize: CGSize? = nil,
         onProgress: @escaping @Sendable (PipelineProgress) -> Void
     ) async throws -> GUIUpscaleResult {
+        var options = options
+        var decision: UpscaleDecision?
+
+        if let sourceSize {
+            let made = UpscaleCeiling.decide(sourceSize: sourceSize, requested: options.sizing)
+            decision = made
+            guard let permitted = made.sizing else {
+                throw UpscaleCeilingError.noScaleFits(
+                    sourceSize: sourceSize, requested: options.sizing)
+            }
+            options = GUIUpscaleOptions(
+                selectedModelName: options.selectedModelName,
+                faceEnhance: options.faceEnhance,
+                sizing: permitted)
+        }
+
         let processed = try await processor.process(
             inputURL: source.url,
             options: options,
@@ -135,8 +165,29 @@ public struct GUIUpscaleCoordinator: Sendable {
             imageData: processed.imageData,
             preFaceImageData: processed.preFaceImageData,
             resolvedModelName: processed.resolvedModelName,
-            wasAutoDetect: processed.wasAutoDetect
+            wasAutoDetect: processed.wasAutoDetect,
+            reduction: decision
         )
+    }
+}
+
+/// Raised when no upscale of a picture fits within the supported area.
+///
+/// A refusal rather than a crash. The picture is legitimate; only the operation is impossible, and
+/// the caller shows it unchanged with this as the reason.
+public enum UpscaleCeilingError: Error, LocalizedError, Equatable {
+    case noScaleFits(sourceSize: CGSize, requested: GUIUpscaleSizing)
+
+    public var errorDescription: String? {
+        switch self {
+        case let .noScaleFits(sourceSize, _):
+            let megapixels = (sourceSize.width * sourceSize.height) / 1_000_000
+            return String(
+                format:
+                    "This image is %.0f megapixels, and upscaling it would need more memory than "
+                    + "is available. It is shown at its original size.",
+                megapixels)
+        }
     }
 }
 
