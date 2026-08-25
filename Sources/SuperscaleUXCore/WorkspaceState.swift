@@ -34,6 +34,29 @@ public final class WorkspaceState: ObservableObject {
         graph.candidate != nil
     }
 
+    /// Where the base's pixels are, for a view that needs to draw them.
+    ///
+    /// Published so the view resolves it when the base *changes* rather than whenever SwiftUI
+    /// evaluates a body. Reading it per evaluation decodes a photograph from disk on every progress
+    /// tick, every hover phase and every keystroke in the dimension fields.
+    public var baseFileURL: URL? {
+        guard let reference = graph.base else { return nil }
+        return try? graph.asset(for: reference).fileURL
+    }
+
+    /// Whether there are two different assets to compare.
+    ///
+    /// A question about lineage rather than about object identity: two `NSImage`s loaded from one
+    /// file are different objects and the same picture, so comparing references is the only form of
+    /// it that means anything.
+    ///
+    /// A picture against *its own upscale* is a real comparison and is wanted — that is the plain
+    /// upscale case. What is not a comparison is a picture against itself.
+    public func hasTwoAssetsToCompare(displaying displayed: AssetReference?) -> Bool {
+        guard let displayed, let base = graph.base else { return false }
+        return displayed != base
+    }
+
     /// Whether a candidate exists to promote.
     public var canLock: Bool {
         graph.candidate != nil
@@ -50,8 +73,10 @@ public final class WorkspaceState: ObservableObject {
     /// and candidate upscaled is reachable.
     public func displayedAsset(upscaledWhenAvailable: Bool) -> AssetReference? {
         guard upscaledWhenAvailable else { return displayedAsset }
+        // `try?` on a throwing function that returns an optional flattens to one optional, so the
+        // guard already covers both "it threw" and "there is no current upscale".
         guard let rendering = try? graph.currentUpscale() else { return displayedAsset }
-        return rendering ?? displayedAsset
+        return rendering
     }
 
     /// Adopts an imported image, starting a new chain.

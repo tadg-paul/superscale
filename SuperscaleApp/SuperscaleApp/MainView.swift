@@ -14,6 +14,8 @@ struct MainView: View {
     @State private var showAbout = false
     @State private var showFaceDownload = false
     @State private var infoPanelDismissed = false
+    /// The base's pixels, reloaded when the base changes rather than per body evaluation.
+    @State private var loadedBaseImage: NSImage?
     @State private var didLoadDefaults = false
     /// The workspace's state. The graph decides which asset is read and which is shown; the view
     /// model renders whichever one it is handed.
@@ -77,6 +79,7 @@ struct MainView: View {
         .onChange(of: viewModel.inputURL) { _, url in adoptImportedImage(url) }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
         .onChange(of: workspace.showsBase) { _, _ in displayChosenAsset() }
+        .onChange(of: workspace.graph.base) { _, _ in reloadBaseImage() }
         // A setting change makes the info panel's summary stale, so it comes back to say what the
         // new setting will do.
         .onChange(of: viewModel.selectedModelName) { infoPanelDismissed = false }
@@ -132,17 +135,26 @@ struct MainView: View {
             upscaleMessage: viewModel.progressMessage)
     }
 
-    /// The picture the working image descends from.
+    /// The picture the working image descends from, loaded when the base changes.
     ///
     /// Taken from the asset graph rather than from `viewModel.originalImage`, which `processImage`
     /// replaces with whatever it was last asked to upscale — so after a filter it holds the filter's
     /// own output, and the curtain compared that against its own upscale. Two pictures differing in
     /// resolution and nothing else, which is what "the before/after image is the same" was.
+    ///
+    /// Held in `@State` rather than computed in `body`: decoding it per evaluation reads a
+    /// photograph from disk on every progress tick, every hover phase and every keystroke in the
+    /// dimension fields.
     private var comparisonBase: NSImage? {
-        guard let reference = workspace.graph.base,
-              let asset = try? workspace.graph.asset(for: reference)
-        else { return viewModel.originalImage }
-        return NSImage(contentsOfFile: asset.fileURL.path) ?? viewModel.originalImage
+        loadedBaseImage ?? viewModel.originalImage
+    }
+
+    private func reloadBaseImage() {
+        guard let url = workspace.baseFileURL else {
+            loadedBaseImage = nil
+            return
+        }
+        loadedBaseImage = NSImage(contentsOfFile: url.path)
     }
 
     /// What the canvas draws, decided by `CanvasContent`: the base always, the derivation when one
@@ -151,8 +163,12 @@ struct MainView: View {
     @ViewBuilder
     private var canvasContent: some View {
         if let base = viewModel.originalImage {
-            if viewModel.showComparison, let derived = derivedImage,
-               let against = comparisonBase, against !== derived {
+            // Two *assets*, not two objects: an object-identity test here was always true, because
+            // the base is loaded separately from the rendering and two `NSImage`s of one file are
+            // never identical. Lineage is the only form of the question that means anything.
+            if viewModel.showComparison, let derived = derivedImage, let against = comparisonBase,
+               workspace.hasTwoAssetsToCompare(
+                   displaying: workspace.displayedAsset(upscaledWhenAvailable: true)) {
                 ComparisonView(original: against, upscaled: derived)
                     .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDropProviders)
             } else {
