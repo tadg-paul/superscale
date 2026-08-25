@@ -54,3 +54,9 @@ Breakpoints_v2.xcbkptlist
 
 # Test output
 Tests/visual_output/
+
+# Agent runtime state. Never project content, never tracked.
+.agent/
+.agents/
+.claude/
+.codex/
