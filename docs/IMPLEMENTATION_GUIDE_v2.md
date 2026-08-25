@@ -1,4 +1,4 @@
-<!-- Version: 3.15 | Last updated: 2026-08-25 -->
+<!-- Version: 3.16 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -927,6 +927,14 @@ could surface a key from pricing and not from generation. All three now share on
 reads FastAPI's `detail` **list** --- previously discarded in favour of a generic sentence --- and
 redacts *before* truncating, because the other order leaves a fragment of any secret straddling the
 limit. Closed in part by #98.
+
+**Slice 5 was written, tested and never called.** `FalStorageClient` had seven passing tests and no
+caller: `MainView` went on building a `data:` URL, so every applied filter base64-encoded a whole
+photograph into the request body --- a third larger than the file --- which is the thing this slice
+exists to end. The same function also chose the media type from the **file extension**, so a PNG
+named `.jpg` went out declared a JPEG. **A package that is complete and a feature that is delivered
+are not the same claim**, and no test could tell them apart because none went through the
+application's own path. Closed in part by #92.
 | 9a | **The shape** | Collapse the four modes into one workspace: remove Generate and History as surfaces, filter catalogue to a sidebar with its editable prompt and Apply, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene, one reference which is the working image. Closes D8, and removes the cross-mode state that caused D2 and D7. |
 | 9b | **The graph behind it** | Base, candidate and lock wired to `AssetGraph`, filters reading the base, upscales as derivations, locked iterations in a sidebar, and the filter on/off toggle. |
 | 9c | **The display model** | The base on the canvas from the moment it exists, operations building over it rather than in place of it, immediate fallback when something is turned off, the curtain as the only comparison, and a rendering store keyed by what produced each rendering so toggling costs nothing twice. Added from use. |
@@ -1089,6 +1097,9 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.16 (2026-08-25):** Recorded in section 6 that slice 5 was written, tested and never called:
+  `FalStorageClient` had seven passing tests and no caller while the application went on
+  base64-encoding photographs into request bodies, and chose the media type from the file extension.
 - **3.15 (2026-08-25):** Added two rules to section 7. A stubbed provider is stubbed for everything
   it does: the reference upload was wired by constructing a client at the call site, so every GUI
   test that applied a filter reached `rest.fal.ai` while the generation half was stubbed, and the
