@@ -1412,4 +1412,137 @@ final class SuperscaleAppUITests: XCTestCase {
     // criteria still hold; what goes is the place it was browsed. AC87.9 covers the replacement,
     // with RT-87.21, RT-87.22, RT-87.32 and RT-87.33 asserting ordering, reachability, the cap and
     // a session whose image has been deleted.
+
+    // MARK: - Slice 9c: the display model at the window
+
+    // The package tests prove `CanvasContent` and `CurtainGeometry`. These prove the window uses
+    // them, which is a separate claim: the divider's arithmetic was defensible for five months
+    // while the view fed it the width of the wrong rectangle.
+
+    // RT-90.2 (GUI counterpart)
+    func test_theCanvasIsNeverEmptyWhileAnImageIsLoaded_RT090_2_GUI() {
+        guard loadTestImage() else {
+            XCTFail("Could not load test image")
+            return
+        }
+
+        // Before the upscale finishes, and after: at no point is there nothing to look at.
+        let image = app.images["workingImage"]
+        XCTAssertTrue(
+            image.waitForExistence(timeout: 10),
+            "the picture appears on the canvas without waiting for its upscale")
+
+        guard waitForUpscaleComplete() else {
+            XCTFail("Upscale did not complete")
+            return
+        }
+        XCTAssertTrue(image.exists, "and is still there afterwards")
+    }
+
+    // RT-90.25, RT-90.44, RT-90.45, RT-90.49 (GUI)
+    //
+    // The reported defect and its repair, together: the picture and the indicator are present at
+    // the same time, the indicator is small, it sits at the top, and the picture is reachable
+    // beneath it. `.thinMaterial` over a full-canvas overlay satisfied none of these.
+    func test_theIndicatorSitsOverThePictureWithoutCoveringIt_RT090_25() {
+        guard loadTestImage() else {
+            XCTFail("Could not load test image")
+            return
+        }
+
+        let indicator = app.otherElements["workingIndicator"]
+        let canvas = app.otherElements["workspaceCanvas"]
+        let image = app.images["workingImage"]
+
+        guard indicator.waitForExistence(timeout: 10) else {
+            XCTFail("the indicator did not appear; the upscale may have finished too quickly")
+            return
+        }
+
+        // RT-90.25: both at once. The image alone is no feedback; the indicator alone was the bug.
+        XCTAssertTrue(image.exists, "the picture is present while work runs")
+
+        // RT-90.44: a quarter of the canvas is four times smaller than the defect, which covered
+        // all of it, and generous to any reasonable indicator.
+        let canvasArea = canvas.frame.width * canvas.frame.height
+        let indicatorArea = indicator.frame.width * indicator.frame.height
+        XCTAssertGreaterThan(canvasArea, 0, "the canvas has a frame to compare against")
+        XCTAssertLessThan(
+            indicatorArea, canvasArea * 0.25,
+            "the indicator is a badge, not a sheet over the picture")
+
+        // RT-90.49: at the top, not across the middle of the subject's face.
+        let relativeMidY = (indicator.frame.midY - canvas.frame.minY) / canvas.frame.height
+        XCTAssertLessThan(relativeMidY, 1.0 / 3.0, "the indicator sits in the upper third")
+
+        // RT-90.45: the picture is still a real element, not something drawn behind a scrim.
+        XCTAssertTrue(image.isHittable, "the picture is reachable beneath the indicator")
+    }
+
+    // RT-90.12, RT-90.13 (GUI)
+    func test_comparisonShowsTheCurtainAndNoLoupe_RT090_12() {
+        guard loadTestImage() else {
+            XCTFail("Could not load test image")
+            return
+        }
+        guard waitForUpscaleComplete() else {
+            XCTFail("Upscale did not complete")
+            return
+        }
+
+        app.buttons["compareButton"].click()
+
+        let divider = app.otherElements["curtainDivider"]
+        XCTAssertTrue(
+            divider.waitForExistence(timeout: 5), "entering comparison shows the curtain")
+
+        // RT-90.13: the loupe and its mode toggle are gone. `MagnifierView.swift` is deleted, so
+        // this asserts what a user would find rather than what the source contains.
+        XCTAssertFalse(app.buttons["magnifierMode"].exists)
+        XCTAssertFalse(app.buttons["sliderMode"].exists)
+        XCTAssertFalse(app.otherElements["magnifierLoupe"].exists)
+    }
+
+    // RT-90.14, RT-90.48 (GUI)
+    //
+    // The test that would have caught the reported defect. It could not be written before this
+    // slice: the divider carried no accessibility identifier, so where it came to rest was
+    // unreadable.
+    func test_theDividerComesToRestWhereItIsDragged_RT090_48() {
+        guard loadTestImage() else {
+            XCTFail("Could not load test image")
+            return
+        }
+        guard waitForUpscaleComplete() else {
+            XCTFail("Upscale did not complete")
+            return
+        }
+
+        app.buttons["compareButton"].click()
+
+        let divider = app.otherElements["curtainDivider"]
+        let canvas = app.otherElements["workspaceCanvas"]
+        guard divider.waitForExistence(timeout: 5) else {
+            XCTFail("no curtain to drag")
+            return
+        }
+
+        let startX = divider.frame.midX
+
+        // RT-90.14: the divider moves at all.
+        let target = canvas.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5))
+        divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.2, thenDragTo: target)
+
+        XCTAssertNotEqual(divider.frame.midX, startX, accuracy: 1.0, "the divider moved")
+
+        // RT-90.48: it came to rest where the pointer was, not somewhere scaled by the window's
+        // width. The tolerance covers the handle's own 28 points, not a coordinate-space error,
+        // which under the old arithmetic put the divider hundreds of points away.
+        let pointerX = target.screenPoint.x
+        XCTAssertEqual(
+            divider.frame.midX, pointerX, accuracy: 20.0,
+            "the divider follows the pointer rather than a fraction of the window")
+    }
 }
