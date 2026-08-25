@@ -712,6 +712,40 @@ final class SuperscaleAppUITests: XCTestCase {
             "and names the minimum it was raised to meet: \"\(said)\"")
     }
 
+    // RT-96.14, in the window
+    //
+    // The mark appears. The provenance records whether the provider reshaped the picture and the
+    // package tests assert that it does; **recorded and never shown, the criterion would be
+    // delivered to its tests and not to anybody using the application.**
+    //
+    // Driven by pointing the stubbed provider at a **square** fixture — `remy2.jpg`, 1024 x 1024 —
+    // while the working picture is 240 x 320. That is exactly what grok does to anything whose short
+    // edge falls under its working size, and it is the report that produced this issue.
+    func test_aReshapedReturnIsMarkedInTheWindow_RT096_14() {
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] =
+            projectRoot.appendingPathComponent("Tests/images/remy2.jpg").path
+        app.launch()
+
+        XCTAssertTrue(loadTestImage(), "a 3:4 working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the square result should reach the canvas")
+
+        let notice = element(identifier: "noticeMessage")
+        XCTAssertTrue(notice.waitForExistence(timeout: 30), "something is said about the return")
+
+        let said = "\(notice.value as? String ?? "") \(notice.label)"
+        XCTAssertTrue(
+            said.localizedCaseInsensitiveContains("shape"),
+            "and what is said is that the shape changed: \"\(said)\"")
+    }
+
     // MARK: - AC94.4: whose scroll is it (#94)
 
     /// How far the curtain reports it has been panned.
