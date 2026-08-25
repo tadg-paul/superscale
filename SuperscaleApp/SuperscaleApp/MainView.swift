@@ -539,6 +539,10 @@ struct MainView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                // Identified so the bar's contents are addressable rather than merely present. The
+                // dot beside it is a `Circle` and stays decorative: the state it shows is in this
+                // text, and a colour reaches nobody on its own.
+                .accessibilityIdentifier("statusText")
             Spacer()
             // Something the user should know that is not a failure, so it sits here rather than
             // taking a click. An upscale reduced to fit memory is the first of these.

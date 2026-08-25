@@ -686,6 +686,152 @@ final class SuperscaleAppUITests: XCTestCase {
         return settings
     }
 
+    // MARK: - AC83.7 and AC101.1: the status bar's notices reach the user (#101)
+
+    /// Writes a picture of a given size into a per-run directory and returns its path.
+    ///
+    /// That exact directory is removed in teardown, on success and on failure alike, never a
+    /// shared parent.
+    private func writeFixture(width: Int, height: Int, named name: String) throws -> String {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("notice-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+
+        let context = try XCTUnwrap(
+            CGContext(
+                data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(red: 0.5, green: 0.4, blue: 0.3, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+
+        let url = directory.appendingPathComponent(name)
+        let destination = try XCTUnwrap(
+            CGImageDestinationCreateWithURL(
+                url as CFURL, UTType.png.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, try XCTUnwrap(context.makeImage()), nil)
+        XCTAssertTrue(CGImageDestinationFinalize(destination), "the fixture was written")
+        return url.path
+    }
+
+    /// Everything the status bar says, from both the label and the value.
+    ///
+    /// A container reports its label where it does not reliably report its value, and this delivery
+    /// has already been caught by that twice in two different element types.
+    private func statusBarText(of identifier: String) -> String {
+        let element = element(identifier: identifier)
+        guard element.waitForExistence(timeout: 10) else { return "" }
+        return "\(element.label) \(element.value as? String ?? "")"
+    }
+
+    // RT-101.1, RT-101.2
+    //
+    // The ceiling is 32 megapixels, so a reduction needs a large *request* rather than a large
+    // source: 800 x 640 at 8x is 6400 x 5120, which is 32.8 megapixels, and reduces to 4x whose
+    // output is about 8. A 2048 x 1536 source was tried first and left the application unresponsive
+    // long enough that the accessibility hierarchy returned no snapshot at all.
+    //
+    // RT-101.2 asserts the **scales**. `reductionNotice` returns "Upscaled 4× rather than 8×, to
+    // stay within available memory" for a preset; only its custom-target branch names dimensions.
+    func test_aReductionIsReportedWhereTheUserReadsIt_RT101_1() throws {
+        let path = try writeFixture(width: 800, height: 640, named: "large-request.png")
+        XCTAssertTrue(loadTestImage(path: path), "the picture should load")
+        XCTAssertTrue(
+            element(identifier: "workingImage").waitForExistence(timeout: 30),
+            "and occupy the canvas")
+
+        app.buttons["scale8x"].click()
+
+        let said = statusBarText(of: "noticeMessage")
+        XCTAssertFalse(said.isEmpty, "the reduction is reported")
+        XCTAssertTrue(
+            said.localizedCaseInsensitiveContains("memory"),
+            "and says why: \"\(said)\"")
+
+        // RT-101.2: the scale used and the scale asked for, both named and different. AC83.7
+        // requires the selection to keep showing the request while the message reconciles it.
+        XCTAssertTrue(said.contains("8"), "the scale requested: \"\(said)\"")
+        XCTAssertTrue(said.contains("4"), "and the scale used: \"\(said)\"")
+    }
+
+    // RT-101.3, RT-101.5
+    //
+    // The mechanism. `appStatusBar` carried an identifier with no `children: .contain`, so SwiftUI
+    // treated the whole bar as one element and absorbed everything in it — rendered on screen and
+    // absent from the accessibility tree. Sixth occurrence of that rule in this codebase.
+    //
+    // Both of the bar's contents are asserted, not just the notice: a test covering one label
+    // proves the fix for one label and leaves the rule unproven of the bar.
+    func test_theStatusBarsContentsAreAddressableRatherThanAbsorbed_RT101_3() throws {
+        let path = try writeFixture(width: 800, height: 640, named: "addressable.png")
+        XCTAssertTrue(loadTestImage(path: path), "the picture should load")
+        XCTAssertTrue(
+            element(identifier: "workingImage").waitForExistence(timeout: 30))
+
+        let bar = element(identifier: "appStatusBar")
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "the bar is present")
+
+        // RT-101.5: the status text, which had no identifier at all until this issue.
+        XCTAssertFalse(
+            statusBarText(of: "statusText").trimmingCharacters(in: .whitespaces).isEmpty,
+            "the status text is reachable and says something")
+
+        // RT-101.3: and the notice, once there is one.
+        app.buttons["scale8x"].click()
+        XCTAssertFalse(
+            statusBarText(of: "noticeMessage").isEmpty,
+            "the notice is reachable rather than absorbed")
+    }
+
+    // RT-101.4
+    //
+    // Blocks the cheapest wrong implementation, a notice that is always present, and pins the
+    // common case: an ordinary upscale within the ceiling says nothing at all.
+    func test_withNoReductionAndNoRaiseNoNoticeIsShown_RT101_4() throws {
+        // Above the 1024 floor so nothing is raised, and small enough at any offered scale that
+        // nothing is reduced: 1200 x 900 at 8x is 9600 x 7200, which is 69 megapixels — so 4x is
+        // used here instead, giving 17 megapixels, under the ceiling.
+        let path = try writeFixture(width: 1200, height: 900, named: "unremarkable.png")
+        XCTAssertTrue(loadTestImage(path: path), "the picture should load")
+        XCTAssertTrue(waitForUpscaleComplete(), "and upscale without incident")
+
+        XCTAssertFalse(
+            element(identifier: "noticeMessage").exists,
+            "nothing happened that the user needs telling about")
+    }
+
+    // RT-101.6
+    //
+    // A notice replaced while displayed. Driven through the sequence the application already
+    // performs: the suite's 240 x 320 fixture is below the floor, so applying a filter raises it and
+    // sets one message, and the stubbed provider returning a 1024 x 1024 square then replaces it
+    // with the reshape message. An element recreated rather than updated may not be announced.
+    func test_aNoticeReplacedWhileDisplayedCarriesTheNewText_RT101_6() {
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] =
+            projectRoot.appendingPathComponent("Tests/images/remy2.jpg").path
+        app.launch()
+
+        XCTAssertTrue(loadTestImage(), "the 3:4 fixture should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 10))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the square result should reach the canvas")
+
+        let said = statusBarText(of: "noticeMessage")
+        XCTAssertTrue(
+            said.localizedCaseInsensitiveContains("shape"),
+            "the second notice replaced the first: \"\(said)\"")
+        XCTAssertFalse(
+            said.localizedCaseInsensitiveContains("minimum for filtering"),
+            "and the raise message it replaced is gone: \"\(said)\"")
+    }
+
     // MARK: - AC100.2: a high-resolution picture is measured in pixels (#100)
 
     // RT-100.10
