@@ -62,6 +62,15 @@ public final class WorkspaceState: ObservableObject {
         return displayed != base
     }
 
+    /// Whether the provider returned a different shape from the one it was given.
+    ///
+    /// `nil` from the provenance means "not known", and this collapses that to `false` — the caller
+    /// is deciding whether to *tell* the user something, and telling them on a guess is worse than
+    /// not telling them. What is known is on the asset; only the certainty is folded away here.
+    public func reshapedByProvider(_ reference: AssetReference) -> Bool {
+        (try? graph.asset(for: reference))?.provenance?.providerChangedTheShape == true
+    }
+
     /// Whether a candidate exists to promote.
     public var canLock: Bool {
         graph.candidate != nil

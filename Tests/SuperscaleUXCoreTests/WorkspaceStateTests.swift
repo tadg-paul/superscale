@@ -498,6 +498,57 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertFalse(workspace.hasTwoAssetsToCompare(displaying: secondLock))
     }
 
+    // MARK: - AC96.5 the mark reaches somewhere a user can see it
+
+    // RT-96.14, RT-96.15, at the level the view reads
+    //
+    // The provenance records whether the provider reshaped the picture. **Recorded and never shown,
+    // the criterion is delivered to its tests and not to anybody using the application** — the fault
+    // this delivery found twice over. `reshapedByProvider` is what the view asks, so it is what the
+    // question is asserted against.
+    func test_theViewCanTellWhetherTheProviderReshapedThePicture_RT096_14() throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+
+        // A portrait base, because the fixture used elsewhere here is square and a square base
+        // cannot demonstrate a squared return. That is the shape the author reported.
+        workspace.importImage(
+            fileURL: directory.appendingPathComponent("source.png"),
+            pixelSize: CGSize(width: 768, height: 1024))
+
+        let squared = try workspace.recordFilter(
+            named: "noir", fileURL: file("squared"),
+            pixelSize: CGSize(width: 1024, height: 1024))
+        XCTAssertTrue(
+            workspace.reshapedByProvider(squared),
+            "3:4 went out and 1:1 came back")
+
+        // RT-96.15: a return of the same shape is not marked, whatever its size.
+        try workspace.lock()
+        let preserved = try workspace.recordFilter(
+            named: "woodblock", fileURL: file("preserved"),
+            pixelSize: CGSize(width: 2048, height: 2048))
+        XCTAssertFalse(
+            workspace.reshapedByProvider(preserved),
+            "the base is 1:1 by now, so a 1:1 return preserved the framing")
+    }
+
+    /// "Not known" reads as "not reshaped" at the view's boundary, deliberately.
+    ///
+    /// The caller is deciding whether to *tell* the user something, and telling them on a guess is
+    /// worse than staying quiet. The uncertainty stays on the asset, where a later reader can find
+    /// it; only the decision folds it away.
+    func test_anUnknownShapeIsNotReportedAsAReshaping() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+
+        XCTAssertFalse(
+            workspace.reshapedByProvider(base),
+            "an imported picture has no provenance and was reshaped by nobody")
+    }
+
     // MARK: - Fixtures
 
     private func importedWorkspace() throws -> WorkspaceState {

@@ -344,8 +344,9 @@ struct MainView: View {
         let sentSize = (try? workspace.graph.input(for: .filter))
             .flatMap { try? workspace.graph.asset(for: $0) }?
             .pixelSize
+        let candidate: AssetReference
         do {
-            try workspace.recordFilter(
+            candidate = try workspace.recordFilter(
                 named: selection.selectedID ?? "",
                 fileURL: source.url,
                 pixelSize: importedPixelSize(source.url),
@@ -358,6 +359,16 @@ struct MainView: View {
             viewModel.report(error)
             return
         }
+
+        // AC96.5: a return whose shape differs from what was sent is **identifiable as such**, which
+        // means the user can tell — not only that the graph knows. Recorded and never shown, the
+        // criterion would be delivered to its tests and not to anybody using the application, which
+        // is the fault this delivery found twice already.
+        if workspace.reshapedByProvider(candidate) {
+            viewModel.noticeMessage =
+                "The filter returned a different shape from the picture that was sent."
+        }
+
         upscale(source, arrival: .filterResult)
     }
 
