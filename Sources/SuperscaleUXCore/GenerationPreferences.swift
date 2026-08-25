@@ -5,8 +5,17 @@ import FalGenerationKit
 import Foundation
 
 public struct GenerationPreferences: Equatable, Sendable {
+    /// Where output goes when the user has not chosen.
+    ///
+    /// Resolved through `FileManager` rather than built from the home directory, so it is correct on
+    /// a machine where Downloads has been moved. Nil only where the directory cannot be resolved at
+    /// all, which on a non-sandboxed Mac means something has gone badly wrong.
+    public static var defaultOutputFolder: URL? {
+        FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+    }
+
     public static let defaults = GenerationPreferences(
-        outputFolder: nil,
+        outputFolder: GenerationPreferences.defaultOutputFolder,
         costThreshold: 0.05,
         defaultModelID: FalGenerationRequest.defaultModelID,
         defaultUpscaleModelID: "auto",
@@ -57,9 +66,12 @@ public final class GenerationPreferencesStore {
 
     public func load() -> GenerationPreferences {
         let storedThreshold = defaults.object(forKey: Key.costThreshold) as? Double
-        let outputFolder = defaults.string(forKey: Key.outputFolder).map {
-            URL(fileURLWithPath: $0, isDirectory: true)
-        }
+        // A stored folder that has gone — an external disk, a directory the user deleted — falls
+        // back rather than leaving the application with nowhere to write and nothing to say.
+        let storedFolder = defaults.string(forKey: Key.outputFolder)
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+            .flatMap { folderValidator($0) ? $0 : nil }
+        let outputFolder = storedFolder ?? GenerationPreferences.defaultOutputFolder
         return GenerationPreferences(
             outputFolder: outputFolder,
             costThreshold: storedThreshold ?? GenerationPreferences.defaults.costThreshold,

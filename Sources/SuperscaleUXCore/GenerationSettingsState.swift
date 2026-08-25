@@ -83,6 +83,29 @@ public final class GenerationSettingsState: ObservableObject {
         !generationKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// What is known about the generation key, as opposed to whether one is stored.
+    ///
+    /// The badge in Settings read from `isGenerationConfigured`, so a typo saved and showed a green
+    /// tick. Verification is a separate act with a separate answer, and this holds it.
+    @Published public private(set) var generationKeyVerification: CredentialStatus = .stored
+
+    public var generationKeyStatus: CredentialStatus {
+        isGenerationConfigured ? generationKeyVerification : .absent
+    }
+
+    /// Records what the provider said about the key currently held.
+    public func recordGenerationKeyVerification(_ status: CredentialStatus) {
+        generationKeyVerification = status
+    }
+
+    /// A key that has been edited is no longer the key that was checked.
+    ///
+    /// Without this, a tick earned by one key sits beside another — the same lie this replaced,
+    /// arriving only after the feature apparently worked.
+    public func generationKeyEdited() {
+        generationKeyVerification = .stored
+    }
+
     public var isAccountAdministrationConfigured: Bool {
         !accountAdministrationKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }

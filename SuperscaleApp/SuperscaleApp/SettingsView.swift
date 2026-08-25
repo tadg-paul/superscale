@@ -21,7 +21,7 @@ struct SettingsView: View {
                     credentialRow(
                         title: "Generation key",
                         text: $state.generationKey,
-                        configured: state.isGenerationConfigured,
+                        status: state.generationKeyStatus,
                         fieldIdentifier: "generationKeyField",
                         save: saveGenerationKey,
                         clear: clearGenerationKey
@@ -40,7 +40,10 @@ struct SettingsView: View {
                     credentialRow(
                         title: "Account/admin key",
                         text: $state.accountAdministrationKey,
-                        configured: state.isAccountAdministrationConfigured,
+                        // The account key carries no verification state: verifying it would mean
+                        // calling an account or billing endpoint, which is the surface the MVP has
+                        // paused. Stored or absent is all that can honestly be said about it.
+                        status: state.isAccountAdministrationConfigured ? .stored : .absent,
                         fieldIdentifier: "accountAdministrationKeyField",
                         save: saveAccountKey,
                         clear: clearAccountKey
@@ -148,16 +151,23 @@ struct SettingsView: View {
     private func credentialRow(
         title: String,
         text: Binding<String>,
-        configured: Bool,
+        status: CredentialStatus,
         fieldIdentifier: String,
         save: @escaping () -> Void,
         clear: @escaping () -> Void
     ) -> some View {
-        LabeledContent(title) {
+        LabeledContent {
             HStack(spacing: 8) {
-                SecureField(title, text: text)
+                // A `TextField`, not a `SecureField`. A FAL key is a bearer credential rather than
+                // a password recited from memory, and masking it prevents the one check anybody
+                // performs on a pasted key: looking at it. Where it is *stored* is unchanged — the
+                // Keychain — and so is the rule that it travels only in a request header.
+                TextField(title, text: text)
                     .textFieldStyle(.roundedBorder)
                     .frame(minWidth: 260)
+                    // Hidden, not renamed. The field took `title` as its own label and macOS drew
+                    // it beside the field, so every row said its name twice.
+                    .labelsHidden()
                     .accessibilityIdentifier(fieldIdentifier)
                 Button(action: save) {
                     Image(systemName: "checkmark")
@@ -172,17 +182,56 @@ struct SettingsView: View {
                     Image(systemName: "trash")
                 }
                 .help("Remove \(title.lowercased())")
-                .disabled(!configured)
+                .disabled(!status.isPresent)
                 .accessibilityIdentifier(
                     fieldIdentifier == "generationKeyField"
                         ? "removeGenerationKeyButton"
                         : "removeAccountKeyButton"
                 )
-                Label(configured ? "Configured" : "Not configured",
-                      systemImage: configured ? "checkmark.circle.fill" : "minus.circle")
-                    .foregroundStyle(configured ? Color.green : Color.secondary)
-                    .labelStyle(.iconOnly)
+                credentialStatusBadge(for: status)
             }
+        } label: {
+            // The row's own name, identified so a test can assert there is exactly one of it. The
+            // count would otherwise depend on how SwiftUI reports a hidden field label.
+            Text(title)
+                .accessibilityIdentifier(
+                    fieldIdentifier == "generationKeyField"
+                        ? "generationKeyLabel"
+                        : "accountKeyLabel"
+                )
+        }
+    }
+
+    /// What the badge says, and what it means.
+    ///
+    /// It previously read from whether a key was *stored*, so a typo saved and showed green. Green
+    /// now means the provider accepted it. "Stored" is a third state and not a failure: it is what
+    /// a key looks like before anyone has asked, and what it returns to when the provider cannot be
+    /// reached — the difference between "we could not ask" and "the answer was no" being the
+    /// difference between a user waiting and a user deleting a working key.
+    @ViewBuilder
+    private func credentialStatusBadge(for status: CredentialStatus) -> some View {
+        switch status {
+        case .absent:
+            Label("Not configured", systemImage: "minus.circle")
+                .foregroundStyle(Color.secondary)
+                .labelStyle(.iconOnly)
+                .accessibilityValue("not configured")
+        case .stored:
+            Label("Stored, not checked", systemImage: "questionmark.circle")
+                .foregroundStyle(Color.secondary)
+                .labelStyle(.iconOnly)
+                .accessibilityValue("stored, not checked")
+        case .verified:
+            Label("Working", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(Color.green)
+                .labelStyle(.iconOnly)
+                .accessibilityValue("working")
+        case let .rejected(reason):
+            Label("Rejected: \(reason)", systemImage: "exclamationmark.circle.fill")
+                .foregroundStyle(Color.red)
+                .labelStyle(.iconOnly)
+                .accessibilityValue("rejected: \(reason)")
         }
     }
 
