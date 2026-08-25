@@ -1484,7 +1484,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // than through `workingImage`. The criterion is that the canvas is never empty, not that
         // one particular view is always the one drawing — so either counts.
         XCTAssertTrue(
-            image.exists || app.otherElements["curtainPicture"].exists,
+            image.exists,
             "and there is still a picture afterwards, whichever view is drawing it")
     }
 

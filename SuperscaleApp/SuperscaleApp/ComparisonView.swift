@@ -60,7 +60,13 @@ struct ComparisonView: View {
 
         return ZStack {
             // Upscaled image (full background)
+            //
+            // It carries `workingImage`, the same identifier the plain canvas uses, because it is
+            // the same thing: the picture on the canvas. Without it that identifier disappeared the
+            // moment a completed upscale entered comparison, and "the canvas is never empty" became
+            // untestable at exactly the point it matters most.
             imageLayer(image: upscaled, size: size)
+                .accessibilityIdentifier("workingImage")
 
             // Original image (clipped to left of divider) — nearest-neighbour
             imageLayer(image: original, size: size, interpolation: .none)
@@ -170,6 +176,11 @@ struct ComparisonView: View {
                 )
                 .position(x: x, y: height / 2)
                 .gesture(dividerDragGesture(imageFrame: imageFrame))
+                // A shape is decorative: SwiftUI keeps `Circle` out of the accessibility tree
+                // entirely, identifier or not, so the handle was unreachable to VoiceOver and to
+                // the suite alike. Declaring it an element is what puts it there.
+                .accessibilityElement()
+                .accessibilityLabel("Comparison divider")
                 .accessibilityIdentifier("curtainDivider")
         }
     }
