@@ -356,6 +356,17 @@ final class UpscaleViewModel: ObservableObject {
 
     /// The only route to a new selection. Pressing the active choice clears it, which is what
     /// makes the scale buttons a toggle group rather than a set that can never be emptied.
+    /// Clears the selection outright.
+    ///
+    /// `choose` is a toggle and needs to be handed the choice that is currently active in order to
+    /// clear it, which a caller that simply wants the scale off should not have to work out. Used
+    /// when the floor raises the base: with the raised picture as the base and the scale off, the
+    /// application stops re-upscaling a picture that is already the size the provider wants.
+    func turnScaleOff() {
+        guard !scaleSelection.isOff else { return }
+        scaleSelection = .off
+    }
+
     func choose(_ choice: ScaleChoice) {
         scaleSelection = scaleSelection.choosing(choice)
         showCustomFields = scaleSelection == .custom

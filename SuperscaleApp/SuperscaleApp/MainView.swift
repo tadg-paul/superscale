@@ -273,7 +273,7 @@ struct MainView: View {
 
             // Guide 2.5's own reasoning: with the raised picture as the base and the scale off, the
             // application stops re-upscaling a picture that is already the size the provider wants.
-            viewModel.scaleSelection = .off
+            viewModel.turnScaleOff()
             viewModel.noticeMessage = decision.report
             return true
         } catch {
