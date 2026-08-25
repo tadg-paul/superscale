@@ -10,7 +10,7 @@ LINK_DIR := $(HOME)/.local/bin
 RELEASE_VERSION ?=
 SKIP_TESTS ?=
 
-.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-live test-visual inspect-gui-release clean install uninstall release release-gui release-models sync convert-models download-models
+.PHONY: help build build-debug gui test test-ssim test-gui test-one-off test-visual inspect-gui-release clean install uninstall release release-gui release-models sync convert-models download-models
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
