@@ -18,5 +18,16 @@ let package = Package(
             path: "Tests/OneOffTests",
             exclude: ["Fixtures"]
         ),
+        // Live-provider tests sit in their own target so the layout tests above stay
+        // dependency-free. They import the same client and credential storage the application
+        // uses, which is what makes them proof rather than rehearsal.
+        .testTarget(
+            name: "OneOffLiveTests",
+            dependencies: [
+                .product(name: "FalGenerationKit", package: "superscale"),
+                .product(name: "SuperscaleUXCore", package: "superscale"),
+            ],
+            path: "Tests/OneOffLiveTests"
+        ),
     ]
 )

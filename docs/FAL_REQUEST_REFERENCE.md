@@ -143,6 +143,31 @@ easily lost, and it becomes load-bearing as reference workflows grow beyond MVP.
   extension (`.jpg/.jpeg/.png/.webp/.gif`) which is weaker
   (`pix:genimg.go:424-439`).
 
+### The Initiate Exchange
+
+Probed live on 2026-08-25 (#107) after the first real GUI attempt failed. This
+section documents the exchange from the wire, not from an SDK's source; the
+transcript is on #107, and OT-107.1 to OT-107.3 in the one-off package re-prove
+it on demand.
+
+- `POST https://rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3`,
+  with the key as `Authorization: Key <token>` and a JSON body carrying
+  `file_name` and `content_type`.
+- **`storage_type` accepts `fal-cdn` and `fal-cdn-v3`; `gcs` is rejected** with
+  HTTP 4xx and body `{"detail":"Invalid storage type"}`. The parameter may be
+  omitted, and the API then defaults to the CDN --- but the client sends
+  `fal-cdn-v3` explicitly rather than leaning on a server default that can
+  change without any signal on our side. `gcs` shipped in the client for the
+  whole delivery and no stubbed test could know: this section did not exist,
+  so the value had nothing to be checked against.
+- The response carries `upload_url` (a signed address to PUT the bytes to) and
+  `file_url` (the CDN address the generation request references). Both point at
+  `*.fal.media`. The signature travels in the upload URL's query, so the PUT
+  itself sends no credential of ours.
+- Error bodies are JSON with a `detail` field; the parser reads it and the
+  sentence the user sees is built from it, which is how "invalid storage type"
+  reached the author as words rather than as a status code.
+
 ## Sizing
 
 - The requested aspect ratio is chosen (explicit flag, else a reference's

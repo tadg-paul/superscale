@@ -147,7 +147,13 @@ public struct FalStorageClient: Sendable {
         ) else {
             throw FalStorageError.initiateFailed(diagnostic: "The upload address is invalid.")
         }
-        components.queryItems = [URLQueryItem(name: "storage_type", value: "gcs")]
+        // `fal-cdn-v3`, probed live on 2026-08-25 and recorded on #107. The previous value, `gcs`,
+        // was rejected by the real API with "Invalid storage type" — and every test of this path
+        // runs against a stub, so nothing could contradict it until the author pressed Apply.
+        // Explicit rather than omitted: the API accepts an absent parameter today, but that leans
+        // on a server default that can change without any signal on our side. OT-107.1 to OT-107.3
+        // exercise this exchange against the live endpoint.
+        components.queryItems = [URLQueryItem(name: "storage_type", value: "fal-cdn-v3")]
         guard let url = components.url else {
             throw FalStorageError.initiateFailed(diagnostic: "The upload address is invalid.")
         }
