@@ -1,6 +1,7 @@
 // ABOUTME: Before/after comparison: a curtain divider dragged across the image.
 // ABOUTME: The original is left of the divider, the derived image right of it.
 
+import SuperscaleUXCore
 import SwiftUI
 
 /// The comparison, which is a curtain and nothing else.
@@ -20,6 +21,12 @@ struct ComparisonView: View {
     @State private var dragStart: CGSize = .zero
     @State private var scrollMonitor: Any?
 
+    /// The space the pointer and the picture are both measured in.
+    ///
+    /// Named on the container rather than left implicit, because a drag gesture reports in the
+    /// space of the view it is attached to, and the divider's handle is 28 points wide.
+    private static let curtainSpace = "curtain"
+
     var body: some View {
         GeometryReader { geometry in
             let size = geometry.size
@@ -36,13 +43,17 @@ struct ComparisonView: View {
                     Spacer()
                 }
             }
+            .coordinateSpace(name: Self.curtainSpace)
         }
     }
 
     // MARK: - The curtain
 
     private func sliderContent(size: CGSize) -> some View {
-        let dividerX = size.width * dividerPosition
+        // One frame for both sides. Computed from the original's aspect, so the 4x upscale is
+        // presented at the same size and the divider falls on the same part of each picture.
+        let imageFrame = CurtainGeometry.displayedFrame(imageSize: original.size, in: size)
+        let dividerX = CurtainGeometry.dividerX(fraction: dividerPosition, in: imageFrame)
 
         return ZStack {
             // Upscaled image (full background)
@@ -53,7 +64,7 @@ struct ComparisonView: View {
                 .clipShape(HorizontalClip(width: dividerX))
 
             // Divider line
-            dividerOverlay(at: dividerX, height: size.height)
+            dividerOverlay(at: dividerX, height: size.height, imageFrame: imageFrame)
 
             // Minimap (bottom-right, only when zoomed in)
             if zoom > 1.0 {
@@ -118,13 +129,14 @@ struct ComparisonView: View {
 
     // MARK: - Slider divider
 
-    private func dividerOverlay(at x: CGFloat, height: CGFloat) -> some View {
+    private func dividerOverlay(at x: CGFloat, height: CGFloat, imageFrame: CGRect) -> some View {
         ZStack {
             Rectangle()
                 .fill(Color.white)
                 .frame(width: 2, height: height)
                 .shadow(color: .black.opacity(0.5), radius: 2)
                 .position(x: x, y: height / 2)
+                .accessibilityIdentifier("curtainDividerLine")
 
             Circle()
                 .fill(Color.white)
@@ -136,7 +148,8 @@ struct ComparisonView: View {
                         .foregroundStyle(.secondary)
                 )
                 .position(x: x, y: height / 2)
-                .gesture(dividerDragGesture)
+                .gesture(dividerDragGesture(imageFrame: imageFrame))
+                .accessibilityIdentifier("curtainDivider")
         }
     }
 
@@ -242,14 +255,17 @@ struct ComparisonView: View {
 
     // MARK: - Slider gestures
 
-    private var dividerDragGesture: some Gesture {
-        DragGesture()
+    /// The divider follows the pointer within the picture, not within the window.
+    ///
+    /// The gesture reports in `curtainSpace`, a coordinate space named on the container, so
+    /// `value.location` is measured against the same rectangle `CurtainGeometry` is given. Reading
+    /// the location in the handle's own space and dividing by the window's width — which is what
+    /// this did — put the divider somewhere else entirely as soon as the filter panel was open.
+    private func dividerDragGesture(imageFrame: CGRect) -> some Gesture {
+        DragGesture(coordinateSpace: .named(Self.curtainSpace))
             .onChanged { value in
-                if let window = NSApp.keyWindow {
-                    let viewWidth = window.contentView?.frame.width ?? 600
-                    let newPosition = value.location.x / viewWidth
-                    dividerPosition = max(0.05, min(0.95, newPosition))
-                }
+                dividerPosition = CurtainGeometry.dividerFraction(
+                    pointerX: value.location.x, in: imageFrame)
             }
     }
 

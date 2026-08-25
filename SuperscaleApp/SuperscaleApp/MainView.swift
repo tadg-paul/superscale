@@ -99,8 +99,10 @@ struct MainView: View {
             // with a spinner threw away the thing the user came for and made a drop look as
             // though it had been ignored.
             if viewModel.isProcessing {
+                // The indicator carries its own background, within its own bounds. Nothing is
+                // drawn across the picture: a material applied here covered the whole canvas,
+                // because the overlay used to be full-size.
                 ProgressOverlay(message: viewModel.progressMessage)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     .padding(.top, 24)
                     .accessibilityIdentifier("workingIndicator")
             }

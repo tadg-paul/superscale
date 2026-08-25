@@ -6,17 +6,28 @@ import SwiftUI
 struct ProgressOverlay: View {
     let message: String
 
+    /// Sized to its own content, never to the canvas.
+    ///
+    /// This filled the canvas and was given a `.thinMaterial` background, which is a blur, so every
+    /// picture went soft the moment work began. Nobody asked for that. The picture is the thing the
+    /// user came for and it is left exactly as it is; the indicator is a small badge over the top
+    /// of it, with a background of its own so it stays legible against a bright photograph.
     var body: some View {
-        VStack(spacing: 16) {
+        HStack(spacing: 10) {
             ProgressView()
-                .controlSize(.large)
+                .controlSize(.small)
 
             Text(message)
-                .font(.body)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .lineLimit(2)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: 420)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().stroke(Color.primary.opacity(0.12)))
+        .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
     }
 }
 
