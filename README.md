@@ -8,6 +8,8 @@ AI image upscaling that runs locally on your Mac, using Apple's Neural Engine --
 
 The Superscale app additionally offers **AI filters**, and those are not local. Applying a filter uploads the working image to a cloud provider, which returns a transformed version. That is stated where the action happens, in the app, and it requires an API key you supply. No filter runs without one, and no image is uploaded unless you apply a filter.
 
+A small picture is **upscaled locally before it is sent**, because the filter models have a working resolution below which they reshape whatever they are given. The app says when it does this. What goes to the provider is the picture as you brought it in, raised to that size --- never an upscale you asked for on top of it.
+
 ## Quickstart
 
 ```bash
