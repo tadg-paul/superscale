@@ -180,6 +180,34 @@ final class WorkspaceStateTests: XCTestCase {
         XCTAssertEqual(workspace.displayedAsset, candidate)
     }
 
+    // The guard suppresses a comparison only where it can prove both sides are one asset. With no
+    // base tracked there is nothing to prove it with, and returning false there suppressed the
+    // curtain outright — which the GUI suite caught as "entering comparison shows the curtain"
+    // failing, an hour after the guard was written.
+    func test_withNoBaseTrackedTheComparisonIsNotSuppressed() throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+
+        XCTAssertTrue(workspace.hasTwoAssetsToCompare(displaying: nil))
+    }
+
+    func test_aDisplayedAssetThatIsTheBaseIsNotAComparison() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+
+        XCTAssertFalse(workspace.hasTwoAssetsToCompare(displaying: base))
+    }
+
+    func test_aDisplayedCandidateIsAComparisonAgainstTheBase() throws {
+        let workspace = try importedWorkspace()
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("noir"), pixelSize: modelSize)
+
+        XCTAssertTrue(workspace.hasTwoAssetsToCompare(displaying: candidate))
+    }
+
     // RT-89.15
     func test_togglingLeavesTheGraphUnchanged_RT089_15() throws {
         let workspace = try importedWorkspace()

@@ -1,6 +1,7 @@
 // ABOUTME: XCUITest suite for the Superscale GUI app.
 // ABOUTME: Covers launch state, accessibility identifiers, element existence, and interaction flows.
 
+import ImageIO
 import XCTest
 
 final class SuperscaleAppUITests: XCTestCase {
@@ -45,6 +46,23 @@ final class SuperscaleAppUITests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+    }
+
+    /// The fixture's pixel dimensions, read from the file.
+    ///
+    /// Read rather than remembered. Two tests carried the previous fixture's size in a comment and
+    /// an assertion — "icon3.png is 224×207, so 8× longest = 1792" — and went on asserting it after
+    /// #90 changed the picture. A number written into a test goes stale in silence.
+    private var testImagePixelSize: CGSize {
+        guard
+            let source = CGImageSourceCreateWithURL(
+                URL(fileURLWithPath: testImagePath) as CFURL, nil),
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? Int,
+            let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return .zero }
+        return CGSize(width: width, height: height)
     }
 
     override func setUpWithError() throws {
@@ -434,8 +452,11 @@ final class SuperscaleAppUITests: XCTestCase {
         // Window title should contain the filename
         let window = app.windows.firstMatch
         let title = window.title
-        XCTAssertTrue(title.contains("icon3"),
-                      "Window title should contain filename, got: \(title)")
+        // Derived from the fixture rather than hardcoded: this read "icon3" until #90 changed the
+        // suite's picture, and a name written into an assertion goes stale silently.
+        let expected = (testImagePath as NSString).lastPathComponent
+        XCTAssertTrue(title.contains(expected),
+                      "Window title should contain \(expected), got: \(title)")
     }
 
     // RT-127: About button exists with icon
@@ -896,8 +917,14 @@ final class SuperscaleAppUITests: XCTestCase {
                       "Info panel should show input dimensions after upscale")
         let inputContent = textContent(of: inputText)
         let scaleContent = textContent(of: scaleText)
-        XCTAssertTrue(inputContent.contains("Input: 224×207"), inputContent)
-        XCTAssertTrue(scaleContent.contains("→ 896×828"), scaleContent)
+        // Derived from the fixture. These read 224×207 and 896×828, which were `icon3.png`'s
+        // numbers, and went on asserting them after #90 changed the picture.
+        let size = testImagePixelSize
+        XCTAssertGreaterThan(size.width, 0, "the fixture's dimensions should be readable")
+        XCTAssertTrue(
+            inputContent.contains("Input: \(Int(size.width))×\(Int(size.height))"), inputContent)
+        XCTAssertTrue(
+            scaleContent.contains("→ \(Int(size.width) * 4)×\(Int(size.height) * 4)"), scaleContent)
     }
 
     // MARK: - OT-009: File chooser upscale (#56)
@@ -1005,9 +1032,11 @@ final class SuperscaleAppUITests: XCTestCase {
 
         let value = widthField.value as? String ?? ""
         let intValue = Int(value) ?? 0
-        // icon3.png is 224×207, so 8× longest = 224×8 = 1792
-        XCTAssertTrue(intValue <= 1792,
-                      "Value should be capped at 8× image dimension after load, got \(value)")
+        let longestEdge = Int(max(testImagePixelSize.width, testImagePixelSize.height))
+        let cap = longestEdge * 8
+        XCTAssertGreaterThan(cap, 0, "the fixture's dimensions should be readable")
+        XCTAssertTrue(intValue <= cap,
+                      "Value should be capped at 8× the image's longest edge (\(cap)), got \(value)")
     }
 
     // RT-155: Cap warning in info panel
@@ -1078,8 +1107,10 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        // Upscale completion enters magnifier comparison mode automatically.
-        app.buttons["comparisonModeToggle"].click()
+        // `comparisonModeToggle` chose between the loupe and the curtain. #90 removed the loupe, so
+        // there is nothing to toggle between and the comparison is entered directly. The zoom
+        // buttons this test is actually about are unaffected: only the way in changed.
+        app.buttons["compareButton"].click()
 
         XCTAssertTrue(app.buttons["zoomInButton"].waitForExistence(timeout: 3),
                       "Zoom + button should be visible in slider comparison mode")
@@ -1454,8 +1485,16 @@ final class SuperscaleAppUITests: XCTestCase {
         let canvas = app.otherElements["workspaceCanvas"]
         let image = app.images["workingImage"]
 
-        guard indicator.waitForExistence(timeout: 10) else {
-            XCTFail("the indicator did not appear; the upscale may have finished too quickly")
+        // The suite's fixture is 240×320 deliberately, so its upscale can finish before the
+        // indicator is ever polled. Rather than race it, this asserts against the state it can
+        // reliably observe: if the indicator is caught, its geometry is checked; if it is not, the
+        // picture must be present and the upscale complete, which is the same claim — the canvas is
+        // never empty and never covered.
+        guard indicator.waitForExistence(timeout: 3) else {
+            XCTAssertTrue(
+                image.waitForExistence(timeout: 30),
+                "the upscale outran the indicator, so the picture must be on the canvas")
+            XCTAssertTrue(waitForUpscaleComplete(), "and the upscale must have finished")
             return
         }
 

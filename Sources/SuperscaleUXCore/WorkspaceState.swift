@@ -52,8 +52,13 @@ public final class WorkspaceState: ObservableObject {
     ///
     /// A picture against *its own upscale* is a real comparison and is wanted — that is the plain
     /// upscale case. What is not a comparison is a picture against itself.
+    ///
+    /// It suppresses the comparison only where it can *prove* both sides are one asset. With no
+    /// base tracked there is nothing to prove it with, and the caller's own two images decide —
+    /// returning false there suppressed the curtain outright, which is worse than the defect this
+    /// guard exists to prevent.
     public func hasTwoAssetsToCompare(displaying displayed: AssetReference?) -> Bool {
-        guard let displayed, let base = graph.base else { return false }
+        guard let base = graph.base, let displayed else { return true }
         return displayed != base
     }
 

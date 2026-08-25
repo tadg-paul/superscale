@@ -474,11 +474,6 @@ final class UpscaleViewModel: ObservableObject {
             renderings.forget()
         }
 
-        // Upscale metadata describes the run that is starting, not the one that finished.
-        lastUpscaleModelName = nil
-        lastUpscaleFaceCount = 0
-        lastUpscaleWasAutoDetect = false
-
         // If stretch is on but both dimensions aren't valid, deselect immediately
         if stretchEnabled {
             let w = Int(customWidth).flatMap { $0 > 0 ? $0 : nil }
@@ -534,6 +529,13 @@ final class UpscaleViewModel: ObservableObject {
         upscaleTask?.cancel()
         let run = UUID()
         activeRun = run
+
+        // Cleared where a run actually begins, not in `processImage`. Cleared there, a rendering
+        // served from the store returned before any run started and left the metadata empty, so the
+        // info panel reported "Auto-detect" for a picture whose model had in fact been resolved.
+        lastUpscaleModelName = nil
+        lastUpscaleFaceCount = 0
+        lastUpscaleWasAutoDetect = false
 
         let coordinator = upscaleCoordinator
         let faceWasEnabled = faceEnhance
