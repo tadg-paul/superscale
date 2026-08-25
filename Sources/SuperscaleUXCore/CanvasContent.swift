@@ -15,6 +15,22 @@ public struct RenderedImage: Equatable, Hashable, Sendable {
     }
 }
 
+/// A rendering together with the state that produced it.
+///
+/// Carried rather than kept only in the store, because the key is what makes a late arrival
+/// detectable. An upscale of one picture can complete after the user has imported another; without
+/// the stamp, `CanvasContent.decide` would draw it as a derivation of the new base, because it
+/// draws whatever derivation it is handed and cannot see where that came from.
+public struct StampedRendering: Equatable, Sendable {
+    public let image: RenderedImage
+    public let key: RenderingKey
+
+    public init(image: RenderedImage, key: RenderingKey) {
+        self.image = image
+        self.key = key
+    }
+}
+
 /// The two sides of the curtain.
 public struct CanvasComparison: Equatable, Sendable {
     public let before: RenderedImage
@@ -64,5 +80,35 @@ public struct CanvasContent: Equatable, Sendable {
         self.image = image
         self.showsProgress = showsProgress
         self.comparison = comparison
+    }
+
+    /// The same decision, given a rendering stamped with what produced it and the state that is
+    /// current now.
+    ///
+    /// A stamp that no longer matches is dropped rather than drawn. This is the one fault the
+    /// four-value form cannot catch: it renders the derivation it is handed, so what a rendering
+    /// was produced *from* has to travel with it. Without this a slow upscale of a picture the user
+    /// has already replaced arrives and is presented as a derivation of its successor.
+    public static func decide(
+        base: RenderedImage?,
+        derivation: StampedRendering?,
+        expecting current: RenderingKey?,
+        isWorking: Bool,
+        showsBase: Bool
+    ) -> CanvasContent {
+        let admitted = admissible(derivation, expecting: current)
+        return decide(
+            base: base, derivation: admitted, isWorking: isWorking, showsBase: showsBase)
+    }
+
+    /// Whether a stamped rendering still describes the current state.
+    ///
+    /// With no current key there is nothing being awaited, so nothing is admitted: that is the
+    /// state after the scale has been turned off, where a rendering still in flight must not land.
+    public static func admissible(
+        _ derivation: StampedRendering?, expecting current: RenderingKey?
+    ) -> RenderedImage? {
+        guard let derivation, let current, derivation.key == current else { return nil }
+        return derivation.image
     }
 }
