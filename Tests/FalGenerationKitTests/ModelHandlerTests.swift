@@ -123,6 +123,7 @@ final class ModelHandlerTests: XCTestCase {
             textEndpoint: "vendor/model",
             editEndpoint: "vendor/model/edit",
             referenceField: "image_urls",
+            referenceFieldIsPlural: true,
             referenceLimit: 2,
             sizingField: "size",
             editAcceptsSizing: false)
@@ -138,6 +139,25 @@ final class ModelHandlerTests: XCTestCase {
     // what the MVP restricts is what a user can *choose*, not what the code knows how to build.
     func test_theKontextHandlerIsRetainedEvenThoughItIsNotSelectable() {
         XCTAssertNotNil(FalModelHandler.table["fal-ai/flux-pro/kontext"])
+    }
+
+    // A field's shape is its own property, not a consequence of how many references the model
+    // accepts. The two coincide for the handlers that exist today, and the code inferred the first
+    // from the second until the code audit separated them: a family accepting `image_urls` while
+    // using only the first would have a plural field and a limit of one, and would have received a
+    // bare string against a list field.
+    func test_aFieldsShapeIsIndependentOfHowManyReferencesAreAccepted() throws {
+        let pluralButSingleReference = FalModelHandler(
+            textEndpoint: "vendor/model",
+            editEndpoint: "vendor/model/edit",
+            referenceField: "image_urls",
+            referenceFieldIsPlural: true,
+            referenceLimit: 1,
+            sizingField: "aspect_ratio",
+            editAcceptsSizing: false)
+
+        XCTAssertTrue(pluralButSingleReference.referenceFieldIsPlural)
+        XCTAssertEqual(pluralButSingleReference.referenceLimit, 1)
     }
 
     func test_anUnknownModelIsRefused() {

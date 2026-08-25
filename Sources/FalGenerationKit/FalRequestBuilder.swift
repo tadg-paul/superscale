@@ -60,12 +60,10 @@ public struct FalRequestBuilder: Sendable {
         if !isEdit || handler.editAcceptsSizing {
             payload[handler.sizingField] = request.aspectRatio
         }
-        if let referenceField = handler.referenceField, isEdit {
-            // In the form the field expects: a plural field receives a list, a singular field one
-            // value. Grok's `image_urls` takes a list even for a single reference.
-            payload[referenceField] = handler.referenceLimit == 1
-                ? acceptedReferences[0]
-                : acceptedReferences
+        if let referenceField = handler.referenceField, let first = acceptedReferences.first {
+            // In the form the field expects, which is a property of the field rather than of how
+            // many references the model accepts. Grok's `image_urls` takes a list even for one.
+            payload[referenceField] = handler.referenceFieldIsPlural ? acceptedReferences : first
         }
 
         let endpoint = isEdit ? handler.editEndpoint : handler.textEndpoint
@@ -93,8 +91,14 @@ struct FalModelHandler: Sendable {
     let textEndpoint: String
     let editEndpoint: String
     let referenceField: String?
-    /// How many references the model accepts. A plural field receives a list; a singular field
-    /// receives one value.
+    /// Whether that field takes a list or a single value.
+    ///
+    /// Separate from `referenceLimit`, which they coincide with today and which is a different
+    /// question. A family accepting `image_urls` but using only the first would have a plural field
+    /// and a limit of one, and inferring the shape from the limit would send it a bare string
+    /// against a list field.
+    let referenceFieldIsPlural: Bool
+    /// How many references the model accepts.
     let referenceLimit: Int
     let sizingField: String
     /// Whether the *edit* endpoint accepts a sizing parameter.
@@ -113,6 +117,7 @@ struct FalModelHandler: Sendable {
             textEndpoint: FalGenerationRequest.defaultModelID,
             editEndpoint: "\(FalGenerationRequest.defaultModelID)/edit",
             referenceField: "image_urls",
+            referenceFieldIsPlural: true,
             referenceLimit: 3,
             sizingField: "aspect_ratio",
             editAcceptsSizing: false
@@ -121,6 +126,7 @@ struct FalModelHandler: Sendable {
             textEndpoint: "fal-ai/flux-pro/kontext",
             editEndpoint: "fal-ai/flux-pro/kontext",
             referenceField: "image_url",
+            referenceFieldIsPlural: false,
             referenceLimit: 1,
             sizingField: "aspect_ratio",
             editAcceptsSizing: true
