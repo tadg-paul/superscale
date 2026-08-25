@@ -60,3 +60,6 @@ Tests/visual_output/
 .agents/
 .claude/
 .codex/
+
+# Build detritus that was once tracked; carries local paths and signing identity
+test.log
