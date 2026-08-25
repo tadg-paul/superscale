@@ -125,6 +125,86 @@ final class CurtainGeometryTests: XCTestCase {
         }
     }
 
+    // MARK: - Two pictures that are not the same shape
+
+    // RT-96.8, RT-96.9
+    //
+    // Grok squares anything whose short edge is under 1024, so a 3:4 original comes back 1:1. Fit
+    // both into one rectangle and one of them is stretched, which is what the author saw.
+    func test_sidesOfDifferingAspectEachKeepTheirOwnRatio_RT096_8() {
+        let container = CGSize(width: 800, height: 900)
+        let original = CGSize(width: 600, height: 800)      // 3:4
+        let returned = CGSize(width: 1024, height: 1024)    // 1:1
+
+        let frames = CurtainGeometry.pairedFrames(
+            first: original, second: returned, in: container)
+
+        XCTAssertEqual(
+            frames.first.width / frames.first.height, 600.0 / 800.0, accuracy: 0.001,
+            "the original is still 3:4")
+        XCTAssertEqual(
+            frames.second.width / frames.second.height, 1.0, accuracy: 0.001,
+            "and the return is still square")
+    }
+
+    // RT-96.16
+    func test_sidesOfDifferingAspectShareAWidthAndDifferInHeight_RT096_16() {
+        let frames = CurtainGeometry.pairedFrames(
+            first: CGSize(width: 600, height: 800),
+            second: CGSize(width: 1024, height: 1024),
+            in: CGSize(width: 800, height: 900))
+
+        XCTAssertEqual(frames.first.width, frames.second.width, accuracy: 0.001)
+        XCTAssertNotEqual(frames.first.height, frames.second.height, accuracy: 0.001)
+    }
+
+    // RT-96.10
+    //
+    // Most comparisons have matching shapes and must not be disturbed to accommodate those that do
+    // not. Stated as the property rather than as "unchanged from before", which is a claim about
+    // history that no test can see.
+    func test_twoSidesOfEqualAspectProduceIdenticalFrames_RT096_10() {
+        let frames = CurtainGeometry.pairedFrames(
+            first: CGSize(width: 400, height: 300),
+            second: CGSize(width: 1600, height: 1200),
+            in: CGSize(width: 800, height: 600))
+
+        XCTAssertEqual(frames.first, frames.second)
+    }
+
+    // RT-96.18
+    //
+    // The obvious choice of shared width — the container's — clips the more portrait of the two off
+    // the bottom, which reads as a new defect rather than an incomplete fix.
+    func test_aPortraitSideIsNotClippedInAWideCanvas_RT096_18() {
+        let container = CGSize(width: 1600, height: 400)
+        let frames = CurtainGeometry.pairedFrames(
+            first: CGSize(width: 300, height: 900),
+            second: CGSize(width: 900, height: 900),
+            in: container)
+
+        XCTAssertLessThanOrEqual(frames.first.height, container.height + 0.001)
+        XCTAssertLessThanOrEqual(frames.second.height, container.height + 0.001)
+        XCTAssertGreaterThan(frames.first.height, 0)
+    }
+
+    // RT-96.11, RT-96.12
+    //
+    // One vertical divider, two pictures. Sharing a width is what lets it mean the same thing on
+    // both: at 50% it is at the horizontal midpoint of each.
+    func test_aDividerAtHalfIsAtTheMidpointOfEachSide_RT096_11() {
+        let frames = CurtainGeometry.pairedFrames(
+            first: CGSize(width: 600, height: 800),
+            second: CGSize(width: 1024, height: 1024),
+            in: CGSize(width: 800, height: 900))
+
+        XCTAssertEqual(
+            CurtainGeometry.dividerX(fraction: 0.5, in: frames.first),
+            CurtainGeometry.dividerX(fraction: 0.5, in: frames.second),
+            accuracy: 0.001,
+            "one line, one position, whatever the shapes")
+    }
+
     // MARK: - Whose scroll is it
 
     // RT-94.17

@@ -95,6 +95,11 @@ struct ComparisonView: View {
         // The pan reaches the accessibility tree as a value. Expressed only as a rendered offset it
         // reaches nobody — not VoiceOver, and not a test asking whether the picture moved.
         .accessibilityValue("panned \(Int(offset.width)) by \(Int(offset.height))")
+        // A container, not an element. Without this the identifier makes SwiftUI treat the whole
+        // curtain as one element and absorb the divider, its rule and the zoom controls — the
+        // defect recorded as D-2 on #79 and written into guide 3.9, reproduced here an hour after
+        // that rule was written down. The suite caught it as "no curtain to drag".
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("curtainPicture")
         .gesture(panGesture)
         .gesture(magnificationGesture)

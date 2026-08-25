@@ -1480,7 +1480,12 @@ final class SuperscaleAppUITests: XCTestCase {
             XCTFail("Upscale did not complete")
             return
         }
-        XCTAssertTrue(image.exists, "and is still there afterwards")
+        // A completed upscale enters comparison, and the comparison draws the picture itself rather
+        // than through `workingImage`. The criterion is that the canvas is never empty, not that
+        // one particular view is always the one drawing — so either counts.
+        XCTAssertTrue(
+            image.exists || app.otherElements["curtainPicture"].exists,
+            "and there is still a picture afterwards, whichever view is drawing it")
     }
 
     // RT-90.25, RT-90.44, RT-90.45, RT-90.49 (GUI)

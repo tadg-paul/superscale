@@ -61,6 +61,47 @@ public enum CurtainGeometry {
         frame.minX + frame.width * fraction
     }
 
+    /// Frames for two pictures that may not be the same shape.
+    ///
+    /// Grok squares anything whose short edge is under 1024, so a 3:4 original can come back 1:1.
+    /// AC90.10 required both sides at "one displayed size", which is right when the shapes match and
+    /// is exactly what breaks when they do not: one size means one rectangle, and something has to
+    /// be stretched to fill it.
+    ///
+    /// **The two share a width and differ in height.** A vertical divider then falls at the same
+    /// fraction of width on each side, so it means the same thing on both, while each picture keeps
+    /// its own proportions. A 1:1 return simply appears shorter than a 3:4 original, which is
+    /// honest — it is a different shape.
+    ///
+    /// The width is the largest at which *both* fit: the container's, unless the taller side would
+    /// then exceed the container's height, in which case whatever width makes it exactly fit. Using
+    /// the full width unconditionally clips the more portrait of the two off the bottom.
+    public static func pairedFrames(
+        first: CGSize, second: CGSize, in container: CGSize
+    ) -> (first: CGRect, second: CGRect) {
+        guard first.width > 0, first.height > 0, second.width > 0, second.height > 0,
+            container.width > 0, container.height > 0
+        else {
+            return (.zero, .zero)
+        }
+
+        // The taller of the two at any given width is the one with the smaller aspect ratio.
+        let tallestInverseAspect = max(first.height / first.width, second.height / second.width)
+        let widthLimitedByHeight = container.height / tallestInverseAspect
+        let sharedWidth = min(container.width, widthLimitedByHeight)
+
+        func frame(for size: CGSize) -> CGRect {
+            let height = sharedWidth * (size.height / size.width)
+            return CGRect(
+                x: (container.width - sharedWidth) / 2,
+                y: (container.height - height) / 2,
+                width: sharedWidth,
+                height: height)
+        }
+
+        return (frame(for: first), frame(for: second))
+    }
+
     /// Whether a scroll at `location` belongs to the picture.
     ///
     /// `ComparisonView` panned the image from an `NSEvent` monitor that never asked where the
