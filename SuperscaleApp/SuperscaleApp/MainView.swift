@@ -263,17 +263,12 @@ struct MainView: View {
             // must not leave the base pointing at a file nothing ever wrote.
             let allocation = try workspace.allocateRaiseToMinimum(
                 pixelSize: decision.resultingSize, promote: false)
-            let result = try await GUIUpscaleCoordinator().process(
-                source: source,
-                options: GUIUpscaleOptions(
-                    selectedModelName: viewModel.selectedModelName,
-                    // Faces are the user's choice about their own output. This is a size correction
-                    // on the way to the provider, not an output, so it borrows nothing.
-                    faceEnhance: false,
-                    sizing: .preset(scale: scale)),
-                sourceSize: asset.pixelSize,
-                onProgress: { _ in })
-            try result.imageData.write(to: allocation.fileURL, options: .atomic)
+            // Through the view model, which owns the coordinator, so a stubbed processor is stubbed
+            // for this work too. Constructing one here would be the same fault the reference upload
+            // had: a seam that covers one call and not another.
+            let bytes = try await viewModel.renderRaise(
+                source, scale: scale, sourceSize: asset.pixelSize)
+            try bytes.write(to: allocation.fileURL, options: .atomic)
             // Recorded at the size that was **produced**, not the size that was asked for. A model
             // whose native scale is lower than the one requested delivers less, and the area ceiling
             // can reduce a request outright — so a raise recorded at its target would claim a floor

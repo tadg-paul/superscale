@@ -442,6 +442,31 @@ final class UpscaleViewModel: ObservableObject {
 
     // MARK: - Actions
 
+    /// Renders an upscale at a fixed scale and hands back its bytes, without touching the canvas.
+    ///
+    /// Used to raise an undersized picture to the filterable minimum. It goes through **this**
+    /// coordinator rather than one built at the call site, so a stubbed processor is stubbed for
+    /// this work too — the same rule that the reference upload broke by constructing its own client.
+    ///
+    /// Deliberately does not publish: the raise is a correction on the way to the provider, not a
+    /// result the user asked to look at, and putting it on the canvas would replace what they are
+    /// working on with a bigger copy of it.
+    func renderRaise(
+        _ source: GUIUpscaleSource, scale: Int, sourceSize: CGSize
+    ) async throws -> Data {
+        let result = try await upscaleCoordinator.process(
+            source: source,
+            options: GUIUpscaleOptions(
+                selectedModelName: selectedModelName,
+                // Faces are the user's choice about their own output. This is a size correction on
+                // the way to the provider, so it borrows nothing from that choice.
+                faceEnhance: false,
+                sizing: .preset(scale: scale)),
+            sourceSize: sourceSize,
+            onProgress: { _ in })
+        return result.imageData
+    }
+
     func handleDrop(urls: [URL]) {
         guard let url = urls.first else { return }
         processImage(source: .imported(url))

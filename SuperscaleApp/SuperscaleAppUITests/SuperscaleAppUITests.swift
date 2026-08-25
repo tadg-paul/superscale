@@ -2099,7 +2099,7 @@ final class SuperscaleAppUITests: XCTestCase {
     // Asserted as the picture's own frame being unchanged, and the indicator occupying a small part
     // of the canvas rather than all of it. A blur does not move an element's frame, so this is the
     // observable half; the visual half is the user test, which is why AC90.13 keeps one.
-    func test_theCanvasOutsideTheIndicatorIsUndisturbedWhileWorkRuns_RT090_52() {
+    func test_theCanvasOutsideTheIndicatorIsUndisturbedWhileWorkRuns_RT090_52() throws {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
 
@@ -2108,8 +2108,14 @@ final class SuperscaleAppUITests: XCTestCase {
         let atRest = image.frame
         XCTAssertGreaterThan(atRest.width, 0)
 
-        // Start work again by changing the scale, which re-runs the upscale.
-        app.buttons["scale2x"].click()
+        // Start work again by choosing a scale that is *not* already in effect. The scale buttons
+        // are a toggle group, so pressing the active one clears it and no upscale runs at all —
+        // and which one is active depends on the model's native scale rather than on a constant.
+        let idle = [8, 4, 2].first { scale in
+            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+            return !value.contains("in effect") || value.contains("not in effect")
+        }
+        app.buttons["scale\(try XCTUnwrap(idle))x"].click()
 
         let indicator = element(identifier: "workingIndicator")
         guard indicator.waitForExistence(timeout: 3) else {
