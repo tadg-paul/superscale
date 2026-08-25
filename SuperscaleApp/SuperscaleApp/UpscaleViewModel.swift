@@ -601,6 +601,26 @@ final class UpscaleViewModel: ObservableObject {
     ///
     /// `nil` when there is nothing to key: no picture, or no scale selected, in which case there is
     /// no upscale to hold and nothing to look up.
+    /// What the scale control should report, given the picture and the selection.
+    ///
+    /// Derived rather than awaited: the coordinator returns an `UpscaleDecision` when a run
+    /// completes, and reading the reduction from *that* would show 4x, run, and then correct itself
+    /// to 2x. The reported defect, briefer. `UpscaleCeiling.decide` is pure, so the truth is
+    /// available the moment the picture's dimensions are known.
+    var scaleReadout: ScaleReadout {
+        let sourceSize: CGSize? = {
+            guard let width = inputWidth, let height = inputHeight else { return nil }
+            return CGSize(width: width, height: height)
+        }()
+
+        return ScaleReadout.of(
+            sourceSize: sourceSize,
+            selection: scaleSelection,
+            customWidth: Int(customWidth),
+            customHeight: Int(customHeight),
+            stretch: stretchEnabled)
+    }
+
     /// The sizing, as a value two runs can be compared on.
     ///
     /// Custom dimensions are part of it: a rendering at 1920 wide is not a rendering at 800 wide,

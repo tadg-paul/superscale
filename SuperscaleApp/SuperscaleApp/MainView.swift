@@ -306,7 +306,8 @@ struct MainView: View {
         HStack(spacing: 12) {
             ModelPicker(selectedModelName: $viewModel.selectedModelName,
                         faceEnhance: $viewModel.faceEnhance,
-                        options: viewModel.modelOptions)
+                        options: viewModel.modelOptions,
+                        scaleIsOff: viewModel.scaleSelection.isOff)
                 .accessibilityIdentifier("modelPicker")
 
             ScalePicker(viewModel: viewModel)

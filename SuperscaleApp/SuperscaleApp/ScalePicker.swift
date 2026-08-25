@@ -1,6 +1,7 @@
 // ABOUTME: Scale and resolution picker for the GUI toolbar.
 // ABOUTME: Offers preset scales (2×, 4×, 8×) and custom resolution with optional stretch.
 
+import SuperscaleUXCore
 import SwiftUI
 
 struct ScalePicker: View {
@@ -31,8 +32,12 @@ struct ScalePicker: View {
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                 }
                 .buttonStyle(.bordered)
-                .tint(viewModel.isActive(.preset(scale)) ? .accentColor : nil)
-                .help(viewModel.isActive(.preset(scale)) ? "Turn off upscaling" : "Upscale \(scale)×")
+                .tint(tint(for: .preset(scale)))
+                .help(help(for: .preset(scale), label: "Upscale \(scale)×"))
+                // The state travels as a value, not only as a colour. A tint reaches nobody: not
+                // VoiceOver, and not a test trying to establish which scale is actually running.
+                // That gap has now produced three separate untestable criteria in this delivery.
+                .accessibilityValue(readoutDescription(for: .preset(scale)))
                 .accessibilityIdentifier("scale\(scale)x")
             }
 
@@ -49,9 +54,43 @@ struct ScalePicker: View {
                 }
             }
             .buttonStyle(.bordered)
-            .tint(viewModel.isActive(.custom) ? .accentColor : nil)
-            .help(viewModel.isActive(.custom) ? "Turn off upscaling" : "Custom resolution")
+            .tint(tint(for: .custom))
+            .help(help(for: .custom, label: "Custom resolution"))
+            .accessibilityValue(readoutDescription(for: .custom))
             .accessibilityIdentifier("scaleCustom")
+        }
+    }
+
+    // MARK: - What each scale reads as
+
+    /// The scale in effect is accented; one asked for but overruled is drawn back, and still
+    /// pressable. Dimmed must not mean disabled, or a user whose upscale was reduced is stuck with
+    /// it until they import a different picture.
+    private func tint(for choice: ScaleSelection) -> Color? {
+        switch viewModel.scaleReadout.state(of: choice) {
+        case .inEffect: return .accentColor
+        case .requestedNotInEffect: return .secondary
+        case .inactive: return nil
+        }
+    }
+
+    private func help(for choice: ScaleSelection, label: String) -> String {
+        switch viewModel.scaleReadout.state(of: choice) {
+        case .inEffect:
+            return "Turn off upscaling"
+        case .requestedNotInEffect:
+            return "\(label) was requested. A smaller upscale is running to stay within memory."
+        case .inactive:
+            return label
+        }
+    }
+
+    /// The same state as a value, which is what reaches VoiceOver and the test suite.
+    private func readoutDescription(for choice: ScaleSelection) -> String {
+        switch viewModel.scaleReadout.state(of: choice) {
+        case .inEffect: return "in effect"
+        case .requestedNotInEffect: return "requested, not in effect"
+        case .inactive: return "inactive"
         }
     }
 

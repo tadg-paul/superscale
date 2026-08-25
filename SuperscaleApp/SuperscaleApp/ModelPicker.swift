@@ -8,6 +8,11 @@ struct ModelPicker: View {
     @Binding var selectedModelName: String
     @Binding var faceEnhance: Bool
     let options: [UpscaleViewModel.ModelOption]
+    /// Face enhancement is a stage of the upscale, so with no scale selected there is nothing for
+    /// it to be a stage of. Threaded here because this sheet carries a *second* face control: the
+    /// toolbar's button is not the only one, and disabling one of two leaves a user with a dimmed
+    /// button and a working toggle one sheet away, setting a value that does nothing.
+    let scaleIsOff: Bool
     @State private var showSheet = false
 
     var body: some View {
@@ -26,6 +31,7 @@ struct ModelPicker: View {
                 selectedModelName: $selectedModelName,
                 faceEnhance: $faceEnhance,
                 options: options,
+                scaleIsOff: scaleIsOff,
                 isPresented: $showSheet)
         }
     }
@@ -41,6 +47,7 @@ struct ModelSelectionSheet: View {
     @Binding var selectedModelName: String
     @Binding var faceEnhance: Bool
     let options: [UpscaleViewModel.ModelOption]
+    let scaleIsOff: Bool
     @Binding var isPresented: Bool
     @State private var expandedModelID: String?
     @State private var showFaceDownload: Bool = false
@@ -100,6 +107,11 @@ struct ModelSelectionSheet: View {
             }
             .buttonStyle(.plain)
             .frame(width: 24)
+            // Disabled unless the model is absent: with no scale there is nothing to enhance, but
+            // obtaining the model is still worth allowing — this sheet is the only route to it once
+            // the toolbar's button is disabled too.
+            .disabled(scaleIsOff && FaceModelRegistry.isInstalled)
+            .accessibilityIdentifier("sheetFaceEnhanceButton")
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Face enhancement")
@@ -113,7 +125,9 @@ struct ModelSelectionSheet: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .help("GFPGAN face enhancement — detects and enhances faces in upscaled images. Non-commercial licence (NVIDIA Source Code Licence, CC BY-NC-SA 4.0).")
+        .help(scaleIsOff && FaceModelRegistry.isInstalled
+              ? "Face enhancement applies to an upscale. Select a scale to enable it."
+              : "GFPGAN face enhancement — detects and enhances faces in upscaled images. Non-commercial licence (NVIDIA Source Code Licence, CC BY-NC-SA 4.0).")
         .sheet(isPresented: $showFaceDownload) {
             FaceModelDownloadView(isPresented: $showFaceDownload) {
                 faceEnhance = true
