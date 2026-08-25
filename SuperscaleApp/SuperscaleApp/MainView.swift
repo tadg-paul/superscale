@@ -105,11 +105,15 @@ struct MainView: View {
                 // Progress sits *over* the image rather than in place of it. Replacing the picture
                 // with a spinner threw away the thing the user came for and made a drop look as
                 // though it had been ignored.
-                if viewModel.isProcessing {
+                //
+                // It reports *any* work, not only the local upscale. The canvas watched
+                // `isProcessing` alone, so a paid provider call ran for tens of seconds in silence
+                // while the status dot and the filter panel both knew.
+                if canvasWork.isBusy {
                     // The indicator carries its own background, within its own bounds. Nothing is
                     // drawn across the picture: a material applied here covered the whole canvas,
                     // because the overlay used to be full-size.
-                    ProgressOverlay(message: viewModel.progressMessage)
+                    ProgressOverlay(message: canvasWork.message)
                         .accessibilityIdentifier("workingIndicator")
                 }
                 if !infoPanelDismissed && !viewModel.showComparison {
@@ -120,14 +124,36 @@ struct MainView: View {
         }
     }
 
+    /// Whether anything is happening, and what to call it.
+    private var canvasWork: CanvasWork {
+        CanvasWork.of(
+            isUpscaling: viewModel.isProcessing,
+            isApplyingFilter: generationCoordinator.phase == .generating,
+            upscaleMessage: viewModel.progressMessage)
+    }
+
+    /// The picture the working image descends from.
+    ///
+    /// Taken from the asset graph rather than from `viewModel.originalImage`, which `processImage`
+    /// replaces with whatever it was last asked to upscale — so after a filter it holds the filter's
+    /// own output, and the curtain compared that against its own upscale. Two pictures differing in
+    /// resolution and nothing else, which is what "the before/after image is the same" was.
+    private var comparisonBase: NSImage? {
+        guard let reference = workspace.graph.base,
+              let asset = try? workspace.graph.asset(for: reference)
+        else { return viewModel.originalImage }
+        return NSImage(contentsOfFile: asset.fileURL.path) ?? viewModel.originalImage
+    }
+
     /// What the canvas draws, decided by `CanvasContent`: the base always, the derivation when one
     /// exists and is what the user has chosen to look at, and the curtain when there are two
     /// different images to compare.
     @ViewBuilder
     private var canvasContent: some View {
         if let base = viewModel.originalImage {
-            if viewModel.showComparison, let derived = derivedImage {
-                ComparisonView(original: base, upscaled: derived)
+            if viewModel.showComparison, let derived = derivedImage,
+               let against = comparisonBase, against !== derived {
+                ComparisonView(original: against, upscaled: derived)
                     .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDropProviders)
             } else {
                 resultView(image: displayedImage ?? base)

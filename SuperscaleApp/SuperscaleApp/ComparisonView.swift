@@ -20,6 +20,9 @@ struct ComparisonView: View {
     @State private var offset: CGSize = .zero
     @State private var dragStart: CGSize = .zero
     @State private var scrollMonitor: Any?
+    /// Whether the pointer is within the picture's own displayed frame, which is not the same
+    /// rectangle as the canvas and is not the window at all.
+    @State private var pointerIsOverPicture = false
 
     /// The space the pointer and the picture are both measured in.
     ///
@@ -80,6 +83,19 @@ struct ComparisonView: View {
         }
         .clipped()
         .contentShape(Rectangle())
+        .onContinuousHover(coordinateSpace: .named(Self.curtainSpace)) { phase in
+            switch phase {
+            case let .active(location):
+                pointerIsOverPicture = CurtainGeometry.scrollBelongsToPicture(
+                    at: location, in: imageFrame)
+            case .ended:
+                pointerIsOverPicture = false
+            }
+        }
+        // The pan reaches the accessibility tree as a value. Expressed only as a rendered offset it
+        // reaches nobody — not VoiceOver, and not a test asking whether the picture moved.
+        .accessibilityValue("panned \(Int(offset.width)) by \(Int(offset.height))")
+        .accessibilityIdentifier("curtainPicture")
         .gesture(panGesture)
         .gesture(magnificationGesture)
         .onAppear { installScrollMonitor() }
@@ -290,8 +306,21 @@ struct ComparisonView: View {
 
     // MARK: - Slider scroll monitor
 
+    /// The monitor moves the picture only while the pointer is over it.
+    ///
+    /// It previously moved it for any scroll anywhere in the window, including over the filter
+    /// category strip, which is a horizontal `ScrollView` of its own. A local `NSEvent` monitor is a
+    /// global interception dressed as a view behaviour: it fires for the toolbar, the side panel,
+    /// the lock chain and the status bar alike.
+    ///
+    /// Whether the pointer is over the picture comes from SwiftUI's own hover tracking rather than
+    /// from converting the event's window coordinates. The conversion is the tempting fix and it is
+    /// wrong: the curtain's space is not the window's, so any change to the toolbar's height or the
+    /// panel's width would silently move the region the test is against.
     private func installScrollMonitor() {
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+            guard pointerIsOverPicture else { return event }
+
             offset = CGSize(
                 width: offset.width + event.scrollingDeltaX,
                 height: offset.height + event.scrollingDeltaY)

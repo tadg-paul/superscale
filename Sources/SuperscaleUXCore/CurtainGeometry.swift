@@ -60,4 +60,15 @@ public enum CurtainGeometry {
     public static func dividerX(fraction: CGFloat, in frame: CGRect) -> CGFloat {
         frame.minX + frame.width * fraction
     }
+
+    /// Whether a scroll at `location` belongs to the picture.
+    ///
+    /// `ComparisonView` panned the image from an `NSEvent` monitor that never asked where the
+    /// pointer was, so scrolling the filter category strip moved the photograph. A monitor is a
+    /// global interception dressed as a view behaviour: it fires for the toolbar, the side panel,
+    /// the lock chain and the status bar alike.
+    public static func scrollBelongsToPicture(at location: CGPoint, in frame: CGRect) -> Bool {
+        guard frame.width > 0, frame.height > 0 else { return false }
+        return frame.contains(location)
+    }
 }

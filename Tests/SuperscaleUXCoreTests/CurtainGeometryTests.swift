@@ -125,6 +125,39 @@ final class CurtainGeometryTests: XCTestCase {
         }
     }
 
+    // MARK: - Whose scroll is it
+
+    // RT-94.17
+    //
+    // The picture was panned from an `NSEvent` monitor that never asked where the pointer was, so
+    // scrolling the filter category strip moved the photograph. The decision is a containment test
+    // and it holds at any window size, which is the part a single-size check would miss.
+    func test_aLocationInsideThePictureBelongsToItAndOneOutsideDoesNot_RT094_17() {
+        for container in [CGSize(width: 400, height: 300), CGSize(width: 1600, height: 900)] {
+            let frame = CurtainGeometry.displayedFrame(
+                imageSize: CGSize(width: 400, height: 300), in: container)
+
+            XCTAssertTrue(
+                CurtainGeometry.scrollBelongsToPicture(
+                    at: CGPoint(x: frame.midX, y: frame.midY), in: frame),
+                "the middle of the picture, at \(container)")
+            XCTAssertFalse(
+                CurtainGeometry.scrollBelongsToPicture(
+                    at: CGPoint(x: frame.maxX + 40, y: frame.midY), in: frame),
+                "beyond its right edge, at \(container)")
+            XCTAssertFalse(
+                CurtainGeometry.scrollBelongsToPicture(
+                    at: CGPoint(x: frame.midX, y: frame.minY - 40), in: frame),
+                "above it, at \(container)")
+        }
+    }
+
+    // With no picture there is nothing to pan, so no location belongs to it.
+    func test_withNoPictureNoScrollBelongsToIt() {
+        XCTAssertFalse(
+            CurtainGeometry.scrollBelongsToPicture(at: CGPoint(x: 10, y: 10), in: .zero))
+    }
+
     // MARK: - Degenerate inputs
 
     // A zero-width container has no curtain to divide. Guarded because a window can be zero-sized
