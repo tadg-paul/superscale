@@ -554,6 +554,11 @@ struct MainView: View {
         }
         .padding(.horizontal, 12)
         .frame(height: 26)
+        // A container, not an element. An identifier on a stack makes SwiftUI treat the stack as one
+        // element and absorb everything in it, so the notice and the status text became unreachable
+        // — to VoiceOver, not merely to a test. The D-2 rule of guide 3.9, found here a sixth time
+        // and in code that predates it.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("appStatusBar")
     }
 
