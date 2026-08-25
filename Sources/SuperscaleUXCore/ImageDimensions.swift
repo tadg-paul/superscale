@@ -3,7 +3,7 @@
 
 import CoreGraphics
 import Foundation
-import SuperscaleKit
+import ImageIO
 
 /// How large a picture is, in pixels.
 ///
@@ -24,8 +24,27 @@ public enum ImageDimensions {
     /// `.zero` rather than a thrown error because every caller is on a path where an unreadable
     /// file is a state to carry rather than a failure to report: a raise whose output was never
     /// written, a source the user has since deleted. Callers guard on a zero size already.
+    ///
+    /// **Asks the file its size without decoding it.** The obvious implementation calls
+    /// `ImageLoader.load`, which runs `CGImageSourceCreateImageAtIndex` to decompress the whole
+    /// picture and then, where there is an alpha channel, builds a second full-size plane for it —
+    /// roughly 160 MB for a 32-megapixel RGBA output, all discarded, to keep two integers. One
+    /// caller measures on import, on the main actor, so that cost is paid on the thread drawing
+    /// the window. Properties come from the file's header and cost none of it.
+    ///
+    /// `kCGImagePropertyPixelWidth` is the stored pixel count, unaffected by the resolution that
+    /// caused this issue. It is also uncorrected for EXIF orientation — and so is
+    /// `CGImageSourceCreateImageAtIndex`, which is what `SuperscaleKit` upscales. A rotated
+    /// photograph therefore measures as the pipeline will actually treat it. An
+    /// orientation-correcting source would look more careful and would disagree with the pixels.
     public static func pixelSize(of url: URL) -> CGSize {
-        guard let loaded = try? ImageLoader.load(from: url) else { return .zero }
-        return CGSize(width: loaded.image.width, height: loaded.image.height)
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil)
+                as? [CFString: Any],
+            let width = properties[kCGImagePropertyPixelWidth] as? Int,
+            let height = properties[kCGImagePropertyPixelHeight] as? Int
+        else { return .zero }
+
+        return CGSize(width: width, height: height)
     }
 }

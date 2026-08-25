@@ -1,4 +1,4 @@
-<!-- Version: 3.21 | Last updated: 2026-08-25 -->
+<!-- Version: 3.22 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -386,8 +386,25 @@ had been corrected.
 **The floor reads pixels, not points.** `NSImage.size` is DPI-adjusted, so a
 2048 x 1536 photograph saved at 300 dpi reports about 492 x 369 --- undersized by
 this rule's reckoning, and raised 4x it does not need. Every size the asset graph
-records comes from `ImageLoader`, which reads the file's true pixel dimensions,
-and the area ceiling and the scale readout depend on the same thing.
+records comes from `ImageDimensions.pixelSize(of:)`, which reads the file's true
+pixel dimensions, and the area ceiling and the scale readout depend on the same
+thing. There is exactly one such function, because the defect existed *precisely*
+because the view and the view model each had their own and nothing could tell
+them apart.
+
+**Asking a picture its size must not decode it.** The obvious implementation of
+that function loads the image and reads the result's dimensions, which
+decompresses the whole thing --- and, where there is an alpha channel, builds a
+second full-size plane --- to keep two integers. At the 32-megapixel ceiling that
+is roughly 160 MB allocated and thrown away, and one caller measures on import,
+on the main actor, so it is paid on the thread drawing the window.
+`CGImageSourceCopyPropertiesAtIndex` answers from the file's header at no such
+cost. Two things make it the right answer rather than merely the cheap one:
+`kCGImagePropertyPixelWidth` is the stored pixel count and so is immune to the
+DPI that caused this rule, and it is uncorrected for EXIF orientation --- as is
+the decode the upscaler itself performs, so a rotated photograph measures as the
+pipeline will actually treat it. An orientation-correcting source would look more
+careful and would disagree with the pixels.
 
 **With the scale off, Save writes the picture as it stands.** The raise turns the
 scale off, so binding Save to a completed upscale --- as it was --- leaves a user
@@ -1168,6 +1185,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.22 (2026-08-25):** Section 2.5 records that asking a picture its size must not decode it, and
+  names the one function that measures. The obvious implementation costs a full decompression plus an
+  alpha plane --- about 160 MB at the ceiling --- on the main actor, to keep two integers. Found by
+  #100's code audit, in code that was itself the fix for a measurement defect.
 - **3.21 (2026-08-25):** Section 6 distinguishes "out of MVP scope" from "removed from the tree".
   Three of the four paused pieces are still present and unreferenced; the cost-confirmation policy is
   gone, removed by #95 and #103, and AC76.3 is superseded. A reader planning pricing's return needs

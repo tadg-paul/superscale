@@ -12,7 +12,14 @@ public enum FalStorageError: LocalizedError, Equatable {
     /// Distinct from `unsupportedContent`, which means the bytes were read and are not a picture.
     /// A user whose file has been moved or deleted needs to hear something different from a user
     /// who chose a document.
-    case unreadableFile(String)
+    ///
+    /// **Carries the reason as well as the name.** A file that was deleted and a file the user
+    /// lacks permission to read fail here identically, and the two need different remedies —
+    /// find the picture again, or grant access. Dropping the underlying error tells both users
+    /// the same unhelpful sentence when the information to separate them was in hand.
+    /// `name` is `lastPathComponent`, never the full path, so a diagnostic surfaced in the
+    /// interface or a log does not disclose where the user keeps their files.
+    case unreadableFile(name: String, reason: String)
     case initiateFailed(diagnostic: String)
     case transferFailed(diagnostic: String)
 
@@ -20,8 +27,8 @@ public enum FalStorageError: LocalizedError, Equatable {
         switch self {
         case .unsupportedContent:
             return "That file is not an image Superscale can send: PNG, JPEG, TIFF and HEIC are."
-        case let .unreadableFile(name):
-            return "That file could not be read: \(name)"
+        case let .unreadableFile(name, reason):
+            return "That file could not be read: \(name) — \(reason)"
         case let .initiateFailed(diagnostic):
             return "The provider would not accept the image: \(diagnostic)"
         case let .transferFailed(diagnostic):
@@ -36,6 +43,17 @@ public enum FalStorageError: LocalizedError, Equatable {
 /// URLs expire at the provider's discretion, so a reference is uploaded afresh on every call that
 /// uses it. The rule is expressed by there being nowhere to put a cached value rather than by
 /// remembering not to write one — this is a `struct` with two immutable dependencies.
+///
+/// **This type must not acquire a global actor.** `upload` reads the file from disk, and it reads
+/// it off the main thread only because a non-isolated `async` function called from a `@MainActor`
+/// context runs on the generic executor rather than the caller's. Its one caller,
+/// `GenerationServing.uploadReference`, *is* `@MainActor`. Annotating this type `@MainActor` — for
+/// a reason that will look sound at the time, such as touching published state — moves a
+/// synchronous disk read back onto the thread drawing the window, and the interface freezes on
+/// every Apply for as long as a large picture takes to load.
+///
+/// That reversion passes every test. Swift offers no way to assert from a test that a type carries
+/// no global actor, so this paragraph is the only defence there is; treat it as load-bearing.
 public struct FalStorageClient: Sendable {
     public static let productionBaseURL = URL(string: "https://rest.fal.ai")
         ?? URL(fileURLWithPath: "/")
@@ -97,7 +115,8 @@ public struct FalStorageClient: Sendable {
         do {
             data = try Data(contentsOf: fileURL)
         } catch {
-            throw FalStorageError.unreadableFile(fileURL.lastPathComponent)
+            throw FalStorageError.unreadableFile(
+                name: fileURL.lastPathComponent, reason: error.localizedDescription)
         }
 
         guard let contentType = Self.contentType(of: data) else {

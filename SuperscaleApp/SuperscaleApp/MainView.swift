@@ -225,7 +225,7 @@ struct MainView: View {
         guard let url,
               url != generationCoordinator.output?.localURL,
               url != currentlyDisplayedFileURL else { return }
-        workspace.importImage(fileURL: url, pixelSize: ImageDimensions.pixelSize(of:url))
+        workspace.importImage(fileURL: url, pixelSize: ImageDimensions.pixelSize(of: url))
     }
 
     /// Applies the selected filter, raising the base to the filterable minimum first if it falls
@@ -276,7 +276,8 @@ struct MainView: View {
             // the floor to be re-enforced whenever a change drops the working image below it, and
             // this is what makes that check answer honestly.
             try workspace.adoptRaise(
-                allocation.reference, producedSize: ImageDimensions.pixelSize(of:allocation.fileURL))
+                allocation.reference,
+                producedSize: ImageDimensions.pixelSize(of: allocation.fileURL))
 
             // Guide 2.5's own reasoning: with the raised picture as the base and the scale off, the
             // application stops re-upscaling a picture that is already the size the provider wants.
@@ -353,7 +354,7 @@ struct MainView: View {
             candidate = try workspace.recordFilter(
                 named: selection.selectedID ?? "",
                 fileURL: source.url,
-                pixelSize: ImageDimensions.pixelSize(of:source.url),
+                pixelSize: ImageDimensions.pixelSize(of: source.url),
                 modelID: FalGenerationRequest.defaultModelID,
                 prompt: selection.promptToApply,
                 sessionID: source.sessionID,

@@ -3,7 +3,8 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC98.5 from #98 on 2026-08-25
+Last migrated: AC100.1, AC100.2 from #100; AC101.1 from #101; AC103.1, AC103.2 from #103,
+all on 2026-08-25. #102 introduced no criteria of its own and extended AC92.1, AC92.5 and AC92.6.
 
 ---
 
@@ -294,7 +295,15 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   - ✅ RT-91.8: a custom target above the ceiling is reduced proportionally, preserving its aspect
   - ✅ RT-91.9: the ceiling binds the output produced rather than the request typed
   - ✅ RT-91.10: the coordinator asks its processor for an output within the ceiling
+  - ⏳ RT-101.1: with a reduction in force, the status bar reports it where a user reads it
+  - ⏳ RT-101.2: the report names the scale used and the scale requested, and they differ
+  - ⏳ RT-101.4: with no reduction and no raise, no notice is shown at all
   - ⏳ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive --- pending on master #79's roll-up
+- Note: **#91 proved the decision, not the sentence.** Its ten tests are all package-level over
+  `UpscaleCeiling` and assert which scale was chosen, what size resulted, and that a reduction
+  occurred. None of them asserts that the user is ever *told*. #101 added the three regression tests
+  above at the surface the user actually reads, so the last link --- decision to displayed sentence
+  --- is covered rather than assumed.
 - Note: **backfilled, not pre-existing.** #91 first cited AC83.7 as a legacy criterion on #83. It did
   not exist: #83 carries AC83.1 to AC83.6, and the resolution caps were only ever prose in
   `IMPLEMENTATION_GUIDE_v2.md` 2.5 and 3.8 plus a residual-risk note. The bound was acknowledged and
@@ -882,6 +891,44 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   of a picture no longer on screen, and keeping the files would grow the output directory for the
   life of the session.
 
+### AC103.1 - An upscale is allocated from the picture the canvas is showing, whichever of the base or the candidate that is.
+- Introduced: #103 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ⏳ RT-103.1: with the filter toggle showing the base, the allocation derives from the base
+  - ⏳ RT-103.2: with the candidate displayed, it derives from the candidate
+  - ⏳ RT-103.3: an upscaled asset is refused as the input, whichever is displayed
+  - ⏳ RT-103.6: with a rendering on the canvas, the allocation derives from its subject rather than from the rendering
+  - ⏳ RT-103.7: after a lock, it derives from the new base
+- Note: **the "two routes" this criterion was drafted to reconcile do not exist.** The premise was
+  that an upscale could be allocated either from the displayed asset or from the working one, and
+  that the two disagreed. Reading the code settled it: `WorkspaceState.recordUpscale` allocates a
+  graph asset, while `MainView.display` renders and touches the graph not at all --- `UpscaleViewModel`
+  contains no reference to the workspace or the graph whatsoever. There is one route. The distinction
+  is now recorded at `recordUpscale` rather than refactored away, because there was nothing to
+  refactor; D-103.1 records that finding and the false premise that led to it.
+- Note: RT-103.6 is the one that matters. Deriving from the rendering rather than from its subject is
+  how oversized pixels reach the next stage, and it is the mistake that looks most reasonable at the
+  call site --- the rendering is what is on the screen.
+
+### AC103.2 - No cost-confirmation threshold is stored, and the policy that consumed it is absent from the application.
+- Introduced: #103 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ~~🚫 RT-103.4~~ --- withdrawn by the first AC audit as a source-reading check
+  - ✅ RT-103.5: a preferences round trip carries no cost threshold
+- Note: **the type's removal is structural and confirmed by `audit-code`, not by a test.** Asserting
+  that a type is absent means reading source, which `TESTING.md` forbids; RT-103.5 asserts the
+  observable half, that nothing writes a threshold to preferences. RT-103.4 was withdrawn for
+  proposing exactly the forbidden check.
+- Note: **AC76.3 is superseded by this.** #95 removed the control and the preference key; #103 removed
+  `GenerationCostPolicy` and `GenerationCostDecision`, which consumed them. A stored value nothing
+  reads is a thing a later reader must prove is dead, and a type with no storage behind it still
+  invites a caller.
+- Note: the file was renamed to `GenerationAvailability.swift` to match what it holds. A file named
+  after a type it no longer contains costs a reader real time, and that cost is invisible to every
+  test and every build --- the same class of thing as this delivery's accessibility findings.
+
 ## The display model
 
 ### AC90.1 - An imported image occupies the canvas from the moment it is loaded and before anything derived from it exists, and progress appears over it rather than in place of it. Loading the import itself is the one operation with nothing beneath it.
@@ -1055,6 +1102,11 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   - ✅ RT-92.1: an applied filter's request body contains no base64 payload
   - ✅ RT-92.2: the request references the URL the upload returned
   - ✅ RT-92.3: the request body's size is independent of the reference's size
+  - ⏳ RT-102.1: an upload reads the file it was given, so the bytes sent are the file's own
+- Note: **#102 changed the signature this criterion depends on**, from bytes to a location, so that
+  the read happens off the main actor rather than in a SwiftUI view. RT-102.1 is the substitution
+  itself: passing a URL must send the same bytes that passing `Data` did, or the change silently
+  sends something other than the picture the user chose.
 - Note: RT-92.1 decodes the body rather than matching its text. `JSONSerialization` escapes forward
   slashes, so a body genuinely containing `https://v3.fal.media/...` does not contain that string,
   and a version relaxed to make the string match would pass against a body carrying no URL at all.
@@ -1095,6 +1147,15 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   - ✅ RT-92.11: an initiate failure surfaces as a filter-stage failure in plain language
   - ✅ RT-92.12: a byte-transfer failure surfaces the same way
   - ✅ RT-92.13: neither leaves a partial reference behind for the generation request to use
+  - ⏳ RT-102.2: a file that cannot be read fails the upload, and no transfer request is made at all
+  - ⏳ RT-102.3: a failed read leaves no partial reference behind
+- Note: **#102 introduced a new failure mode here.** Reading the bytes at the call site meant an
+  unreadable file threw before the upload began; moving the read inside `upload` puts it on the same
+  path as the provider exchange. RT-102.2 asserts that **nothing was sent**, not merely that an error
+  was thrown --- an implementation that initiates, fails to read, and still sends a zero-byte PUT
+  before throwing would satisfy the weaker assertion, having handed the provider an empty file at a
+  URL it issued. The failure also carries *why*, not only which file: a deleted picture and one the
+  user lacks permission to read need different remedies, and the underlying reason was in hand.
 - Note: the transfer failure is the dangerous one. The initiate exchange has already returned a
   `file_url`, so an implementation returning it before the bytes arrive would hand the provider a
   URL with nothing behind it.
@@ -1106,8 +1167,12 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   - ✅ RT-92.14: the initiate request carries `Authorization: Key <token>`
   - ✅ RT-92.15: no request URL or body contains the token
   - ✅ RT-92.16: no diagnostic or persisted record contains the token
+  - ⏳ RT-102.4: the credential still appears only in a header, across both exchanges
 - Note: checked across *both* exchanges, not only the first. The signed upload address carries no
   credential of ours, so the transfer sends none.
+- Note: RT-102.4 re-pins this across #102's signature change. A refactor that rebuilds request
+  construction is exactly where a credential leaks into a URL by accident, so the criterion is
+  re-asserted rather than assumed to have survived.
 
 ### AC92.7 - The picture uploaded is the base at its own resolution, never a rendering of it.
 - Introduced: #92 (closed 2026-08-25)
@@ -1167,6 +1232,29 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   active control's state.
 - Note: the model stays obtainable. Disabling the route to it along with the setting would leave a
   user who has never downloaded it unable to, and no way to find out why.
+
+### AC101.1 - Text the status bar presents is individually addressable by assistive technology, rather than being absorbed into the bar that contains it.
+- Introduced: #101 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ⏳ RT-101.3: the notice is reachable in the accessibility tree rather than absorbed
+  - ⏳ RT-101.5: the status text beside it is reachable too, so the rule holds of the bar rather than of one label
+  - ⏳ RT-101.6: a notice replaced while displayed carries the new text
+- Note: **the sixth occurrence of guide 3.9's D-2 rule in this codebase**, and the first found in code
+  that predates the rule. An identifier on an `HStack` makes SwiftUI treat the stack as a single
+  element and absorb its children, so the notice and the status text were rendered on screen and
+  absent from the accessibility tree --- unreachable by VoiceOver, not merely by a test.
+  `.accessibilityElement(children: .contain)` makes it a container again. A rule found six times is
+  not being read at the point where it applies, which is worth more than any one of the fixes.
+- Note: **both of the bar's contents are asserted, not just the notice.** A test covering one label
+  proves the fix for that label and leaves the rule unproven of the bar.
+- Note: RT-101.6 covers replacement rather than first appearance. An element recreated rather than
+  updated may carry the old text or not be announced at all, and it is driven through a sequence the
+  application already performs: a picture below the filterable minimum is raised, setting one
+  message, and the square result that comes back then replaces it with the reshape message.
+- Note: the coloured dot beside the text stays decorative, deliberately. Shapes never enter the
+  accessibility tree (guide 3.11), and the state it shows is carried in the adjacent text --- a
+  colour reaches nobody on its own.
 
 ## What the canvas reports, and what the curtain compares
 
@@ -1321,6 +1409,51 @@ Last migrated: AC98.5 from #98 on 2026-08-25
   recorded the difference and nothing displayed it, so the criterion was delivered to its tests and
   not to anybody using the application. A notice now says so, on the same status-bar channel as the
   raise and the area reduction.
+
+### AC100.1 - A loaded image's dimensions are the file's decoded pixel dimensions, whatever resolution the file records and whichever supported format it is stored in.
+- Introduced: #100 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ⏳ RT-100.1: an image stored at 300 dpi has its full pixel dimensions rather than its point dimensions
+  - ⏳ RT-100.2: the same image content stored at 72 dpi has identical dimensions, so resolution changes nothing
+  - ⏳ RT-100.3: the resolution recorded in the file is present in its metadata, so the fixture genuinely exercises the condition
+  - ⏳ RT-100.4: an image with no resolution recorded at all has its full pixel dimensions
+  - ⏳ RT-100.5: an image whose horizontal and vertical resolutions differ has its full pixel dimensions on both axes
+  - ⏳ RT-100.6: the property holds for JPEG as well as PNG
+- Note: this criterion pins `SuperscaleKit`'s contract, **which was never broken**. It is here so that
+  the half of the application that was always right stays right, and so that a reader can tell which
+  half AC100.2 is about.
+- Note: RT-100.3 exists because the other five are worthless without it. A fixture whose 300 dpi was
+  silently dropped on write would pass every dimension assertion while exercising nothing.
+
+### AC100.2 - The application measures an imported picture through one function, and the size it records is the picture's pixel size.
+- Introduced: #100 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ⏳ RT-100.7: a picture recording 300 dpi measures at its pixel dimensions
+  - ⏳ RT-100.8: a picture recording no resolution measures at its pixel dimensions
+  - ⏳ RT-100.9: a file that cannot be decoded measures as zero rather than crashing
+  - ⏳ RT-100.10: a picture above the filterable minimum but recording 300 dpi is not raised when a filter is applied
+- Note: **"through one function" is the criterion, not an implementation detail.** The defect existed
+  precisely because the view and the view model each had their own way of measuring a picture, and
+  nothing could tell them apart. `MainView.importedPixelSize` was private to a view, exercised by
+  nothing, and used `NSImage.size` --- which reports points adjusted by the file's stored resolution,
+  so a 2048 x 1536 photograph saved at 300 dpi measured about 492 x 369. Undersized by the floor's
+  reckoning, raised 4x it did not need, the user's picture altered and their scale selection turned
+  off, on a photograph twice the minimum.
+- Note: **structural, and so confirmed by code review rather than by a test.** That there is exactly
+  one such function cannot be asserted from outside; a test proving it would have to read source,
+  which `TESTING.md` forbids. What is asserted is the behaviour at every remaining caller.
+- Note: **RT-100.10 is the only one of the ten that would have failed against the broken code end to
+  end.** The other nine pin the function; that one pins the consequence the user would have met.
+- Note: measuring must not decode. The obvious implementation loads the image and reads the result's
+  dimensions, which decompresses the whole picture --- and builds a second full-size plane where there
+  is an alpha channel --- to keep two integers: about 160 MB at the 32-megapixel ceiling, on the main
+  actor, on import. The size comes from the file's header instead. `kCGImagePropertyPixelWidth` is
+  the stored pixel count, immune to the resolution that caused this issue, and uncorrected for EXIF
+  orientation exactly as the pipeline's own decode is --- so a rotated photograph measures as it will
+  actually be treated. An orientation-correcting source would look more careful and disagree with the
+  pixels.
 
 ## Provider failures
 

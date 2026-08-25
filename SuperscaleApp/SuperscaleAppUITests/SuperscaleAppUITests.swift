@@ -815,6 +815,20 @@ final class SuperscaleAppUITests: XCTestCase {
         // used here instead, giving 17 megapixels, under the ceiling.
         let path = try writeFixture(width: 1200, height: 900, named: "unremarkable.png")
         XCTAssertTrue(loadTestImage(path: path), "the picture should load")
+
+        // The arithmetic above is about 4x, so 4x is what must actually be running. Which scale is
+        // active follows the model's native scale rather than a constant — the reason `selectScale`
+        // exists — so a test reasoning about one and taking whatever it is given proves less than
+        // its own comment claims.
+        let inEffect = app.buttons["scale4x"]
+        XCTAssertTrue(inEffect.waitForExistence(timeout: 10), "scale4x exists")
+        // "not in effect" contains "in effect", so both halves are needed — the same trap
+        // `selectScale` guards against.
+        let reported = (inEffect.value as? String ?? "").lowercased()
+        XCTAssertTrue(
+            reported.contains("in effect") && !reported.contains("not in effect"),
+            "4x is the scale in effect: \"\(reported)\"")
+
         XCTAssertTrue(waitForUpscaleComplete(), "and upscale without incident")
 
         XCTAssertFalse(

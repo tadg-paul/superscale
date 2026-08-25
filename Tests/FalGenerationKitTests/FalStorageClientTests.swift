@@ -254,9 +254,18 @@ final class FalStorageClientTests: XCTestCase {
             _ = try await client.upload(fileURL: absent, fileName: "gone.png", apiKey: apiKey)
             XCTFail("a file that is not there cannot be uploaded")
         } catch let error as FalStorageError {
-            XCTAssertEqual(error, .unreadableFile("never-written.png"))
-            XCTAssertFalse(
-                error.localizedDescription.isEmpty, "and it says which file")
+            if case let .unreadableFile(name, reason) = error {
+                XCTAssertEqual(name, "never-written.png")
+                XCTAssertFalse(
+                    reason.isEmpty, "the underlying reason is carried rather than discarded")
+                XCTAssertTrue(
+                    error.localizedDescription.contains(name), "and it says which file")
+                XCTAssertTrue(
+                    error.localizedDescription.contains(reason),
+                    "and why, so a missing file and a forbidden one read differently")
+            } else {
+                XCTFail("expected an unreadable-file failure, got \(error)")
+            }
         } catch {
             XCTFail("unexpected error: \(error)")
         }
