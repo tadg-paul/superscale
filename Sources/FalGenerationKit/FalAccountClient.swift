@@ -123,7 +123,8 @@ public struct FalAccountClient: Sendable {
         do {
             response = try await transport.send(request)
         } catch {
-            throw FalAccountError.transportFailure(falRedact(error.localizedDescription, secret: accountKey))
+            throw FalAccountError.transportFailure(
+                falRedact(error.localizedDescription, secrets: [accountKey]))
         }
         switch response.statusCode {
         case 200..<300:
@@ -135,7 +136,7 @@ public struct FalAccountClient: Sendable {
         default:
             throw FalAccountError.httpFailure(
                 statusCode: response.statusCode,
-                diagnostic: falDiagnostic(from: response.body, secret: accountKey)
+                diagnostic: falDiagnostic(from: response.body, secrets: [accountKey])
             )
         }
         do {

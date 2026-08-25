@@ -95,12 +95,13 @@ public struct FalPricingClient: Sendable {
         do {
             response = try await transport.send(request)
         } catch {
-            throw FalPricingError.transportFailure(falRedact(error.localizedDescription, secret: apiKey))
+            throw FalPricingError.transportFailure(
+                falRedact(error.localizedDescription, secrets: [apiKey]))
         }
         guard (200..<300).contains(response.statusCode) else {
             throw FalPricingError.httpFailure(
                 statusCode: response.statusCode,
-                diagnostic: falDiagnostic(from: response.body, secret: apiKey)
+                diagnostic: falDiagnostic(from: response.body, secrets: [apiKey])
             )
         }
         return response
@@ -170,15 +171,17 @@ private struct Estimate {
     let currency: String
 }
 
-func falDiagnostic(from data: Data, secret: String) -> String {
-    if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-       let message = object["message"] as? String ?? object["detail"] as? String {
-        return falRedact(message, secret: secret)
-    }
-    return "The provider rejected the request."
+/// Reads a provider failure through the shared parser.
+///
+/// This was a smaller reimplementation: `message` or `detail`, no nesting, no request identifier
+/// and — because it took a single `secret` — no protection for the other credential. An identical
+/// body could therefore surface a key from pricing and not from generation.
+///
+/// `secrets` takes every credential the application holds, not the one the failing call used.
+func falDiagnostic(from data: Data, secrets: [String]) -> String {
+    FalDiagnosticRedactor.providerDiagnostic(from: data, secrets: secrets)
 }
 
-func falRedact(_ value: String, secret: String) -> String {
-    guard !secret.isEmpty else { return value }
-    return value.replacingOccurrences(of: secret, with: "[REDACTED]")
+func falRedact(_ value: String, secrets: [String]) -> String {
+    FalDiagnosticRedactor.redact(value, secrets: secrets)
 }

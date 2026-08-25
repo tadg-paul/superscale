@@ -145,7 +145,15 @@ public enum FalGenerationError: LocalizedError, Sendable {
     }
 }
 
-private enum FalDiagnosticRedactor {
+/// Reads a provider's error body, whichever shape it arrives in, and removes every credential.
+///
+/// Shared rather than private to one client. `FalPricingClient` had its own smaller version with no
+/// nesting, no request identifier and **no redaction**, so an identical failure could surface a key
+/// from pricing and not from generation.
+enum FalDiagnosticRedactor {
+    /// How much of an unreadable body to keep, so an echoed payload cannot flood a diagnostic.
+    static let unparseableBodyLimit = 500
+
     static func redact(_ value: String, secrets: [String]) -> String {
         secrets.filter { !$0.isEmpty }.reduce(value) { result, secret in
             result.replacingOccurrences(of: secret, with: "[REDACTED]")
@@ -153,23 +161,41 @@ private enum FalDiagnosticRedactor {
     }
 
     static func providerDiagnostic(from data: Data, secrets: [String]) -> String {
-        let diagnostic: String
         if let object = try? JSONSerialization.jsonObject(with: data),
            let dictionary = object as? [String: Any] {
             let message = stringValue(dictionary["message"])
-                ?? stringValue(dictionary["detail"])
+                ?? detailMessage(dictionary["detail"])
                 ?? nestedErrorMessage(dictionary["error"])
                 ?? "The provider rejected the request."
+            let diagnostic: String
             if let requestID = stringValue(dictionary["request_id"]) {
                 diagnostic = "\(message) (request \(requestID))"
             } else {
                 diagnostic = message
             }
-        } else {
-            let body = String(data: data.prefix(500), encoding: .utf8) ?? "The provider rejected the request."
-            diagnostic = body.isEmpty ? "The provider rejected the request." : body
+            return redact(diagnostic, secrets: secrets)
         }
-        return redact(diagnostic, secrets: secrets)
+
+        // Redact *before* truncating. The other order leaves a fragment of any secret straddling
+        // the limit, because `redact` replaces whole occurrences and half a key is not one — and a
+        // test asserting the key is absent would pass, since the whole key genuinely is.
+        let whole = String(data: data, encoding: .utf8) ?? ""
+        guard !whole.isEmpty else { return "The provider rejected the request." }
+        return String(redact(whole, secrets: secrets).prefix(unparseableBodyLimit))
+    }
+
+    /// FastAPI reports validation failures as `detail`, which is a string or a list of objects.
+    ///
+    /// The list form was falling through to the next envelope and then to a generic sentence,
+    /// discarding the only part that said what was actually wrong.
+    private static func detailMessage(_ value: Any?) -> String? {
+        if let string = value as? String { return string }
+        guard let entries = value as? [[String: Any]] else { return stringValue(value) }
+
+        let messages = entries.compactMap { entry in
+            stringValue(entry["msg"]) ?? stringValue(entry["message"])
+        }
+        return messages.isEmpty ? nil : messages.joined(separator: "; ")
     }
 
     private static func nestedErrorMessage(_ value: Any?) -> String? {
@@ -177,7 +203,7 @@ private enum FalDiagnosticRedactor {
         return stringValue(dictionary["message"])
     }
 
-    private static func stringValue(_ value: Any?) -> String? {
+    static func stringValue(_ value: Any?) -> String? {
         if let string = value as? String {
             return string
         }
