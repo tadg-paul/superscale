@@ -1,4 +1,4 @@
-<!-- Version: 3.10 | Last updated: 2026-08-25 -->
+<!-- Version: 3.12 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -167,6 +167,23 @@ custom cursor and reads as brittle in use, and the curtain is the instrument thi
 comparison wants. The divider follows the pointer within the picture's own
 displayed frame, which is not the same rectangle as the window.
 
+**The two sides share a width and may differ in height.** Each keeps its own
+proportions, so nothing is stretched to match the other's shape, and the single
+vertical divider therefore falls at the same fraction of width on both. Fitting
+each side into the canvas independently gave a 1:1 return a different width from
+a 3:4 original, so one line meant two different things --- which is what grok
+produces whenever the picture it is given has a short edge under 1024. The
+shared width is bounded by the canvas: the canvas's own width where both sides
+fit, and otherwise whatever width makes the taller of the two exactly fill the
+canvas's height, because using the full width unconditionally clips the more
+portrait of the two off the bottom. Corrected by #96, which supersedes AC90.10.
+
+**A return whose shape differs from what was sent is recorded as such**, on the
+asset rather than recomputed by the view. What was sent is not always the parent
+--- the area ceiling reduces a picture before it goes and the minimum-resolution
+floor raises one --- so a view deriving the answer from the parent's size would
+be describing the graph while appearing to describe the provider.
+
 ### 2.4 Lock
 
 **Lock** is the only action that moves the base. It promotes the current
@@ -330,6 +347,24 @@ The user may still change the upscale model and amount freely. **Whenever a
 change would drop the image below the minimum, it is raised again and the
 message is shown again.** The floor is enforced continuously, not only on
 import.
+
+**The check therefore sits at Apply, not at import.** Every submission passes
+through one place, and the base can change after import --- a lock, a model
+change --- so a check made only on the way in satisfies the criterion and leaves
+the defect in place on every subsequent apply. Built by #96.
+
+**A picture too small to reach the floor at any offered scale is raised as far
+as it goes, and the user is told the provider may change its shape.** The
+control offers 2x, 4x and 8x, so a 50-pixel picture reaches 400 and no further.
+Refusing it outright would be worse than sending it: the same reduce-and-tell
+posture the area ceiling takes in the other direction.
+
+**A raise is not an upscale, and the asset roles keep them apart.** A
+`raisedToMinimum` asset targets the filter model's working resolution and
+remains valid filter input; an `upscaled` asset targets the size the user asked
+for and is terminal, which the graph enforces by refusing it as a stage input.
+Recording a raise as an upscale would make the floor unenforceable, because the
+raised picture could then never be sent.
 
 **Face enhancement is unchanged from v1.** GFPGAN is not bundled, because of its
 non-commercial licence. It is present only if the user deliberately downloaded
@@ -965,6 +1000,12 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.12 (2026-08-25):** Recorded slice 7's two rules as built by #96. Section 2.3 gains the
+  curtain's shared width, which supersedes AC90.10: fitting each side into the canvas independently
+  gave a 1:1 return a different width from a 3:4 original, so one divider meant two different things.
+  Section 2.5 records that the floor is enforced at Apply rather than at import, that a picture too
+  small to reach it at any offered scale is raised as far as it goes and reported, and that a raise
+  is a distinct asset role from an upscale because a raised picture must remain sendable.
 - **3.11 (2026-08-25):** Added the rule in 3.9 that a shape is not a control until it is declared
   one. The curtain's divider was a `Circle` carrying a drag gesture and an identifier, and existed
   for nobody but a mouse --- the fifth state in this delivery the accessibility tree could not see,

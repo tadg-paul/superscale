@@ -35,11 +35,53 @@ public struct Provenance: Codable, Equatable, Sendable {
     public let prompt: String?
     public let sessionID: UUID?
 
-    public init(filterID: String?, modelID: String?, prompt: String?, sessionID: UUID?) {
+    /// The size of the picture that went to the provider.
+    ///
+    /// Recorded rather than read back from the parent asset, because what is sent is not always the
+    /// parent: the memory ceiling reduces a picture before it goes, and the minimum-resolution floor
+    /// raises one. A view deriving "did the shape change" from the parent's size would be answering
+    /// a question about the graph while appearing to answer one about the provider.
+    ///
+    /// Optional so that records written before #96 still decode.
+    public let sentSize: CGSize?
+    /// The size of the picture that came back.
+    public let returnedSize: CGSize?
+
+    public init(
+        filterID: String?,
+        modelID: String?,
+        prompt: String?,
+        sessionID: UUID?,
+        sentSize: CGSize? = nil,
+        returnedSize: CGSize? = nil
+    ) {
         self.filterID = filterID
         self.modelID = modelID
         self.prompt = prompt
         self.sessionID = sessionID
+        self.sentSize = sentSize
+        self.returnedSize = returnedSize
+    }
+
+    /// Whether the provider returned a different shape from the one it was given.
+    ///
+    /// Grok raises a short edge under 1024 to the model's working size and squares the result, so a
+    /// 3:4 photograph comes back 1:1. A user who sees a square result from a portrait original
+    /// should not have to work out whether the application or the provider did it.
+    ///
+    /// Compared as a ratio with a tolerance, not as equality: a provider rounding to an even number
+    /// of pixels changes the ratio in the fourth decimal place and has not reshaped anything.
+    /// `nil` where either size is unrecorded — an honest "not known", never a silent "no".
+    public var providerChangedTheShape: Bool? {
+        guard let sentSize, let returnedSize,
+            sentSize.width > 0, sentSize.height > 0,
+            returnedSize.width > 0, returnedSize.height > 0
+        else {
+            return nil
+        }
+        let sent = sentSize.width / sentSize.height
+        let returned = returnedSize.width / returnedSize.height
+        return abs(sent - returned) > 0.01 * sent
     }
 }
 
@@ -53,19 +95,25 @@ public struct FilterProvenance: Equatable, Sendable {
     public let prompt: String
     public let sessionID: UUID?
     public let secrets: [String]
+    /// The size of the picture actually submitted, where the caller knows it.
+    ///
+    /// Only the caller does: it is the one that reduced or raised the picture before uploading it.
+    public let sentSize: CGSize?
 
     public init(
         filterID: String,
         modelID: String,
         prompt: String,
         sessionID: UUID?,
-        secrets: [String] = []
+        secrets: [String] = [],
+        sentSize: CGSize? = nil
     ) {
         self.filterID = filterID
         self.modelID = modelID
         self.prompt = prompt
         self.sessionID = sessionID
         self.secrets = secrets
+        self.sentSize = sentSize
     }
 }
 
@@ -194,6 +242,59 @@ public struct AssetGraph: Sendable {
         return AssetReference(id: asset.id)
     }
 
+    /// Allocates a raise of `input` to the filterable minimum.
+    ///
+    /// Distinct from `recordUpscale` in what it produces and what may then be done with it. An
+    /// `upscaled` asset targets the size the user asked for and is terminal — the graph refuses it
+    /// as a stage input. A `raisedToMinimum` asset targets the *filter model's* working resolution
+    /// and is a legitimate filter input, which is the whole reason `AssetRole` distinguishes them.
+    ///
+    /// On promotion the raised asset becomes the base and any candidate is cleared: a candidate was
+    /// made from a picture that is no longer the base, so keeping it would offer a comparison
+    /// against something the user is no longer working from. Guide 2.5 describes this as the
+    /// sequence the user could have performed by hand — import, upscale to the minimum, lock — and
+    /// lock is what moves the base.
+    ///
+    /// - Parameter promote: whether it becomes the base immediately. A caller about to run work that
+    ///   may fail passes `false` and calls `promoteRaise` on success, so a failed raise does not
+    ///   leave the base pointing at a file that was never written. Same reasoning as `recordUpscale`.
+    @discardableResult
+    public mutating func recordRaiseToMinimum(
+        of input: AssetReference,
+        pixelSize: CGSize,
+        fileExtension: String = "png",
+        promote: Bool = true
+    ) throws -> UpscaleAllocation {
+        try validateStageInput(input)
+        let id = UUID()
+        let resolvedExtension = fileExtension.isEmpty ? "png" : fileExtension
+        let fileURL = outputDirectory
+            .appendingPathComponent("raised-\(id.uuidString).\(resolvedExtension)")
+        assets[id] = Asset(
+            id: id,
+            role: .raisedToMinimum,
+            fileURL: fileURL,
+            pixelSize: pixelSize,
+            parentID: input.id,
+            provenance: nil
+        )
+        if promote {
+            baseID = id
+            candidateID = nil
+        }
+        return UpscaleAllocation(reference: AssetReference(id: id), fileURL: fileURL)
+    }
+
+    /// Makes an allocated raise the base, once its pixels exist.
+    public mutating func promoteRaise(_ reference: AssetReference) throws {
+        let asset = try asset(for: reference)
+        guard asset.role == .raisedToMinimum else {
+            throw AssetGraphError.notAnUpscaledOutput(asset.id)
+        }
+        baseID = asset.id
+        candidateID = nil
+    }
+
     public func asset(for reference: AssetReference) throws -> Asset {
         guard let asset = assets[reference.id] else {
             throw AssetGraphError.unknownAsset(reference.id)
@@ -242,7 +343,11 @@ public struct AssetGraph: Sendable {
                 filterID: filter.filterID,
                 modelID: filter.modelID,
                 prompt: Redaction.applied(to: filter.prompt, secrets: filter.secrets),
-                sessionID: filter.sessionID
+                sessionID: filter.sessionID,
+                // Where the caller did not say what it sent, the input's own size is the best
+                // available answer and is right in every case but a reduced or raised submission.
+                sentSize: filter.sentSize ?? assets[input.id]?.pixelSize,
+                returnedSize: pixelSize
             )
         )
         assets[asset.id] = asset

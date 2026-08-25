@@ -79,4 +79,130 @@ final class MinimumResolutionTests: XCTestCase {
         XCTAssertFalse(decision.wasRaised)
         XCTAssertTrue(decision.stillBelowMinimum)
     }
+
+    // MARK: - AC96.1: what the workspace does about it
+
+    // RT-96.3
+    //
+    // The raising is reported. An application that silently upscaled the user's photograph before
+    // sending it would be making a decision on their behalf and not saying so.
+    func test_theRaisingIsReported_RT096_3() {
+        let decision = MinimumResolution.decide(sourceSize: CGSize(width: 240, height: 320))
+
+        let message = decision.report
+        XCTAssertNotNil(message)
+        XCTAssertTrue(message?.contains("1024") ?? false, message ?? "")
+        XCTAssertFalse(
+            message?.contains("shape") ?? true,
+            "this picture reaches the floor; nothing warns about the provider reshaping it")
+    }
+
+    // RT-96.17, continued
+    //
+    // The other message. A picture the control cannot lift to the floor is raised as far as it goes
+    // and the user is warned the provider may reshape it, which is the fact behind the report that
+    // produced #96.
+    func test_aPictureThatCannotReachTheFloorIsReportedDifferently_RT096_17() {
+        let decision = MinimumResolution.decide(sourceSize: CGSize(width: 50, height: 50))
+
+        let message = decision.report ?? ""
+        XCTAssertTrue(message.contains("400"), message)
+        XCTAssertTrue(message.contains("shape"), "the provider may reshape it: \(message)")
+    }
+
+    func test_aPictureThatNeedsNoRaisingIsNotReported() {
+        let decision = MinimumResolution.decide(sourceSize: CGSize(width: 2000, height: 1500))
+
+        XCTAssertNil(decision.report)
+    }
+
+    // RT-96.4
+    //
+    // Guide 2.5's own reasoning: the raised picture becomes the base. Without that the application
+    // keeps re-upscaling a picture that is already the size the provider wants, once per filter.
+    @MainActor
+    func test_theRaisedPictureBecomesTheBase_RT096_4() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 240, height: 320))
+
+        let decision = try XCTUnwrap(workspace.raiseToMinimumNeeded())
+        let allocation = try workspace.allocateRaiseToMinimum(pixelSize: decision.resultingSize)
+
+        let base = try XCTUnwrap(workspace.graph.base)
+        XCTAssertEqual(base, allocation.reference, "the raised picture is the base")
+        let asset = try workspace.graph.asset(for: base)
+        XCTAssertEqual(asset.role, .raisedToMinimum)
+        XCTAssertEqual(asset.pixelSize, decision.resultingSize)
+
+        // And a filter now reads it, rather than the undersized original. This is the assertion
+        // that matters: raising the picture is not the same as raising what goes out, and the
+        // defect was entirely in the second.
+        XCTAssertEqual(try workspace.graph.input(for: .filter), allocation.reference)
+        XCTAssertGreaterThanOrEqual(
+            max(asset.pixelSize.width, asset.pixelSize.height), MinimumResolution.longEdge)
+    }
+
+    /// A raised picture is still a legitimate filter input, unlike an upscale.
+    ///
+    /// The harm the stage rules prevent is exceeding the filter model's working resolution, not
+    /// upscaling as such — which is why `AssetRole` distinguishes the two at all. A raise recorded
+    /// as `.upscaled` would be refused by the graph and the floor could never be enforced.
+    @MainActor
+    func test_aRaisedPictureIsAcceptedAsFilterInputWhereAnUpscaleIsNot() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 240, height: 320))
+
+        let raised = try workspace.allocateRaiseToMinimum(
+            pixelSize: CGSize(width: 960, height: 1280))
+        XCTAssertNoThrow(try workspace.graph.validateStageInput(raised.reference))
+
+        let upscale = try workspace.recordUpscale(pixelSize: CGSize(width: 1920, height: 2560))
+        XCTAssertThrowsError(try workspace.graph.validateStageInput(upscale))
+    }
+
+    // RT-96.7
+    //
+    // Once raised, nothing raises again. The check is asked continuously, so a check that answered
+    // from the original size rather than the current base would re-raise on every setting change.
+    @MainActor
+    func test_aBaseAlreadyAtTheFloorNeedsNoFurtherRaising_RT096_7() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 2000, height: 1500))
+        XCTAssertNil(workspace.raiseToMinimumNeeded(), "already above the floor")
+
+        workspace.importImage(fileURL: source, pixelSize: CGSize(width: 240, height: 320))
+        let decision = try XCTUnwrap(workspace.raiseToMinimumNeeded())
+        try workspace.allocateRaiseToMinimum(pixelSize: decision.resultingSize)
+
+        XCTAssertNil(workspace.raiseToMinimumNeeded(), "raised once, not repeatedly")
+    }
+
+    /// With nothing imported there is nothing to raise, and no message about it.
+    @MainActor
+    func test_withNoBaseThereIsNothingToRaise() throws {
+        let directory = try temporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        XCTAssertNil(WorkspaceState(outputDirectory: directory).raiseToMinimumNeeded())
+    }
+
+    private func temporaryDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("minimum-resolution-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
 }

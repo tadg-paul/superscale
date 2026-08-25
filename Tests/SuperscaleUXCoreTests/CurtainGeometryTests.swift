@@ -205,6 +205,85 @@ final class CurtainGeometryTests: XCTestCase {
             "one line, one position, whatever the shapes")
     }
 
+    // RT-96.9
+    //
+    // The reported case, with its own test rather than folded into RT-96.8. A 3:4 photograph goes to
+    // grok, a 1024x1024 square comes back, and what the author saw was their own picture stretched
+    // to square beside it.
+    func test_aSquareReturnBesideAPortraitOriginalLeavesTheOriginalAtItsOwnRatio_RT096_9() {
+        let original = CGSize(width: 768, height: 1024)
+        let returned = CGSize(width: 1024, height: 1024)
+
+        let frames = CurtainGeometry.pairedFrames(
+            first: original, second: returned, in: CGSize(width: 900, height: 1200))
+
+        XCTAssertEqual(
+            frames.first.width / frames.first.height,
+            original.width / original.height,
+            accuracy: 0.001,
+            "the original keeps 3:4")
+        XCTAssertEqual(
+            frames.second.width / frames.second.height,
+            1.0,
+            accuracy: 0.001,
+            "the return keeps 1:1")
+        XCTAssertNotEqual(
+            frames.first.height, frames.second.height, accuracy: 0.001,
+            "different shapes occupy different heights; that is the honest presentation")
+    }
+
+    // RT-96.12
+    //
+    // RT-96.11 checks one fraction at one pair of shapes. The mapping has to hold across the range
+    // and across aspects, or a divider that is right at the midpoint drifts everywhere else.
+    func test_theDividerMapsToTheSameFractionOfWidthAcrossAspectsAndPositions_RT096_12() {
+        let pairs: [(CGSize, CGSize)] = [
+            (CGSize(width: 768, height: 1024), CGSize(width: 1024, height: 1024)),
+            (CGSize(width: 1920, height: 1080), CGSize(width: 1024, height: 1024)),
+            (CGSize(width: 500, height: 500), CGSize(width: 100, height: 400)),
+        ]
+
+        for (first, second) in pairs {
+            let frames = CurtainGeometry.pairedFrames(
+                first: first, second: second, in: CGSize(width: 1000, height: 800))
+
+            for fraction in [0.05, 0.25, 0.5, 0.75, 0.95] as [CGFloat] {
+                XCTAssertEqual(
+                    CurtainGeometry.dividerX(fraction: fraction, in: frames.first),
+                    CurtainGeometry.dividerX(fraction: fraction, in: frames.second),
+                    accuracy: 0.001,
+                    "\(fraction) across \(first) and \(second)")
+            }
+        }
+    }
+
+    // RT-96.13
+    //
+    // AC90.14 is unaffected by any of this: the divider sits where the pointer is. UT-90.1 failed on
+    // exactly that — "the mouse pointer does not align with the curtain" — so the round trip is
+    // asserted rather than assumed, at the paired frames this issue introduces.
+    func test_theDividerStillSitsWhereThePointerIs_RT096_13() {
+        let frames = CurtainGeometry.pairedFrames(
+            first: CGSize(width: 768, height: 1024),
+            second: CGSize(width: 1024, height: 1024),
+            in: CGSize(width: 900, height: 1200))
+        let frame = frames.first
+
+        // Within the clamped band, a pointer position must survive the round trip to a fraction and
+        // back. Outside it, the clamp is the point and the divider stops.
+        for pointerX in [frame.minX + frame.width * 0.1,
+                         frame.midX,
+                         frame.minX + frame.width * 0.9] {
+            let fraction = CurtainGeometry.dividerFraction(pointerX: pointerX, in: frame)
+
+            XCTAssertEqual(
+                CurtainGeometry.dividerX(fraction: fraction, in: frame),
+                pointerX,
+                accuracy: 0.001,
+                "the divider is where the pointer is")
+        }
+    }
+
     // MARK: - Whose scroll is it
 
     // RT-94.17

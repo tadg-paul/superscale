@@ -397,9 +397,17 @@ final class SuperscaleAppUITests: XCTestCase {
 
         let badge = element(identifier: "generationKeyStatusBadge")
         XCTAssertTrue(badge.waitForExistence(timeout: 5))
-        XCTAssertFalse(
-            (badge.value as? String ?? "").isEmpty,
-            "the badge's state must be readable, not only visible")
+
+        // Label *or* value. The state is set as both, and an element SwiftUI renders from an `Image`
+        // reports its label to the tree while not reliably carrying a value — asserting only on the
+        // value fails against a badge that is in fact perfectly readable, which is what the first
+        // run of this test did.
+        let spoken = "\(badge.label) \(badge.value as? String ?? "")"
+        XCTAssertTrue(
+            spoken.localizedCaseInsensitiveContains("stored")
+                || spoken.localizedCaseInsensitiveContains("working")
+                || spoken.localizedCaseInsensitiveContains("not configured"),
+            "the badge's state must be readable, not only visible: \"\(spoken)\"")
     }
 
     // MARK: - AC73.6: Settings controls are individually addressable (#88)
@@ -1667,7 +1675,11 @@ final class SuperscaleAppUITests: XCTestCase {
         }
 
         let indicator = app.otherElements["workingIndicator"]
-        let canvas = app.otherElements["workspaceCanvas"]
+        // Addressed by identifier across every element type, not as an `otherElements` match.
+        // `workspaceCanvas` carries `.accessibilityElement(children: .contain)`, which makes it a
+        // group rather than an "Other", so `app.otherElements` finds nothing and the failure
+        // surfaces later as "no matches found" against whatever the test does with it next.
+        let canvas = element(identifier: "workspaceCanvas")
         let image = app.images["workingImage"]
 
         // The suite's fixture is 240×320 deliberately, so its upscale can finish before the
@@ -1745,7 +1757,11 @@ final class SuperscaleAppUITests: XCTestCase {
         enterComparison()
 
         let divider = app.otherElements["curtainDivider"]
-        let canvas = app.otherElements["workspaceCanvas"]
+        // Addressed by identifier across every element type, not as an `otherElements` match.
+        // `workspaceCanvas` carries `.accessibilityElement(children: .contain)`, which makes it a
+        // group rather than an "Other", so `app.otherElements` finds nothing and the failure
+        // surfaces later as "no matches found" against whatever the test does with it next.
+        let canvas = element(identifier: "workspaceCanvas")
         guard divider.waitForExistence(timeout: 5) else {
             XCTFail("no curtain to drag")
             return

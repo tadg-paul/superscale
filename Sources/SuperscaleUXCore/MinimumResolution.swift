@@ -18,6 +18,29 @@ public struct MinimumResolutionDecision: Equatable, Sendable {
     public let stillBelowMinimum: Bool
 
     public var wasRaised: Bool { scale != nil }
+
+    /// What the user is told, or nothing where nothing happened.
+    ///
+    /// Two sentences, because there are two situations and they set different expectations. A
+    /// picture that reaches the floor is simply reported: the application upscaled it and says so,
+    /// rather than silently altering the user's photograph before sending it. A picture that cannot
+    /// reach the floor at any scale the control offers is raised as far as it goes and the user is
+    /// warned the provider may reshape it — the reduce-and-tell posture the memory ceiling takes in
+    /// the other direction, and the fact behind the report that produced this issue.
+    public var report: String? {
+        guard wasRaised else { return nil }
+        let width = Int(resultingSize.width.rounded())
+        let height = Int(resultingSize.height.rounded())
+        let floor = Int(MinimumResolution.longEdge)
+
+        if stillBelowMinimum {
+            return "Upscaled to \(width) x \(height), the largest available. "
+                + "That is still below the \(floor)-pixel minimum, "
+                + "so the filter may change the picture's shape."
+        }
+        return "Upscaled to \(width) x \(height) to meet the "
+            + "\(floor)-pixel minimum for filtering."
+    }
 }
 
 /// The floor beneath which a filter has too little to work with.

@@ -104,7 +104,8 @@ public final class WorkspaceState: ObservableObject {
         pixelSize: CGSize,
         modelID: String = "",
         prompt: String = "",
-        sessionID: UUID? = nil
+        sessionID: UUID? = nil,
+        sentSize: CGSize? = nil
     ) throws -> AssetReference {
         let input = try graph.input(for: .filter)
         let reference = try graph.recordFilterOutput(
@@ -116,7 +117,8 @@ public final class WorkspaceState: ObservableObject {
                 modelID: modelID,
                 prompt: prompt,
                 sessionID: sessionID,
-                secrets: []
+                secrets: [],
+                sentSize: sentSize
             )
         )
         showsBase = false
@@ -146,4 +148,38 @@ public final class WorkspaceState: ObservableObject {
         showsBase = false
         return locked
     }
+
+    // MARK: - The filterable minimum
+
+    /// What raising the base to the filterable minimum would come to, or nothing where it already
+    /// suffices or there is nothing to raise.
+    ///
+    /// Guide 2.5: the floor is enforced continuously, not only on import. This is therefore asked
+    /// whenever the base changes *and* whenever a setting change alters what would be sent, rather
+    /// than once at import — the second is AC96.2, and an implementation checking only on import
+    /// passes AC96.1 and leaves the reported defect in place on every subsequent change.
+    public func raiseToMinimumNeeded() -> MinimumResolutionDecision? {
+        guard let base = graph.base, let asset = try? graph.asset(for: base) else { return nil }
+        let decision = MinimumResolution.decide(sourceSize: asset.pixelSize)
+        return decision.wasRaised ? decision : nil
+    }
+
+    /// Allocates the raise, and returns where to write it.
+    ///
+    /// Allocation and adoption are separate for the same reason they are for an upscale: the work
+    /// can fail, and a failed raise must not have already replaced the base.
+    public func allocateRaiseToMinimum(
+        pixelSize: CGSize, fileExtension: String = "png", promote: Bool = true
+    ) throws -> UpscaleAllocation {
+        let input = try graph.input(for: .filter)
+        return try graph.recordRaiseToMinimum(
+            of: input, pixelSize: pixelSize, fileExtension: fileExtension, promote: promote)
+    }
+
+    /// Makes an allocated raise the base, once its pixels exist.
+    public func adoptRaise(_ reference: AssetReference) throws {
+        try graph.promoteRaise(reference)
+        showsBase = false
+    }
+
 }

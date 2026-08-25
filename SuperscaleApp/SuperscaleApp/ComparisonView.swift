@@ -53,9 +53,14 @@ struct ComparisonView: View {
     // MARK: - The curtain
 
     private func sliderContent(size: CGSize) -> some View {
-        // One frame for both sides. Computed from the original's aspect, so the 4x upscale is
-        // presented at the same size and the divider falls on the same part of each picture.
-        let imageFrame = CurtainGeometry.displayedFrame(imageSize: original.size, in: size)
+        // One *width* for both sides, each keeping its own proportions. Computed from the original's
+        // aspect alone, the two sides fitted into the same box independently and a 1:1 return sat at
+        // a different width from a 3:4 original — so the single vertical divider fell at a different
+        // fraction of each picture, and the two halves of the curtain no longer described the same
+        // part of the image. Sharing the width is what makes one line mean one thing.
+        let frames = CurtainGeometry.pairedFrames(
+            first: original.size, second: upscaled.size, in: size)
+        let imageFrame = frames.first
         let dividerX = CurtainGeometry.dividerX(fraction: dividerPosition, in: imageFrame)
 
         return ZStack {
@@ -65,11 +70,11 @@ struct ComparisonView: View {
             // the same thing: the picture on the canvas. Without it that identifier disappeared the
             // moment a completed upscale entered comparison, and "the canvas is never empty" became
             // untestable at exactly the point it matters most.
-            imageLayer(image: upscaled, size: size)
+            imageLayer(image: upscaled, frame: frames.second, in: size)
                 .accessibilityIdentifier("workingImage")
 
             // Original image (clipped to left of divider) — nearest-neighbour
-            imageLayer(image: original, size: size, interpolation: .none)
+            imageLayer(image: original, frame: frames.first, in: size, interpolation: .none)
                 .clipShape(HorizontalClip(width: dividerX))
 
             // Divider line
@@ -141,17 +146,24 @@ struct ComparisonView: View {
 
     // MARK: - Slider image layer
 
+    /// Draws one side at the frame the pair was given, centred in the container.
+    ///
+    /// The inner frame is the side's own rectangle — a shared width and its own height — and the
+    /// outer one centres it. Fitting each side into the container independently, as this did, let
+    /// two differently-shaped pictures occupy different widths, which is what put the divider at a
+    /// different fraction of each.
     private func imageLayer(
-        image: NSImage, size: CGSize,
+        image: NSImage, frame: CGRect, in container: CGSize,
         interpolation: Image.Interpolation = .high
     ) -> some View {
         Image(nsImage: image)
             .interpolation(interpolation)
             .resizable()
             .aspectRatio(contentMode: .fit)
+            .frame(width: frame.width, height: frame.height)
             .scaleEffect(zoom)
             .offset(offset)
-            .frame(width: size.width, height: size.height)
+            .frame(width: container.width, height: container.height)
     }
 
     // MARK: - Slider divider

@@ -223,7 +223,66 @@ struct MainView: View {
         workspace.importImage(fileURL: url, pixelSize: importedPixelSize(url))
     }
 
+    /// Applies the selected filter, raising the base to the filterable minimum first if it falls
+    /// short.
+    ///
+    /// The raise happens here rather than at import because guide 2.5 requires the floor to hold
+    /// continuously: the base can change after import — a lock, a model change — and a check made
+    /// only on the way in would satisfy AC96.1 while leaving the reported defect in place on every
+    /// subsequent apply. This is the one place every submission passes through.
     private func applyFilter() {
+        Task {
+            if await raiseBaseToMinimumIfNeeded() {
+                submitFilter()
+            }
+        }
+    }
+
+    /// Raises the base to the floor, and reports whether the picture is ready to send.
+    ///
+    /// Returns `false` only where the raise was attempted and failed, so a caller does not submit a
+    /// picture whose size it has just told the user was corrected.
+    @MainActor
+    private func raiseBaseToMinimumIfNeeded() async -> Bool {
+        guard let decision = workspace.raiseToMinimumNeeded(), let scale = decision.scale else {
+            return true
+        }
+        guard let input = try? workspace.graph.input(for: .filter),
+              let asset = try? workspace.graph.asset(for: input),
+              let source = try? GUIUpscaleSource(resolving: input, in: workspace.graph) else {
+            return true
+        }
+
+        do {
+            // Allocated before the work and promoted after it, as an upscale is: a raise that fails
+            // must not leave the base pointing at a file nothing ever wrote.
+            let allocation = try workspace.allocateRaiseToMinimum(
+                pixelSize: decision.resultingSize, promote: false)
+            let result = try await GUIUpscaleCoordinator().process(
+                source: source,
+                options: GUIUpscaleOptions(
+                    selectedModelName: viewModel.selectedModelName,
+                    // Faces are the user's choice about their own output. This is a size correction
+                    // on the way to the provider, not an output, so it borrows nothing.
+                    faceEnhance: false,
+                    sizing: .preset(scale: scale)),
+                sourceSize: asset.pixelSize,
+                onProgress: { _ in })
+            try result.imageData.write(to: allocation.fileURL, options: .atomic)
+            try workspace.adoptRaise(allocation.reference)
+
+            // Guide 2.5's own reasoning: with the raised picture as the base and the scale off, the
+            // application stops re-upscaling a picture that is already the size the provider wants.
+            viewModel.scaleSelection = .off
+            viewModel.noticeMessage = decision.report
+            return true
+        } catch {
+            viewModel.errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    private func submitFilter() {
         // The graph decides what a filter reads: the base, never the candidate and never the
         // upscaled rendering. Asking it rather than reaching for what is on screen is the whole
         // point of the graph being the state.
@@ -249,6 +308,12 @@ struct MainView: View {
         // The coordinator's own input carries its attribution. Constructing one here from a
         // location would be attribution by timing, which #86 closed.
         guard let source = generationCoordinator.upscaleSource else { return }
+        // What was sent, recorded alongside what came back. Grok raises a short edge under 1024 to
+        // its working size and squares the result, so a 3:4 photograph returns 1:1; without both
+        // sizes the application cannot say whether it or the provider changed the shape.
+        let sentSize = (try? workspace.graph.input(for: .filter))
+            .flatMap { try? workspace.graph.asset(for: $0) }?
+            .pixelSize
         do {
             try workspace.recordFilter(
                 named: selection.selectedID ?? "",
@@ -256,7 +321,8 @@ struct MainView: View {
                 pixelSize: importedPixelSize(source.url),
                 modelID: FalGenerationRequest.defaultModelID,
                 prompt: selection.promptToApply,
-                sessionID: source.sessionID
+                sessionID: source.sessionID,
+                sentSize: sentSize
             )
         } catch {
             viewModel.errorMessage = error.localizedDescription

@@ -232,7 +232,11 @@ struct SettingsView: View {
             .foregroundStyle(badgeTint(for: status))
             .help(status.badgeDescription)
             .accessibilityElement()
-            .accessibilityLabel("Credential status")
+            // The state is in the **label** as well as the value. An element SwiftUI renders from an
+            // `Image` reports its label to the accessibility tree and does not reliably carry a
+            // value, so a state expressed only as a value is as unreachable as one expressed only as
+            // a tint — which is the whole failure this badge exists to correct.
+            .accessibilityLabel("Credential status: \(status.badgeDescription)")
             .accessibilityValue(status.badgeDescription)
     }
 

@@ -527,6 +527,100 @@ final class AssetGraphTests: XCTestCase {
         XCTAssertEqual(upscaled.preferredAssetURL, upscaled.upscaledAssetURL)
     }
 
+    // MARK: - AC96.5 a return of a different shape is identifiable as one
+
+    // RT-96.14
+    //
+    // Grok raises a short edge under 1024 to the model's working size and squares the result, so a
+    // 4:3 photograph comes back 1:1. The author saw their own picture next to a square and had no
+    // way to tell whether Superscale or the provider had done it.
+    func test_aReturnOfDifferingAspectIsMarked_RT096_14() throws {
+        var graph = try makeGraph()
+        let source = graph.importSource(
+            fileURL: try placeholder(named: "source.png"), pixelSize: .fixture)
+
+        let filtered = try graph.recordFilterOutput(
+            of: source,
+            fileURL: try placeholder(named: "filtered.png"),
+            pixelSize: CGSize(width: 1024, height: 1024),
+            filter: .fixture)
+
+        let asset = try graph.asset(for: filtered)
+        XCTAssertEqual(asset.provenance?.providerChangedTheShape, true)
+        XCTAssertEqual(asset.provenance?.sentSize, .fixture, "4:3 went out")
+        XCTAssertEqual(
+            asset.provenance?.returnedSize, CGSize(width: 1024, height: 1024), "1:1 came back")
+    }
+
+    // RT-96.15
+    func test_aReturnOfMatchingAspectIsNotMarked_RT096_15() throws {
+        var graph = try makeGraph()
+        let source = graph.importSource(
+            fileURL: try placeholder(named: "source.png"), pixelSize: .fixture)
+
+        let filtered = try graph.recordFilterOutput(
+            of: source,
+            fileURL: try placeholder(named: "filtered.png"),
+            pixelSize: .large,
+            filter: .fixture)
+
+        // .large is .fixture doubled: a different size, the same shape. Size alone is not the
+        // question, and an implementation comparing sizes rather than ratios would mark this.
+        XCTAssertEqual(try graph.asset(for: filtered).provenance?.providerChangedTheShape, false)
+    }
+
+    /// What was *sent* is not always the parent.
+    ///
+    /// The memory ceiling reduces a picture before it goes and the minimum-resolution floor raises
+    /// one, so a view deriving the answer from the parent's size would be describing the graph while
+    /// appearing to describe the provider. Recording it is what makes the two separable.
+    func test_theRecordedSentSizeIsWhatTheCallerSentRatherThanTheParentsSize() throws {
+        var graph = try makeGraph()
+        let source = graph.importSource(
+            fileURL: try placeholder(named: "source.png"), pixelSize: CGSize(width: 400, height: 300))
+
+        // Raised to the floor before submission: 3200x2400 went out, and a square came back.
+        let raised = CGSize(width: 3200, height: 2400)
+        let filtered = try graph.recordFilterOutput(
+            of: source,
+            fileURL: try placeholder(named: "filtered.png"),
+            pixelSize: CGSize(width: 1024, height: 1024),
+            filter: FilterProvenance(
+                filterID: "warm",
+                modelID: "xai/grok-imagine-image/edit",
+                prompt: "a fixture prompt",
+                sessionID: nil,
+                sentSize: raised))
+
+        let provenance = try XCTUnwrap(try graph.asset(for: filtered).provenance)
+        XCTAssertEqual(provenance.sentSize, raised)
+        XCTAssertEqual(provenance.providerChangedTheShape, true)
+    }
+
+    /// A provider rounding to an even number of pixels has not reshaped anything.
+    func test_aNegligibleRatioDifferenceIsNotAReshaping() throws {
+        var graph = try makeGraph()
+        let source = graph.importSource(
+            fileURL: try placeholder(named: "source.png"),
+            pixelSize: CGSize(width: 1023, height: 767))
+
+        let filtered = try graph.recordFilterOutput(
+            of: source,
+            fileURL: try placeholder(named: "filtered.png"),
+            pixelSize: CGSize(width: 1024, height: 768),
+            filter: .fixture)
+
+        XCTAssertEqual(try graph.asset(for: filtered).provenance?.providerChangedTheShape, false)
+    }
+
+    /// An unrecorded size is "not known", never a silent "no".
+    func test_anUnrecordedSizeYieldsNoAnswerRatherThanANegativeOne() {
+        let provenance = Provenance(
+            filterID: "warm", modelID: "m", prompt: "p", sessionID: nil)
+
+        XCTAssertNil(provenance.providerChangedTheShape)
+    }
+
     // MARK: - Helpers
 
     /// Names the output directory before creating it, which is how an application directory
