@@ -1,4 +1,4 @@
-<!-- Version: 3.22 | Last updated: 2026-08-25 -->
+<!-- Version: 3.23 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -891,6 +891,28 @@ own failure as a stage of its own flow with its own retry. The sheet is modal: a
 alert raised behind it would be unreachable until the user dismissed the very
 flow the failure is about.
 
+**Inside a `@Published` sink, take the value; never read the property.**
+`@Published` publishes in `willSet`, so within a subscriber the property still
+holds the value being *replaced*. `UpscaleViewModel` was caught by this twice in
+one file, three lines apart. The first was found and fixed and its reasoning
+written into a comment in the `$scaleSelection` sink; the second was written
+immediately below that comment anyway, and keyed the rendering store by the scale
+being replaced --- so choosing 8x looked up 4x, found the rendering made at import
+and returned it instantly, with no run and therefore no report of anything. Every
+function reachable from a sink takes the selection as a parameter now, defaulting
+to the property so settled callers are unchanged.
+
+**A control that accepts a click must cause something, or say it did not.**
+`reupscaleIfNeeded` guarded on `!isProcessing`, so a scale chosen while an upscale
+was already running was discarded without a word. The button took the click, and
+the readout --- correctly a pure function of the source and the request, so that it
+is right before any run exists --- began reporting "8x requested, 4x in effect"
+about a run nobody had started. The user waits for a picture that is not coming.
+Superseding belongs in the run: `start` cancels the task in flight, `publish` and
+`abandon` guard on `activeRun` so a replaced run cannot land after its
+replacement, and `abandon` treats cancellation as not a failure. A guard at the
+point of *choosing* buys nothing and costs the choice.
+
 ---
 
 ## 4. What Exists Today
@@ -1185,6 +1207,13 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.23 (2026-08-25):** Section 3.9 gains two rules, both from one defect #101's tests found in the
+  running application rather than in review. Inside a `@Published` sink, take the value rather than
+  reading the property --- `willSet` means the property still holds what is being replaced, and
+  `UpscaleViewModel` was caught by it twice in one file, three lines apart, the second directly below
+  the comment warning about the first. And a control that accepts a click must cause something or say
+  it did not: a scale chosen during a run was discarded silently while the readout began describing a
+  run that did not exist.
 - **3.22 (2026-08-25):** Section 2.5 records that asking a picture its size must not decode it, and
   names the one function that measures. The obvious implementation costs a full decompression plus an
   alpha plane --- about 160 MB at the ceiling --- on the main actor, to keep two integers. Found by
