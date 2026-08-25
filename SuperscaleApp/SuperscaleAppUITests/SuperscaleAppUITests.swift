@@ -9,15 +9,20 @@ final class SuperscaleAppUITests: XCTestCase {
 
     /// Absolute path to the test image the GUI suite drives.
     ///
-    /// `toby-small.jpg`, 240×320: photographic content with a face in it, which `icon3.png` was
-    /// not — an icon has no photographic texture for the upscale to work on and no face for face
-    /// enhancement to find, so a test could pass against output that would be visibly wrong on a
-    /// real photograph.
+    /// `toby-small.jpg`, 240×320: photographic content, which `icon3.png` was not. An icon gives
+    /// the upscale no photographic texture to work on, so a test could pass against output that
+    /// would be visibly wrong on a real photograph.
+    ///
+    /// **It contains no face.** `FaceDetector` uses `VNDetectFaceRectanglesRequest` and GFPGAN is
+    /// trained on human faces; a dog is neither. Measured rather than assumed: Vision finds 0
+    /// faces in `toby.jpg`. It also finds one in `remy2.jpg`, which is a cartoon: detection firing
+    /// is not the same as there being a face GFPGAN was trained to restore, and `remy2.jpg` earns
+    /// its place as anime-model content rather than as face content. A test that needs face
+    /// enhancement to have something real to work on uses `faceImagePath`.
     ///
     /// Small deliberately. The full `toby.jpg` is 605×806, which at 4× is an 8-megapixel Core ML
     /// upscale *per test*, across the fifteen or so tests here that upscale. Real content matters;
-    /// paying twenty minutes for it does not. `toby.jpg` at full size is what the SSIM quality
-    /// gate and the visual tests use, where the point is the output rather than the interface.
+    /// paying twenty minutes for it does not.
     private var testImagePath: String {
         // The test runner's working directory varies, so use an absolute path
         // derived from the source file location.
@@ -27,6 +32,12 @@ final class SuperscaleAppUITests: XCTestCase {
             .deletingLastPathComponent()  // SuperscaleApp/
             .deletingLastPathComponent()  // project root
         return projectRoot.appendingPathComponent("Tests/images/toby-small.jpg").path
+    }
+
+    /// A fixture with real human faces in it, for tests where face enhancement must have
+    /// something to enhance. `vance-small.jpg`, 301×400, two faces detected by Vision.
+    private var faceImagePath: String {
+        projectRoot.appendingPathComponent("Tests/images/vance-small.jpg").path
     }
 
     private var projectRoot: URL {
