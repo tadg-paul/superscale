@@ -1,4 +1,4 @@
-<!-- Version: 3.14 | Last updated: 2026-08-25 -->
+<!-- Version: 3.15 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -991,6 +991,41 @@ Two corollaries, both earned the same way:
   behaviour nobody has checked against the behaviour that ships.** Both halves
   of that disagreement lived in such methods.
 
+### A stubbed provider is stubbed for everything it does
+
+**Every call to a provider goes through one seam, and a seam that covers one
+call and not another is not a seam.** `GenerationServing` carries both
+`generate` and `uploadReference`, because they are the same provider, the same
+credential, and the same thing a test needs to replace.
+
+Written here because the reference upload was wired by constructing a
+`FalStorageClient()` at the call site in the view. The generation half was
+stubbed and the upload half was live, so **every GUI test that applied a filter
+reached `rest.fal.ai`** with the suite's invented key. Nothing said "network":
+the upload threw, no candidate was produced, and the failure surfaced as a
+lock-chain test on another issue reporting *"there is a candidate to promote"*.
+The test that applies a filter and checks the canvas passed straight through it,
+because it waits for the Save button and the Save button was already enabled
+from the import's own upscale.
+
+The corollary is about test doubles: **a new protocol requirement is added to
+each stub explicitly, not given a default implementation in an extension.** A
+default is fewer edits and lets the next stub silently do nothing, which is the
+shape of the fault it would be hiding.
+
+### The GUI suite gets the machine to itself
+
+`make test-gui` drives a real window with real timeouts --- 120 seconds for an
+upscale, five for an element to appear. A run overlapped with anything else on
+the machine is **not evidence**: one such run took 1450 seconds against 956 for
+the same suite run alone, and reported a timeout failure that was starvation
+rather than a defect.
+
+Two runs in this delivery were invalidated that way, one by rebuilding the test
+bundle mid-run and one by running the package suite alongside. Neither
+announced itself as an environment problem; both looked exactly like a
+regression.
+
 ### Test layout
 
 `make test` runs **regression tests only**. One-off tests are invoked
@@ -1054,6 +1089,12 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.15 (2026-08-25):** Added two rules to section 7. A stubbed provider is stubbed for everything
+  it does: the reference upload was wired by constructing a client at the call site, so every GUI
+  test that applied a filter reached `rest.fal.ai` while the generation half was stubbed, and the
+  failure surfaced as a lock-chain test on another issue. And the GUI suite gets the machine to
+  itself: two runs in this delivery were invalidated by concurrent work and both looked like
+  regressions rather than environment problems.
 - **3.14 (2026-08-25):** Added "A planned test is not a written one" to section 7, after auditing
   the eight open children found sixty tests enumerated in their issues and never begun. Records the
   identifier-set check a test audit performs before reporting PASS, and the two rules the omission
