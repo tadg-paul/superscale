@@ -720,11 +720,17 @@ final class SuperscaleAppUITests: XCTestCase {
     /// reaches nobody — not VoiceOver, and not a test asking whether the picture moved. RT-94.18 is
     /// that the value exists at all; the scroll tests read it to see whether it changed.
     private func reportedPan() -> String {
+        // Read from the container *and* from the picture inside it. `curtainPicture` declares
+        // `children: .contain`, and a container's own label and value are less reliably reported
+        // than a leaf element's — the same trap as #95's credential badge, one element type along.
+        // The application sets the pan in both places for the same reason.
         let curtain = element(identifier: "curtainPicture")
-        // Label *and* value. `curtainPicture` declares `children: .contain`, and a container
-        // reports its label where it does not reliably report its value — the same trap as #95's
-        // credential badge, one element type along.
-        return "\(curtain.label) \(curtain.value as? String ?? "")"
+        let picture = app.images["workingImage"]
+        return [
+            curtain.label,
+            curtain.value as? String ?? "",
+            picture.exists ? picture.label : "",
+        ].joined(separator: " ")
     }
 
     /// Leaves the curtain, so the canvas shows one picture.

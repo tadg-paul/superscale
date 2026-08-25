@@ -71,6 +71,12 @@ struct ComparisonView: View {
             // moment a completed upscale entered comparison, and "the canvas is never empty" became
             // untestable at exactly the point it matters most.
             imageLayer(image: upscaled, frame: frames.second, in: size)
+                // The pan is on the picture as well as on the container, because the container
+                // declares `children: .contain` and a container's own label and value are less
+                // reliably reported than a leaf element's. Belt and braces on a state that has
+                // already been unreachable twice in this delivery in two different element types.
+                .accessibilityLabel(
+                    "Working image, panned \(Int(offset.width)) by \(Int(offset.height))")
                 .accessibilityIdentifier("workingImage")
 
             // Original image (clipped to left of divider) — nearest-neighbour
