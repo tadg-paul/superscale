@@ -39,10 +39,17 @@ struct SuperscaleApp: App {
 
 #if DEBUG
         let environment = ProcessInfo.processInfo.environment
-        // Makes both subsystems fail on demand, so a GUI test can see where each failure is
-        // presented. Without it neither can be made to fail from outside: the generation service is
-        // stubbed to succeed and the upscale runs the real pipeline on a real fixture.
-        if environment["SUPERSCALE_UI_TEST_FAIL"] == "1" {
+        // Makes one subsystem fail on demand, so a GUI test can see where each failure is presented.
+        // Without it neither can be made to fail from outside: the generation service is stubbed to
+        // succeed and the upscale runs the real pipeline on a real fixture.
+        //
+        // **Named rather than a boolean**, because the two are not independent. The suite's fixture
+        // is below the filterable minimum, so applying a filter raises it first — and a raise is an
+        // upscale. A single flag failing both would fail the filter path at the raise, and a test
+        // asserting that two subsystems reach the same surface would be comparing one subsystem
+        // with itself.
+        let failingSubsystem = environment["SUPERSCALE_UI_TEST_FAIL"]
+        if failingSubsystem == "upscale" {
             upscaleCoordinator = GUIUpscaleCoordinator(processor: UITestFailingUpscaleProcessor())
         }
         if let rootPath = environment["SUPERSCALE_UI_TEST_ROOT"],
@@ -57,7 +64,7 @@ struct SuperscaleApp: App {
             coordinator = GenerationCoordinator(
                 service: UITestGenerationService(
                     imageURL: generatedImage,
-                    fails: environment["SUPERSCALE_UI_TEST_FAIL"] == "1"),
+                    fails: failingSubsystem == "provider"),
                 outputStore: GeneratedImageStore(
                     directory: root.appendingPathComponent("Generated", isDirectory: true)
                 )

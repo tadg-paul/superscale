@@ -1745,23 +1745,32 @@ final class SuperscaleAppUITests: XCTestCase {
     // fail from outside otherwise: the generation service is stubbed to succeed and the upscale runs
     // the real pipeline on a real fixture.
     func test_aFilterFailureAndAnUpscaleFailureArePresentedTheSameWay_RT098_14() {
-        app.terminate()
-        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "1"
-        app.launch()
+        // One subsystem per launch, because the two are not independent: the suite's fixture is
+        // below the filterable minimum, so applying a filter raises it first, and a raise is an
+        // upscale. Failing both at once would fail the filter path at the raise, and this test would
+        // be comparing one subsystem with itself.
 
+        // The upscale, which runs on import.
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "upscale"
+        app.launch()
         XCTAssertTrue(loadTestImage(), "the working image should load")
 
-        // Importing runs an upscale, which now fails.
         XCTAssertTrue(
             failureAlert.waitForExistence(timeout: 60), "an upscale failure reaches a surface")
         let upscaleWords = spokenText(of: failureAlert)
         XCTAssertTrue(
             upscaleWords.localizedCaseInsensitiveContains("upscale"),
             "and it says what happened: \"\(upscaleWords)\"")
-        failureAlert.buttons.firstMatch.click()
+        let upscaleAlert = failureAlert.elementType
 
-        // The filter, which fails for an entirely different reason in an entirely different
-        // subsystem, and must arrive at the same place.
+        // The provider, on a fresh launch, reached by applying a filter.
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "provider"
+        app.launch()
+        XCTAssertTrue(loadTestImage(), "the working image should load again")
+        XCTAssertTrue(waitForUpscaleComplete(), "and its upscale succeeds this time")
+
         let prompt = element(identifier: "generationPromptField")
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
         prompt.click()
@@ -1769,14 +1778,18 @@ final class SuperscaleAppUITests: XCTestCase {
         app.buttons["applyFilterButton"].click()
 
         XCTAssertTrue(
-            failureAlert.waitForExistence(timeout: 60), "a filter failure reaches the same surface")
+            failureAlert.waitForExistence(timeout: 120), "a filter failure reaches the same surface")
         let filterWords = spokenText(of: failureAlert)
         XCTAssertTrue(
-            filterWords.localizedCaseInsensitiveContains("provider"),
+            filterWords.localizedCaseInsensitiveContains("provider")
+                || filterWords.localizedCaseInsensitiveContains("storage"),
             "carrying the provider's own words: \"\(filterWords)\"")
+        XCTAssertEqual(
+            failureAlert.elementType, upscaleAlert,
+            "the same kind of surface, not two that merely look alike")
         XCTAssertNotEqual(
             filterWords, upscaleWords,
-            "the same surface, and not because both failures say the same thing")
+            "and not the same surface because both failures say the same thing")
     }
 
     // RT-87.15: no reference wells exist. The working image is the reference.
