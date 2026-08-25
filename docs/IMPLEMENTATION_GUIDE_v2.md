@@ -1,4 +1,4 @@
-<!-- Version: 3.16 | Last updated: 2026-08-25 -->
+<!-- Version: 3.17 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -1021,6 +1021,27 @@ each stub explicitly, not given a default implementation in an extension.** A
 default is fewer edits and lets the next stub silently do nothing, which is the
 shape of the fault it would be hiding.
 
+### Widening what a control means can blind the suite
+
+**Before changing when a control appears, check what the tests read it for.**
+
+Save was bound to "an upscale has produced a result", and the GUI suite's
+`waitForUpscaleComplete` used its appearance as the signal that an upscale had
+finished --- forty-one call sites. Making Save appear whenever there is *any*
+picture is correct for the user, and it would have made that helper return true
+before any upscale ran. Every test built on it would have stopped asserting
+anything and gone on reporting green.
+
+A test that fails is information. **A test that passes vacuously is worse than
+no test**, because it occupies the place where a real one would go and nothing
+about the result looks different.
+
+The fix was to move the signal to a control whose meaning did not change:
+Compare, which exists exactly when a derivation does. Where a journey no longer
+ends in an upscale at all --- applying a filter, after the minimum-resolution
+floor turns the scale off --- the wait moved to what actually marks the arrival,
+which is Lock becoming available.
+
 ### The GUI suite gets the machine to itself
 
 `make test-gui` drives a real window with real timeouts --- 120 seconds for an
@@ -1097,6 +1118,12 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.17 (2026-08-25):** Added "Widening what a control means can blind the suite" to section 7.
+  Save was bound to a completed upscale and the GUI suite used its appearance as the signal that one
+  had finished, at forty-one call sites; making Save appear whenever there is any picture --- which
+  slice 7's floor made necessary, since raising a picture turns the scale off --- would have had that
+  helper return true before any upscale ran, and every test built on it would have gone on reporting
+  green while asserting nothing.
 - **3.16 (2026-08-25):** Recorded in section 6 that slice 5 was written, tested and never called:
   `FalStorageClient` had seven passing tests and no caller while the application went on
   base64-encoding photographs into request bodies, and chose the media type from the file extension.
