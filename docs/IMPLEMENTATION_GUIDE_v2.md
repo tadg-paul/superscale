@@ -1,4 +1,4 @@
-<!-- Version: 3.9 | Last updated: 2026-08-25 -->
+<!-- Version: 3.10 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -837,6 +837,33 @@ a precondition for everything after it.
 | 6 | **Model handling** | One handler for `xai/grok-imagine-image`: plural `image_urls`, `aspect_ratio` sizing, `/edit` suffix for the edit endpoint, sizing params omitted on edit. Argument merge precedence and aspect snapping. The registry keeps the shape that admits more models; it does not populate them. |
 | 7 | **Minimum resolution** | Raise an undersized import to the assumed minimum long edge, from a single documented constant, lock it, turn the scale off, and tell the user. Re-enforce the floor whenever a setting change would drop below it. Resolution caps applied and reported. |
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
+
+### Corrections to this table, found while building it
+
+**Slice 6's "`aspect_ratio` sizing" and "sizing params omitted on edit" were both true and the code
+did neither.** Every request carried `aspect_ratio`, including the edit requests this document says
+reject it. A rejected parameter does not produce the sizing asked for; it produces whatever the model
+does by default, which is one candidate explanation for filtered results coming back square. Sizing
+is now a property of the endpoint rather than a rule in the builder, so a model whose edit endpoint
+does accept it still receives it. Closed by #97.
+
+**Slice 6's "the registry keeps the shape that admits more models" was not a registry.** The handler
+was a `switch`, so adding a model was a branch rather than an entry, and the test for that property
+could not be written at all --- a test cannot add a `case` at runtime. It is now a table keyed by
+model identifier. The `fal-ai/flux-pro/kontext` handler stays, unselectable, as this document asks.
+
+**Slice 7's floor was documented here and enforced nowhere.** A picture whose long edge fell below
+1024 was sent as it was. It is now raised to the least scale that clears the floor --- and where no
+offered scale reaches it, raised as far as it goes with the user told the provider may alter the
+result, which is the same posture the memory ceiling takes in the other direction. Closed in part by
+#96.
+
+**Slice 8's redaction was on one client of three.** `FalPricingClient` and `FalAccountClient` each
+had a smaller reader with no nesting, no request identifier and no redaction, so an identical body
+could surface a key from pricing and not from generation. All three now share one parser, which also
+reads FastAPI's `detail` **list** --- previously discarded in favour of a generic sentence --- and
+redacts *before* truncating, because the other order leaves a fragment of any secret straddling the
+limit. Closed in part by #98.
 | 9a | **The shape** | Collapse the four modes into one workspace: remove Generate and History as surfaces, filter catalogue to a sidebar with its editable prompt and Apply, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene, one reference which is the working image. Closes D8, and removes the cross-mode state that caused D2 and D7. |
 | 9b | **The graph behind it** | Base, candidate and lock wired to `AssetGraph`, filters reading the base, upscales as derivations, locked iterations in a sidebar, and the filter on/off toggle. |
 | 9c | **The display model** | The base on the canvas from the moment it exists, operations building over it rather than in place of it, immediate fallback when something is turned off, the curtain as the only comparison, and a rendering store keyed by what produced each rendering so toggling costs nothing twice. Added from use. |
@@ -931,6 +958,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.10 (2026-08-25):** Recorded four corrections to section 6's delivery table, each found while
+  building the slice it describes: sizing was sent to the edit endpoint that rejects it; the model
+  "registry" was a `switch` and so admitted no models as data; the 1024 floor was documented and
+  enforced nowhere; and redaction was on one client of three, with FastAPI's `detail` list
+  discarded and truncation happening before redaction.
 - **3.9 (2026-08-25):** Corrected section 2.3's account of what the curtain compares. It said
   "pre-upscale against upscaled", which pairs an image with its own rendering and is the defect
   #94 repairs: after a filter, the two sides differed in resolution and in nothing else. The
