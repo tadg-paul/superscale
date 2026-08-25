@@ -1,4 +1,4 @@
-<!-- Version: 3.8 | Last updated: 2026-08-25 -->
+<!-- Version: 3.9 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -152,8 +152,16 @@ Other rules:
   when a second model is added.
 - Applying is cancellable while in flight.
 
-**Comparison** is available throughout, as a curtain drawn across the image: base
-against candidate after applying, and pre-upscale against upscaled afterwards.
+**Comparison** is available throughout, as a curtain drawn across the image. It
+compares **what is on the canvas against the base it descends from** --- so after
+applying a filter it shows the user's own picture against what the filter made of
+it, whether or not that has since been upscaled.
+
+The pair is never an image and its own rendering. Pairing them was the earlier
+rule, and it produced a comparison whose two sides differed in resolution and in
+nothing else: after a filter, the filtered picture against the upscale of that
+same filtered picture. Corrected by #94, which supersedes AC90.6's comparison
+clause.
 The magnifier loupe that once shared this role is removed by slice 9c --- it is a
 custom cursor and reads as brittle in use, and the curtain is the instrument this
 comparison wants. The divider follows the pointer within the picture's own
@@ -923,6 +931,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.9 (2026-08-25):** Corrected section 2.3's account of what the curtain compares. It said
+  "pre-upscale against upscaled", which pairs an image with its own rendering and is the defect
+  #94 repairs: after a filter, the two sides differed in resolution and in nothing else. The
+  curtain compares what is on the canvas against the base it descends from.
 - **3.8 (2026-08-25):** Added the rule in 3.9 that a perceivable state is expressed as a value
   rather than only as a colour, after four criteria in this delivery named state the accessibility
   tree could not see. Each was found by an audit rather than by implementation, and each would
