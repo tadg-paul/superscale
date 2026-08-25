@@ -2,7 +2,11 @@
 
 ![Superscale logo](docs/sslogo.svg)
 
-AI image upscaling that runs locally on your Mac, using Apple's Neural Engine --- dedicated ML hardware built into every M-series chip. Images never leave your machine, CPU and GPU stay free, and a 1024×1024 image upscales 4× in seconds.
+AI image upscaling that runs locally on your Mac, using Apple's Neural Engine --- dedicated ML hardware built into every M-series chip. CPU and GPU stay free, and a 1024×1024 image upscales 4× in seconds.
+
+**Upscaling is entirely local: an image being upscaled never leaves your machine.** The `superscale` command-line tool does nothing else, so it never makes a network request at all.
+
+The Superscale app additionally offers **AI filters**, and those are not local. Applying a filter uploads the working image to a cloud provider, which returns a transformed version. That is stated where the action happens, in the app, and it requires an API key you supply. No filter runs without one, and no image is uploaded unless you apply a filter.
 
 ## Quickstart
 
@@ -136,7 +140,7 @@ make install
 
 ## Licence
 
-Superscale source code is licensed under Apache-2.0. Copyright Tadhg O'Brien.
+Superscale source code is licensed under Apache-2.0. Copyright Tadhg O'Brien, [tigger.dev](https://tigger.dev).
 
 Bundled model weights (Real-ESRGAN) are BSD-3-Clause (Copyright Xintao Wang, 2021). See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES).
 
