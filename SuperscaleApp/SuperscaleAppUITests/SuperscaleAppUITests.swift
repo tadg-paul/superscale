@@ -680,6 +680,38 @@ final class SuperscaleAppUITests: XCTestCase {
         return settings
     }
 
+    // MARK: - AC96.1: the raise reaches the window (#96)
+
+    // RT-96.3, in the window
+    //
+    // RT-96.3 asserts the sentence; this asserts that a user sees it. **Twice today a slice was
+    // complete in its package and absent from the application** — the reference upload had seven
+    // passing tests and no caller, and the raise itself ran without reporting. A string a test
+    // checks and a window nobody checks is the same fault waiting.
+    //
+    // The suite's fixture is 240x320, below the 1024 floor, so every filter applied here raises it.
+    func test_raisingAnUndersizedPictureIsReportedInTheWindow_RT096_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+
+        let notice = element(identifier: "noticeMessage")
+        XCTAssertTrue(notice.waitForExistence(timeout: 30), "the raise is reported")
+
+        // The value rather than the label: the status bar is one line, so the sentence truncates on
+        // screen and only the value carries the whole of it.
+        let said = "\(notice.value as? String ?? "") \(notice.label)"
+        XCTAssertTrue(
+            said.contains("1024"),
+            "and names the minimum it was raised to meet: \"\(said)\"")
+    }
+
     // MARK: - AC94.4: whose scroll is it (#94)
 
     /// How far the curtain reports it has been panned.
