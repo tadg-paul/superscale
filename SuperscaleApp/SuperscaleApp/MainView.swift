@@ -370,6 +370,15 @@ struct MainView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             Spacer()
+            // Something the user should know that is not a failure, so it sits here rather than
+            // taking a click. An upscale reduced to fit memory is the first of these.
+            if let notice = viewModel.noticeMessage {
+                Text(notice)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("noticeMessage")
+            }
         }
         .padding(.horizontal, 12)
         .frame(height: 26)

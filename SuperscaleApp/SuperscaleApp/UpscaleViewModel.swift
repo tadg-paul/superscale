@@ -59,6 +59,13 @@ final class UpscaleViewModel: ObservableObject {
     @Published var inputWidth: Int?
     @Published var inputHeight: Int?
     @Published var errorMessage: String?
+
+    /// Something the user should know that is not a failure.
+    ///
+    /// An upscale reduced to fit memory is the first of these; the minimum-resolution message of
+    /// guide 2.5 is the next, and will use the same channel. Unobtrusive deliberately: an alert
+    /// would demand a click for something the application has already handled correctly.
+    @Published var noticeMessage: String?
     @Published var dimensionCapWarning: String?
     @Published var lastUpscaleModelName: String?
     @Published var lastUpscaleFaceCount: Int = 0
@@ -516,6 +523,12 @@ final class UpscaleViewModel: ObservableObject {
 
         let coordinator = upscaleCoordinator
         let faceWasEnabled = faceEnhance
+        // The source's true pixel dimensions, so the coordinator can bound the output by area.
+        // Without them the ceiling cannot bind, and a large picture takes the process down with it.
+        let sourcePixelSize: CGSize? = {
+            guard let width = inputWidth, let height = inputHeight else { return nil }
+            return CGSize(width: width, height: height)
+        }()
         // One stream per run, consumed in order. Reports arrive once per tile, and unstructured
         // per-report tasks carry no ordering between them.
         let (reports, continuation) = AsyncStream<StageProgress>.makeStream()
@@ -533,7 +546,9 @@ final class UpscaleViewModel: ObservableObject {
                 // on that actor's executor rather than on this main-actor-isolated view model.
                 // Awaiting it here keeps the run structured, and cancelling this task now reaches
                 // the pipeline's own cancellation checks.
-                let output = try await coordinator.process(source: source, options: options) { progress in
+                let output = try await coordinator.process(
+                    source: source, options: options, sourceSize: sourcePixelSize
+                ) { progress in
                     continuation.yield(UpscaleProgressReader.progress(for: progress))
                 }
                 continuation.finish()
@@ -587,6 +602,25 @@ final class UpscaleViewModel: ObservableObject {
         }
     }
 
+    /// What to say about a reduction, or nothing when there was none.
+    ///
+    /// A rendering of the decision the coordinator returned, rather than a message the view model
+    /// invents: the decision is a value the regression pack can assert, and this is only its
+    /// wording.
+    static func reductionNotice(for decision: UpscaleDecision?) -> String? {
+        guard let decision, decision.wasReduced, let used = decision.sizing else { return nil }
+
+        switch (decision.requested, used) {
+        case let (.preset(asked), .preset(actual)):
+            return "Upscaled \(actual)× rather than \(asked)×, to stay within available memory."
+        case let (_, .custom(width, height, _)):
+            guard let width, let height else { return nil }
+            return "Upscaled to \(width) × \(height), to stay within available memory."
+        default:
+            return "The upscale was reduced to stay within available memory."
+        }
+    }
+
     private func renderingKey(facesEnhanced: Bool) -> RenderingKey? {
         guard let inputURL, !scaleSelection.isOff else { return nil }
         return RenderingKey(
@@ -632,6 +666,7 @@ final class UpscaleViewModel: ObservableObject {
         // rather than the input of the previous run.
         resultSource = output.source
         resultData = output.imageData
+        noticeMessage = Self.reductionNotice(for: output.reduction)
 
         // A run with face enhancement produces both versions, because the un-enhanced image is
         // what the enhancement was applied to. A run without it produces only the one, so toggling
