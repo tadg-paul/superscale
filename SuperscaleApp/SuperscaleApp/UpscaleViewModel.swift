@@ -598,7 +598,12 @@ final class UpscaleViewModel: ObservableObject {
         case let .preset(scale):
             return "preset:\(scale)"
         case .custom:
-            return "custom:\(customWidth)x\(customHeight):\(stretchEnabled)"
+            // Parsed rather than interpolated raw: the fields are text, and "0500" and "500" are
+            // the same output but would key differently, costing a rebuild that would read as a
+            // performance problem rather than a formatting one.
+            let width = Int(customWidth).map(String.init) ?? "-"
+            let height = Int(customHeight).map(String.init) ?? "-"
+            return "custom:\(width)x\(height):\(stretchEnabled)"
         }
     }
 

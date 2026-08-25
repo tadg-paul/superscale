@@ -1,4 +1,4 @@
-<!-- Version: 3.6 | Last updated: 2026-08-24 -->
+<!-- Version: 3.7 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -152,9 +152,12 @@ Other rules:
   when a second model is added.
 - Applying is cancellable while in flight.
 
-**Comparison** is available throughout, reusing the existing magnifier loupe and
-slider views: base against candidate after applying, and pre-upscale against
-upscaled afterwards.
+**Comparison** is available throughout, as a curtain drawn across the image: base
+against candidate after applying, and pre-upscale against upscaled afterwards.
+The magnifier loupe that once shared this role is removed by slice 9c --- it is a
+custom cursor and reads as brittle in use, and the curtain is the instrument this
+comparison wants. The divider follows the pointer within the picture's own
+displayed frame, which is not the same rectangle as the window.
 
 ### 2.4 Lock
 
@@ -229,8 +232,27 @@ working image has changed.
   re-processes its own output and never overwrites a previous result.
 - Progress is reported per stage, and it is **cancellable** --- it is the long
   local operation.
-- Output above 4096 pixels on the long edge warns; above 8192 it is refused.
-  The reason is memory, quantified in section 3.8.
+- Output is bounded at **32 megapixels of area**, not by edge length. Beyond it
+  the scale is reduced to the largest that fits, a custom target is reduced
+  proportionally, and the reduction is reported; a picture that fits at no scale
+  is left as it is, with the reason given. The reason is memory, quantified in
+  section 3.8.
+
+  **The unit matters.** The bound was previously a long edge --- a warning above
+  4096 and a refusal above 8192 --- which says nothing about area: 8192 x 8192 is
+  67 megapixels and about 2.4 GB, while 8192 x 1000 is 8 megapixels and about
+  300 MB. The rule treated those two alike, and a 2000-pixel-wide picture at 4x
+  produces 8000 on the long edge, which sat between the two thresholds:
+  permitted, and fatal. Corrected by #91.
+
+  **The scale selection is not rewritten by a reduction.** AC82.8 holds that it
+  changes only when the user changes it, so the control keeps showing what was
+  asked for and the message reconciles it with what ran.
+
+  **The minimum long edge of 2.5 is unaffected.** A floor expressed as an edge
+  and a ceiling expressed as an area answer different questions: whether a
+  picture is large enough for the provider to work with, and whether its output
+  fits in memory.
 
 #### Automatic upscaling, and turning it off
 
@@ -656,8 +678,12 @@ These shape the design and are not discovered late.
 - **Memory is the binding limit.** `Tiler.stitch` allocates roughly 36 bytes per
   output pixel, all resident: 4096² is about 600 MB, 8192² about 2.4 GB. Tile
   size does not help --- it affects the inference working set, never the stitch
-  buffer. Hence the caps in 2.5. The natural design point, a 1024-pixel filter
-  output at 4×, lands at 4096.
+  buffer. Hence the **area** ceiling in 2.5: 32 megapixels is about 1.2 GB of
+  accumulators, which leaves the process, the Core ML model and the window their
+  room. It covers stitching alone; face enhancement's working set is additional,
+  and the rendering store of slice 9c holds up to four renderings besides. The
+  natural design point, a 1024-pixel filter output at 4×, lands at 4096 on the
+  long edge and 16 megapixels of area, comfortably inside it.
 - **No in-memory entry point** --- the pipeline is URL to URL, which suits the
   asset graph since it persists assets anyway.
 - **Model load costs about 3.2s per call**, because `Pipeline` is not `Sendable`
@@ -790,6 +816,9 @@ a precondition for everything after it.
 | 8 | **Errors** | Multi-envelope parser, mapped taxonomy, redaction, one presentation surface replacing four. |
 | 9a | **The shape** | Collapse the four modes into one workspace: remove Generate and History as surfaces, filter catalogue to a sidebar with its editable prompt and Apply, prior sessions to `File > Open Recent`, Settings to a real `Settings` scene, one reference which is the working image. Closes D8, and removes the cross-mode state that caused D2 and D7. |
 | 9b | **The graph behind it** | Base, candidate and lock wired to `AssetGraph`, filters reading the base, upscales as derivations, locked iterations in a sidebar, and the filter on/off toggle. |
+| 9c | **The display model** | The base on the canvas from the moment it exists, operations building over it rather than in place of it, immediate fallback when something is turned off, the curtain as the only comparison, and a rendering store keyed by what produced each rendering so toggling costs nothing twice. Added from use. |
+| 10 | **Superseded GUI tests** | The requirement surface behind the three standing `make test-gui` failures established, and each test either reverted with its criterion marked superseded or fixed where the defect is the test's own. |
+| 11 | **The README and the identifier** | The README's claim that images never leave the machine corrected, since filtering makes it false, and the `tigger.dev` developer website added. |
 
 **On confining the pipeline rather than converting it.** Slice 3b delivers what "actor-confined
 reusable `Pipeline`" is for --- one instance, reused, never touched by two runs at once --- by
@@ -879,6 +908,13 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.7 (2026-08-25):** Corrected section 2.5's resolution bound, which was a long edge and is now
+  32 megapixels of output area, with reduction rather than refusal and the minimum long edge
+  explicitly unaffected --- the old rule permitted the 8000-pixel output that killed the application,
+  closing #91. Updated section 3.8 for the unit it now justifies and for what the figure does and
+  does not cover. Corrected section 2.3, which still described comparison as reusing the magnifier
+  loupe that slice 9c removes. Added slices 9c, 10 and 11 to the delivery table in section 6, which
+  ended at 9b.
 - **3.6 (2026-08-24):** Resolved section 3.9's open question as a sidebar, following #87.
   Recorded that there is one reference and it is the working image, that a filter reads that
   image at its own resolution rather than its upscaled rendering, and that accessibility
@@ -909,3 +945,4 @@ Open, not blocking:
   contract.
 - **2.0 (2026-08-20):** Rewritten as a single solution design.
 - **1.0 (2026-08-20):** First issue.
+1 symbol replacement

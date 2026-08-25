@@ -210,6 +210,32 @@ final class UpscaleCeilingTests: XCTestCase {
         XCTAssertNil(processor.requestedSizing, "nothing was allocated")
     }
 
+    // MARK: - Degenerate requests are not refusals
+
+    // Raised by the code audit as B1. A custom selection with nothing typed reached the coordinator
+    // as `sizing: nil`, which it read as "nothing fits" — so a user who clicked custom and typed
+    // nothing was told their picture was too large to upscale for want of memory. False, and
+    // exactly the sort of message that produces a bug report about the thing just fixed.
+    func test_aCustomTargetWithNothingTypedIsNotAMemoryRefusal() {
+        let decision = UpscaleCeiling.decide(
+            sourceSize: CGSize(width: 800, height: 600),
+            requested: .custom(width: nil, height: nil, stretch: false))
+
+        XCTAssertFalse(decision.wasReduced)
+        XCTAssertNotNil(decision.sizing, "not a refusal; the empty fields are validation's business")
+    }
+
+    // Raised by the code audit as B2. The ladder is [8, 4, 2]; a request below the smallest rung
+    // found no rung and reported a refusal for something that trivially fits.
+    func test_aRequestBelowTheSmallestPresetIsNotARefusal() {
+        let decision = UpscaleCeiling.decide(
+            sourceSize: CGSize(width: 800, height: 600), requested: .preset(scale: 1))
+
+        XCTAssertFalse(decision.wasReduced)
+        XCTAssertEqual(decision.sizing, .preset(scale: 1))
+        XCTAssertEqual(decision.outputSize, CGSize(width: 800, height: 600))
+    }
+
     // MARK: - The floor is a different question
 
     // RT-91.6

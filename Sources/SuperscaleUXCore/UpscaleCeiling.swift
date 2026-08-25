@@ -71,8 +71,19 @@ public enum UpscaleCeiling {
     ) -> UpscaleDecision {
         let requested = GUIUpscaleSizing.preset(scale: requestedScale)
 
+        // What was asked for, when it already fits. Checked before the ladder rather than through
+        // it, so correctness does not depend on the requested scale appearing in `presets`.
+        let requestedOutput = CGSize(
+            width: sourceSize.width * CGFloat(requestedScale),
+            height: sourceSize.height * CGFloat(requestedScale))
+        if fits(requestedOutput) {
+            return UpscaleDecision(
+                requested: requested, sizing: requested, outputSize: requestedOutput,
+                wasReduced: false)
+        }
+
         // Largest first, and never above what was asked for: a ceiling reduces, it never enlarges.
-        for scale in presets where scale <= requestedScale {
+        for scale in presets where scale < requestedScale {
             let output = CGSize(
                 width: sourceSize.width * CGFloat(scale),
                 height: sourceSize.height * CGFloat(scale))
@@ -81,7 +92,7 @@ public enum UpscaleCeiling {
                     requested: requested,
                     sizing: .preset(scale: scale),
                     outputSize: output,
-                    wasReduced: scale != requestedScale)
+                    wasReduced: true)
             }
         }
 
@@ -98,9 +109,12 @@ public enum UpscaleCeiling {
         let target = customTarget(
             sourceSize: sourceSize, width: width, height: height, stretch: stretch)
 
+        // Nothing was asked for, which is not the same as nothing fitting. A custom selection with
+        // no dimensions typed is the existing validation's business, and reporting it here as a
+        // memory refusal would tell the user their picture is too large when it is not.
         guard target.width > 0, target.height > 0 else {
             return UpscaleDecision(
-                requested: requested, sizing: nil, outputSize: sourceSize, wasReduced: false)
+                requested: requested, sizing: requested, outputSize: sourceSize, wasReduced: false)
         }
 
         if fits(target) {
