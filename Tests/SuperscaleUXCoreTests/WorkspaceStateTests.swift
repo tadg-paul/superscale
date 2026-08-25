@@ -357,6 +357,50 @@ final class WorkspaceStateTests: XCTestCase {
             "the superseded rendering's file is released rather than left behind")
     }
 
+    // MARK: - AC92.7 what goes to the provider is the base's own file
+
+    // RT-92.17, RT-92.18, RT-92.19
+    //
+    // The application uploads `graph.asset(for: graph.input(for: .filter)).fileURL`, so what is
+    // asserted here is the file that names. The three conditions are the three ways the wrong
+    // picture could be chosen: reaching for what is on screen (which is the upscale), reaching for
+    // the working asset (which is the candidate), or reaching for the last thing produced.
+    func test_whatAFilterUploadsIsTheBasesOwnFile_RT092_17() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+        let baseFile = try workspace.graph.asset(for: base).fileURL
+
+        func fileAFilterWouldUpload() throws -> URL {
+            let input = try workspace.graph.input(for: .filter)
+            return try workspace.graph.asset(for: input).fileURL
+        }
+
+        // RT-92.17: with nothing else present.
+        XCTAssertEqual(try fileAFilterWouldUpload(), baseFile)
+
+        // RT-92.18: with an upscale on the canvas. The rendering is what the user is looking at,
+        // and "upload what I see" is the natural code and the wrong one — an upscale of a picture
+        // is not the picture, and the provider's working resolution is the base's.
+        let upscale = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: true), upscale,
+            "the rendering is genuinely what is displayed")
+        XCTAssertEqual(try fileAFilterWouldUpload(), baseFile, "and it is not what goes out")
+
+        // RT-92.19: with a candidate present. A filter reads the base so results chain only when
+        // locked; uploading the candidate would compound filters by accident.
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+        XCTAssertEqual(workspace.graph.candidate, candidate)
+        XCTAssertEqual(try fileAFilterWouldUpload(), baseFile)
+
+        // And after a lock the base has moved, so the *new* base is what goes out — the rule is
+        // "the base", not "the imported image".
+        let locked = try workspace.lock()
+        XCTAssertEqual(
+            try fileAFilterWouldUpload(), try workspace.graph.asset(for: locked).fileURL)
+    }
+
     // MARK: - Fixtures
 
     private func importedWorkspace() throws -> WorkspaceState {

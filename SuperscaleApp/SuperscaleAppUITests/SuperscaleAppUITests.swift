@@ -653,6 +653,156 @@ final class SuperscaleAppUITests: XCTestCase {
         return settings
     }
 
+    // MARK: - AC93.3: the face controls follow the scale (#93)
+
+    /// Turns the scale off by pressing whichever preset is currently active.
+    ///
+    /// The scale buttons are a toggle group: pressing the active choice clears it. There is no
+    /// separate "off" control to click, so the test has to find the active one first.
+    private func turnScaleOff() {
+        for scale in [2, 4, 8] {
+            let button = app.buttons["scale\(scale)x"]
+            guard button.exists else { continue }
+            let value = (button.value as? String ?? "").lowercased()
+            if value.contains("in effect") && !value.contains("not in effect") {
+                button.click()
+                return
+            }
+        }
+        XCTFail("no scale was in effect to turn off")
+    }
+
+    // RT-93.6
+    //
+    // Face enhancement is a stage of the upscale. With no scale selected there is no upscale for it
+    // to be a stage of, and a control offering a setting that changes nothing is worse than no
+    // control: the author read it as 4x being active when it was not.
+    func test_withTheScaleOffTheToolbarsFaceControlIsDisabled_RT093_6() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let face = app.buttons["faceEnhanceButton"]
+        XCTAssertTrue(face.waitForExistence(timeout: 5))
+        XCTAssertTrue(face.isEnabled, "with a scale in effect")
+
+        turnScaleOff()
+
+        XCTAssertFalse(face.isEnabled, "with no upscale for it to be a stage of")
+    }
+
+    // RT-93.7
+    func test_selectingAScaleEnablesTheFaceControlAgain_RT093_7() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let face = app.buttons["faceEnhanceButton"]
+        XCTAssertTrue(face.waitForExistence(timeout: 5))
+        turnScaleOff()
+        XCTAssertFalse(face.isEnabled)
+
+        app.buttons["scale2x"].click()
+
+        XCTAssertTrue(face.isEnabled, "a scale is in effect again")
+    }
+
+    // RT-93.8
+    //
+    // AC93.3 requires the unavailability to be *visible rather than silent*. A dimmed control with
+    // a tooltip is silent to anyone not holding a mouse still over it, and to anything asking the
+    // tree what the state is — so the reason is an accessibility value, not only a `.help`.
+    func test_theDisabledFaceControlExplainsWhy_RT093_8() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let face = app.buttons["faceEnhanceButton"]
+        XCTAssertTrue(face.waitForExistence(timeout: 5))
+        turnScaleOff()
+
+        let reason = face.value as? String ?? ""
+        XCTAssertTrue(
+            reason.localizedCaseInsensitiveContains("scale"),
+            "the reason names what to do about it: \"\(reason)\"")
+        XCTAssertFalse(face.isEnabled)
+    }
+
+    // RT-93.13
+    //
+    // The sheet's row and the toolbar's button are two controls for one setting; disabling one and
+    // leaving the other is how a setting that changes nothing stays reachable.
+    func test_withTheScaleOffTheSheetsFaceRowIsDisabledToo_RT093_13() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        turnScaleOff()
+
+        app.buttons["modelPicker"].click()
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+
+        let row = element(identifier: "sheetFaceEnhanceButton")
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        // Disabled only where the model is installed: where it is absent the row is the route to
+        // obtaining it, which RT-93.12 covers and AC93.3 requires to stay open.
+        if row.isEnabled {
+            let reason = row.value as? String ?? row.label
+            XCTAssertTrue(
+                reason.localizedCaseInsensitiveContains("download")
+                    || reason.localizedCaseInsensitiveContains("install")
+                    || reason.localizedCaseInsensitiveContains("get"),
+                "if it is still active with the scale off, it is offering the model: \"\(reason)\"")
+        }
+    }
+
+    // RT-93.12
+    //
+    // The one thing that must stay reachable with the controls unavailable. Disabling the route to
+    // the model along with the setting would leave a user who has never downloaded it unable to,
+    // and no way to find out why.
+    func test_theFaceModelRemainsObtainableWithTheScaleOff_RT093_12() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        turnScaleOff()
+
+        app.buttons["modelPicker"].click()
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
+
+        XCTAssertTrue(
+            element(identifier: "sheetFaceEnhanceButton").waitForExistence(timeout: 5),
+            "the row is present whether or not it is active")
+    }
+
+    // RT-93.15
+    //
+    // The scale control's value comes from `ScaleReadout` rather than from a completed run, so it
+    // is correct from the moment the picture is loaded — including while an upscale is still in
+    // flight, which is exactly when the old control reported the request instead of the state.
+    func test_theScaleControlsValueReportsTheReadoutInFlight_RT093_15() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        // Read *before* waiting for completion. A control deriving its state from a finished run
+        // would have nothing to say here.
+        let active = [2, 4, 8].compactMap { scale -> String? in
+            let button = app.buttons["scale\(scale)x"]
+            guard button.waitForExistence(timeout: 10) else { return nil }
+            let value = (button.value as? String ?? "").lowercased()
+            return value.contains("in effect") && !value.contains("not in effect")
+                ? "\(scale)x" : nil
+        }
+
+        XCTAssertEqual(
+            active.count, 1,
+            "exactly one scale reads as in effect while the upscale runs, got \(active)")
+
+        XCTAssertTrue(waitForUpscaleComplete())
+        let afterwards = [2, 4, 8].filter { scale in
+            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+            return value.contains("in effect") && !value.contains("not in effect")
+        }
+        XCTAssertEqual(
+            afterwards.map { "\($0)x" }, active,
+            "and the same one afterwards: the readout did not change when the run finished")
+    }
+
     // MARK: - OT-004: GUI scaffold (#44)
 
     // RT-122: Model picker sheet lists all models
@@ -1909,20 +2059,48 @@ final class SuperscaleAppUITests: XCTestCase {
 
         let startX = divider.frame.midX
 
-        // RT-90.14: the divider moves at all.
-        let target = canvas.coordinate(
-            withNormalizedOffset: CGVector(dx: 0.75, dy: 0.5))
-        divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            .press(forDuration: 0.2, thenDragTo: target)
+        /// Drags the handle to a fraction of the canvas and reports where it came to rest.
+        func restingX(afterDraggingTo fraction: CGFloat) -> (pointer: CGFloat, divider: CGFloat) {
+            let target = canvas.coordinate(
+                withNormalizedOffset: CGVector(dx: fraction, dy: 0.5))
+            divider.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+                .press(forDuration: 0.2, thenDragTo: target)
+            return (target.screenPoint.x, divider.frame.midX)
+        }
 
-        XCTAssertNotEqual(divider.frame.midX, startX, accuracy: 1.0, "the divider moved")
+        // RT-90.14: the divider moves at all.
+        let middling = restingX(afterDraggingTo: 0.6)
+        XCTAssertNotEqual(middling.divider, startX, accuracy: 1.0, "the divider moved")
 
         // RT-90.48: it came to rest where the pointer was, not somewhere scaled by the window's
-        // width. The tolerance covers the handle's own 28 points, not a coordinate-space error,
-        // which under the old arithmetic put the divider hundreds of points away.
-        let pointerX = target.screenPoint.x
+        // width — which under the old arithmetic put it hundreds of points away.
+        //
+        // **Measured at two positions, not one.** The divider's fraction is clamped to 0.05…0.95 of
+        // the *picture's* frame, which is narrower than the canvas, so a drag far enough across the
+        // canvas legitimately stops at the picture's edge. One measurement cannot tell a clamp from
+        // a coordinate-space error: both leave the handle short of the pointer. Two can — a
+        // coordinate-space error is proportional and shows at both, a clamp shows only at the outer
+        // one.
+        let far = restingX(afterDraggingTo: 0.75)
+        let image = element(identifier: "workingImage")
+        let diagnosis = """
+            picture \(image.frame), canvas \(canvas.frame); \
+            at 0.6 pointer \(middling.pointer) divider \(middling.divider); \
+            at 0.75 pointer \(far.pointer) divider \(far.divider)
+            """
+
         XCTAssertEqual(
-            divider.frame.midX, pointerX, accuracy: 20.0,
-            "the divider follows the pointer rather than a fraction of the window")
+            middling.divider, middling.pointer, accuracy: 20.0,
+            "well inside the picture, the divider is where the pointer is. \(diagnosis)")
+
+        // At the outer position the handle may legitimately have hit the 0.95 clamp, so what is
+        // asserted there is that it did not go *past* the pointer and did not fall short by more
+        // than the picture's own right edge allows.
+        XCTAssertLessThanOrEqual(
+            far.divider, far.pointer + 20.0,
+            "the divider never runs ahead of the pointer. \(diagnosis)")
+        XCTAssertGreaterThan(
+            far.divider, middling.divider,
+            "and a drag further out still moves it further out. \(diagnosis)")
     }
 }

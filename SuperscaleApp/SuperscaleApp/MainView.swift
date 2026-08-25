@@ -238,7 +238,7 @@ struct MainView: View {
     private func applyFilter() {
         Task {
             if await raiseBaseToMinimumIfNeeded() {
-                submitFilter()
+                await submitFilter()
             }
         }
     }
@@ -287,23 +287,42 @@ struct MainView: View {
         }
     }
 
-    private func submitFilter() {
+    /// Uploads the base to the provider's storage and submits the filter against the URL it issued.
+    ///
+    /// **The reference is a URL the provider itself issued, and no request body carries image
+    /// bytes.** It was a `data:` URL: a whole photograph base64-encoded into the JSON, which grows
+    /// the body by a third of the file's size and is what AC92.1 exists to end.
+    ///
+    /// Uploaded afresh each time. A cached reference URL would be a second place the truth about
+    /// the base lives, and the provider's storage is not the application's to reason about the
+    /// lifetime of.
+    @MainActor
+    private func submitFilter() async {
         // The graph decides what a filter reads: the base, never the candidate and never the
         // upscaled rendering. Asking it rather than reaching for what is on screen is the whole
         // point of the graph being the state.
         guard let input = try? workspace.graph.input(for: .filter),
               let asset = try? workspace.graph.asset(for: input) else { return }
         do {
-            let reference = try dataURL(for: asset.fileURL)
+            let bytes = try Data(contentsOf: asset.fileURL)
+            let reference = try await FalStorageClient().upload(
+                bytes,
+                fileName: asset.fileURL.lastPathComponent,
+                apiKey: settingsState.generationKey)
+
             var request = WorkspaceModel(
                 filters: selection.filters,
-                workingImage: WorkingImage(referenceValue: reference, hasWorkingImage: true),
+                workingImage: WorkingImage(
+                    referenceValue: reference.absoluteString, hasWorkingImage: true),
                 isGenerationConfigured: settingsState.isGenerationConfigured
             )
             request.selection = selection
             guard let built = request.applyRequest() else { return }
             generationCoordinator.start(built, apiKey: settingsState.generationKey)
         } catch {
+            // An upload that fails is a filter-stage failure, and the base and any candidate
+            // survive it: nothing has been recorded, so there is no partial reference for a
+            // generation request to pick up.
             viewModel.report(error)
         }
     }
@@ -398,17 +417,13 @@ struct MainView: View {
         viewModel.upscale(source)
     }
 
-    private func dataURL(for url: URL) throws -> String {
-        let data = try Data(contentsOf: url)
-        let mediaType: String
-        switch url.pathExtension.lowercased() {
-        case "jpg", "jpeg": mediaType = "image/jpeg"
-        case "heic": mediaType = "image/heic"
-        case "tif", "tiff": mediaType = "image/tiff"
-        default: mediaType = "image/png"
-        }
-        return "data:\(mediaType);base64,\(data.base64EncodedString())"
-    }
+    // 🚫 `dataURL(for:)` is removed by #92. It encoded a whole photograph into the request body as
+    // a `data:` URL, growing the body by a third of the file's size, and AC92.1 requires the
+    // reference to be a URL the provider itself issued with no image bytes in any body.
+    //
+    // It also decided the media type from the **file extension**, which AC92.4 rules out: a PNG
+    // named `.jpg` would have been declared as a JPEG. `FalStorageClient.contentType(of:)` reads
+    // what the file contains, through `CGImageSourceGetType`.
 
     private func loadDefaults() {
         guard !didLoadDefaults else { return }
@@ -538,6 +553,17 @@ struct MainView: View {
         return .green
     }
 
+    /// Why the face control is or is not available, in words.
+    ///
+    /// Face enhancement is a stage of the upscale. With no scale selected there is no upscale for
+    /// it to be a stage of, so the control is inert — and says so rather than offering a setting
+    /// that changes nothing.
+    private var faceEnhanceExplanation: String {
+        viewModel.scaleSelection.isOff
+            ? "Face enhancement applies to an upscale. Select a scale to enable it."
+            : "Face enhancement (GFPGAN) — detects and enhances faces in upscaled images"
+    }
+
     private var faceEnhanceButton: some View {
         Button {
             if FaceModelRegistry.isInstalled {
@@ -561,9 +587,13 @@ struct MainView: View {
         // for it to be a stage of, so the control is inert and says so rather than offering a
         // setting that changes nothing.
         .disabled(viewModel.scaleSelection.isOff)
-        .help(viewModel.scaleSelection.isOff
-              ? "Face enhancement applies to an upscale. Select a scale to enable it."
-              : "Face enhancement (GFPGAN) — detects and enhances faces in upscaled images")
+        .help(faceEnhanceExplanation)
+        // The reason is a **value**, not only a tooltip. AC93.3 requires the unavailability to be
+        // visible rather than silent, and a `.help` string is a hover affordance: it reaches nobody
+        // who is not holding a mouse still over the control, and nothing that asks the tree what
+        // the state is. Guide 3.9's rule, applied to a disabled control's reason rather than to an
+        // active control's state.
+        .accessibilityValue(faceEnhanceExplanation)
         .accessibilityIdentifier("faceEnhanceButton")
         .sheet(isPresented: $showFaceDownload) {
             FaceModelDownloadView(isPresented: $showFaceDownload) {
