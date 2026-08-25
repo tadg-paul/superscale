@@ -25,6 +25,12 @@ public enum CurtainGeometry {
     ///
     /// Depends on the aspect ratio alone, never on pixel dimensions, which is what makes a picture
     /// and its upscale share one frame.
+    ///
+    /// **Use this for one picture. Use `pairedFrames` for two.** Fitting two pictures with this
+    /// function independently gives each the largest frame its own shape allows, so two shapes get
+    /// two different widths — and the curtain's single vertical divider then falls at a different
+    /// fraction of each. That is the defect #96 fixed, and grok produces it on any picture whose
+    /// short edge is under 1024, by returning a square.
     public static func displayedFrame(imageSize: CGSize, in container: CGSize) -> CGRect {
         guard imageSize.width > 0, imageSize.height > 0,
             container.width > 0, container.height > 0
@@ -76,6 +82,9 @@ public enum CurtainGeometry {
     /// The width is the largest at which *both* fit: the container's, unless the taller side would
     /// then exceed the container's height, in which case whatever width makes it exactly fit. Using
     /// the full width unconditionally clips the more portrait of the two off the bottom.
+    /// **Use this for the curtain's two sides. Use `displayedFrame` for a single picture.** This
+    /// gives both a shared width so one divider means one thing on each; a lone picture given a
+    /// shared width with nothing has simply been fitted, which `displayedFrame` says more plainly.
     public static func pairedFrames(
         first: CGSize, second: CGSize, in container: CGSize
     ) -> (first: CGRect, second: CGRect) {

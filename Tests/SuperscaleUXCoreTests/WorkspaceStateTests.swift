@@ -549,6 +549,89 @@ final class WorkspaceStateTests: XCTestCase {
             "an imported picture has no provenance and was reshaped by nobody")
     }
 
+    // MARK: - AC103.1 an allocation derives from the picture on the canvas
+
+    // RT-103.1, RT-103.2
+    //
+    // The condition #89 found broken: `recordUpscale` asked the graph for the *working* asset, which
+    // is the candidate whenever one exists, while the criterion is about what is *displayed*. The
+    // two differ exactly when the filter toggle shows the base.
+    func test_anAllocationDerivesFromWhicheverPictureIsShown_RT103_1() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+
+        // RT-103.2: the ordinary case.
+        workspace.showsBase = false
+        let fromCandidate = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            try workspace.graph.asset(for: fromCandidate).parentID, candidate.id,
+            "the candidate is on the canvas, so the allocation derives from it")
+
+        // RT-103.1: the case the parallel route got wrong.
+        workspace.showsBase = true
+        let fromBase = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            try workspace.graph.asset(for: fromBase).parentID, base.id,
+            "the toggle shows the base, so the allocation derives from the base")
+    }
+
+    // RT-103.3
+    //
+    // The graph's own rule, which must survive: an upscaled asset is never a stage input.
+    func test_anUpscaledAssetIsRefusedAsTheInput_RT103_3() throws {
+        let workspace = try importedWorkspace()
+        let upscale = try workspace.recordUpscale(pixelSize: upscaledSize)
+
+        XCTAssertThrowsError(try workspace.graph.validateStageInput(upscale)) { error in
+            XCTAssertTrue(
+                error.localizedDescription.localizedCaseInsensitiveContains("upscal"),
+                "the reason names the rule: \(error.localizedDescription)")
+        }
+    }
+
+    // RT-103.6
+    //
+    // **The condition that would have bitten.** With a scale selected the canvas shows a
+    // *rendering*, so "derive from what is on the canvas" read naively derives from the rendering
+    // rather than from its subject — which is the mistake the criterion exists to prevent, and a
+    // different condition from offering an upscaled asset explicitly.
+    func test_withARenderingOnTheCanvasTheAllocationDerivesFromItsSubject_RT103_6() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+
+        let rendering = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: true), rendering,
+            "the rendering is genuinely what the canvas shows")
+
+        // Allocating again must derive from the base, not from the rendering of it.
+        let second = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            try workspace.graph.asset(for: second).parentID, base.id,
+            "an upscale of an upscale is what the asset roles exist to prevent")
+    }
+
+    // RT-103.7
+    //
+    // After a lock the displayed picture is the new base. A route caching the previous one satisfies
+    // every condition above and fails here.
+    func test_afterALockTheAllocationDerivesFromTheNewBase_RT103_7() throws {
+        let workspace = try importedWorkspace()
+        let imported = try XCTUnwrap(workspace.graph.base)
+        try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+        let locked = try workspace.lock()
+
+        XCTAssertNotEqual(locked, imported, "the base moved")
+
+        let allocation = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            try workspace.graph.asset(for: allocation).parentID, locked.id,
+            "the allocation follows the base rather than remembering the old one")
+    }
+
     // MARK: - Fixtures
 
     private func importedWorkspace() throws -> WorkspaceState {

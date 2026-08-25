@@ -91,6 +91,10 @@ final class GenerationSettingsTests: XCTestCase {
     ///
     /// The alternative is leaving a value in the user's defaults that nothing reads, which a later
     /// reader then has to prove is dead.
+    /// RT-103.5's companion condition, cited by #103 rather than duplicated there.
+    ///
+    /// This covers a defaults dictionary left over from an older build; RT-103.5 covers a fresh
+    /// round trip. Between them they are AC103.2's two conditions.
     func test_theRetiredCostThresholdIsRemovedWhenPreferencesAreNextSaved() throws {
         let defaults = isolatedDefaults()
         defer { defaults.removePersistentDomain(forName: defaultsSuiteName) }

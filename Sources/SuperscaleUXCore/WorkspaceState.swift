@@ -143,6 +143,23 @@ public final class WorkspaceState: ObservableObject {
 
     /// Allocates an upscale of whatever the canvas is showing.
     ///
+    /// **This allocates a graph asset. It does not render a picture, and the application does not
+    /// call it.** The two are separate acts and the distinction is easy to lose:
+    ///
+    /// - This records an `upscaled` asset in the graph, gives it a location, and releases the
+    ///   output it supersedes. It is how a rendering would *become part of the asset model*.
+    /// - `MainView.display(_:)` resolves a `GUIUpscaleSource` and hands it to
+    ///   `UpscaleViewModel.upscale`, which draws a picture and records nothing. The view model has
+    ///   no reference to the graph at all.
+    ///
+    /// So the application's renderings are not in the graph, and `#94`'s canvas guard depends on
+    /// that: the graph's displayed asset *is* the base, because nothing else was ever written.
+    ///
+    /// **Whether renderings belong in the graph is an open design question**, recorded as
+    /// DECISION D-103.1 on #103 and deliberately not answered there. Answering it either way is
+    /// better than the present arrangement: if they do, this gains its caller and the curtain's
+    /// guard can be tightened; if they do not, this should go and its tests move to `AssetGraph`.
+    ///
     /// **The canvas, not the graph's working asset.** `graph.input(for: .upscale)` returns the
     /// candidate when one exists, which is what the user is looking at *unless* the filter toggle is
     /// showing the base — and then the two disagree. AC89.6 requires the base's own upscale to be

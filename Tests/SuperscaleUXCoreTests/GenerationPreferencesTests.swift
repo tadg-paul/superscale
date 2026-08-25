@@ -44,6 +44,31 @@ final class GenerationPreferencesTests: XCTestCase {
         XCTAssertEqual(loaded.outputFolder, downloads)
     }
 
+    // RT-103.5
+    //
+    // A fresh round trip carries no cost threshold. #95 removed the control and the preference key;
+    // #103 removes the policy that consumed them. A stored value nothing reads is a thing a later
+    // reader has to prove is dead, and a type with no storage still invites a caller.
+    //
+    // Driven through a run-unique defaults suite, removed afterwards. `GenerationPreferencesStore`
+    // falls back to `UserDefaults.standard`, so a test taking the default would rewrite the author's
+    // own preferences on their own machine — which #95's first test audit caught in this same file.
+    func test_aPreferencesRoundTripCarriesNoCostThreshold_RT103_5() throws {
+        let suite = "GenerationPreferencesTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
+
+        let store = GenerationPreferencesStore(defaults: defaults, folderValidator: { _ in true })
+        try store.save(.defaults)
+
+        let keys = defaults.dictionaryRepresentation().keys.filter { $0.hasPrefix("v2.") }
+        XCTAssertFalse(keys.isEmpty, "the store wrote something, so the assertion is not vacuous")
+        XCTAssertFalse(
+            keys.contains { $0.localizedCaseInsensitiveContains("threshold") },
+            "no threshold is stored: \(keys.sorted())")
+        XCTAssertNil(defaults.object(forKey: "v2.generation.costThreshold"))
+    }
+
     // RT-95.10
     func test_aChosenFolderSurvivesARestart_RT095_10() throws {
         let chosen = FileManager.default.temporaryDirectory
