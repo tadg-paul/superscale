@@ -290,7 +290,7 @@ final class WorkspaceModelTests: XCTestCase {
 private final class FixtureWorkspaceService: GenerationServing {
     private(set) var requests: [FalGenerationRequest] = []
 
-    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+    func uploadReference(fileURL: URL, fileName: String, apiKey: String) async throws -> URL {
         URL(string: "https://v3.fal.media/files/fixture/\(fileName)")
             ?? URL(fileURLWithPath: fileName)
     }
@@ -316,7 +316,7 @@ private final class FixturePricingProbe {
 @MainActor
 private final class SlowWorkspaceService: GenerationServing {
     /// Immediate, because what this fixture is slow at is generating.
-    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+    func uploadReference(fileURL: URL, fileName: String, apiKey: String) async throws -> URL {
         URL(fileURLWithPath: fileName)
     }
 

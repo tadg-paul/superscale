@@ -250,7 +250,8 @@ final class GenerationSeamTests: XCTestCase {
             outputStore: GeneratedImageStore(directory: directory))
 
         let reference = try await coordinator.uploadReference(
-            Data("pixels".utf8), fileName: "toby.png", apiKey: "fixture-key")
+            fileURL: directory.appendingPathComponent("toby.png"),
+            fileName: "toby.png", apiKey: "fixture-key")
 
         XCTAssertEqual(service.uploads, ["toby.png"], "the stub saw it, so no network did")
         XCTAssertTrue(reference.absoluteString.contains("toby.png"), reference.absoluteString)
@@ -262,7 +263,7 @@ private final class FixtureGenerationService: GenerationServing {
     private(set) var uploads: [String] = []
     let result: Result<FalGeneratedImage, Error>
 
-    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+    func uploadReference(fileURL: URL, fileName: String, apiKey: String) async throws -> URL {
         uploads.append(fileName)
         return URL(string: "https://v3.fal.media/files/fixture/\(fileName)")
             ?? URL(fileURLWithPath: fileName)

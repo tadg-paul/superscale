@@ -306,13 +306,17 @@ struct MainView: View {
         guard let input = try? workspace.graph.input(for: .filter),
               let asset = try? workspace.graph.asset(for: input) else { return }
         do {
-            let bytes = try Data(contentsOf: asset.fileURL)
+            // The **location**, not the bytes. Reading here meant synchronous disk I/O on the
+            // thread drawing the window, so a large picture froze the interface every time Apply
+            // was pressed. `FalStorageClient` is `Sendable` and not main-actor bound, so the same
+            // read happens on the cooperative pool.
+            //
             // Through the coordinator, whose service is the same seam `generate` goes through.
             // Constructing a client here reached `rest.fal.ai` from the GUI suite, because only the
             // *generation* half was stubbed — and nothing said so until a filter produced no
             // candidate to lock.
             let reference = try await generationCoordinator.uploadReference(
-                bytes,
+                fileURL: asset.fileURL,
                 fileName: asset.fileURL.lastPathComponent,
                 apiKey: settingsState.generationKey)
 

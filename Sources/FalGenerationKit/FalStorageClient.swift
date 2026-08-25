@@ -7,6 +7,12 @@ import UniformTypeIdentifiers
 
 public enum FalStorageError: LocalizedError, Equatable {
     case unsupportedContent
+    /// The file could not be read at all.
+    ///
+    /// Distinct from `unsupportedContent`, which means the bytes were read and are not a picture.
+    /// A user whose file has been moved or deleted needs to hear something different from a user
+    /// who chose a document.
+    case unreadableFile(String)
     case initiateFailed(diagnostic: String)
     case transferFailed(diagnostic: String)
 
@@ -14,6 +20,8 @@ public enum FalStorageError: LocalizedError, Equatable {
         switch self {
         case .unsupportedContent:
             return "That file is not an image Superscale can send: PNG, JPEG, TIFF and HEIC are."
+        case let .unreadableFile(name):
+            return "That file could not be read: \(name)"
         case let .initiateFailed(diagnostic):
             return "The provider would not accept the image: \(diagnostic)"
         case let .transferFailed(diagnostic):
@@ -67,10 +75,31 @@ public struct FalStorageClient: Sendable {
         return identifier
     }
 
-    /// Uploads `data` and returns the URL the provider issued.
+    /// Uploads the file at `fileURL` and returns the URL the provider issued.
+    ///
+    /// **Takes a location rather than bytes so that the read happens here.** The caller was
+    /// `MainView.submitFilter`, which is `@MainActor`, so `Data(contentsOf:)` ran as synchronous
+    /// disk I/O on the thread drawing the window — tens of milliseconds of frozen interface for a
+    /// large picture, every time Apply was pressed. This type is `Sendable` and not main-actor
+    /// bound, so the same read happens on the cooperative pool.
+    ///
+    /// **Read once, used twice.** The bytes are needed for the content-type sniff and again for the
+    /// transfer. Reading for each would double the disk I/O this signature exists to move, and no
+    /// test can observe it from outside — so the property is carried by this shape rather than by
+    /// an assertion, and confirmed by code review.
+    ///
+    /// Nothing is sent before the read succeeds. An unreadable file throws with the reason and the
+    /// provider is never contacted, so it cannot be left holding a URL with nothing behind it.
     public func upload(
-        _ data: Data, fileName: String, apiKey: String
+        fileURL: URL, fileName: String, apiKey: String
     ) async throws -> URL {
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            throw FalStorageError.unreadableFile(fileURL.lastPathComponent)
+        }
+
         guard let contentType = Self.contentType(of: data) else {
             throw FalStorageError.unsupportedContent
         }

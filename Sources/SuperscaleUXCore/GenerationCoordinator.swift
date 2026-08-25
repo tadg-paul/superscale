@@ -15,7 +15,10 @@ public protocol GenerationServing: Sendable {
     /// Called directly from the view instead, it reached `rest.fal.ai` from the GUI suite — which
     /// makes the tests depend on a network and on somebody else's uptime, and was caught only
     /// because a filter then produced no candidate to lock.
-    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL
+    ///
+    /// **Takes a location rather than bytes**, so the file is read off the main actor. The caller
+    /// is a view, and reading a large picture there froze the window for the duration.
+    func uploadReference(fileURL: URL, fileName: String, apiKey: String) async throws -> URL
 }
 
 public struct FalGenerationService: GenerationServing {
@@ -35,9 +38,9 @@ public struct FalGenerationService: GenerationServing {
     }
 
     public func uploadReference(
-        _ data: Data, fileName: String, apiKey: String
+        fileURL: URL, fileName: String, apiKey: String
     ) async throws -> URL {
-        try await storage.upload(data, fileName: fileName, apiKey: apiKey)
+        try await storage.upload(fileURL: fileURL, fileName: fileName, apiKey: apiKey)
     }
 }
 
@@ -187,9 +190,10 @@ public final class GenerationCoordinator: ObservableObject {
     /// Routed through the coordinator's own service rather than constructed at the call site, so a
     /// stubbed provider is stubbed for both halves of the exchange.
     public func uploadReference(
-        _ data: Data, fileName: String, apiKey: String
+        fileURL: URL, fileName: String, apiKey: String
     ) async throws -> URL {
-        try await service.uploadReference(data, fileName: fileName, apiKey: apiKey)
+        try await service.uploadReference(
+            fileURL: fileURL, fileName: fileName, apiKey: apiKey)
     }
 
     public func generate(_ request: FalGenerationRequest, apiKey: String) async {

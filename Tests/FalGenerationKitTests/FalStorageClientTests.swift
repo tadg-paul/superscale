@@ -38,6 +38,28 @@ final class FalStorageClientTests: XCTestCase {
         func recorded() -> [URLRequest] { requests }
     }
 
+    /// A per-run directory beneath the operating system's temporary directory.
+    ///
+    /// Removed exactly, never a shared parent, on success and on failure alike.
+    private func scratchDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("upload-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        return directory
+    }
+
+    /// A real PNG on disk, because `upload` now takes a location rather than bytes.
+    ///
+    /// The bytes have to exist somewhere for the content check to have content to read, and the
+    /// point of #102 is that the reading happens inside the client rather than at the call site.
+    private func pngFile(size: Int = 8, named name: String = "picture.png") throws -> URL {
+        let directory = try scratchDirectory()
+        let url = directory.appendingPathComponent(name)
+        try pngData(size: size).write(to: url)
+        return url
+    }
+
     /// A real PNG, so the content check has content to read.
     ///
     /// - Parameter size: the edge length in pixels. RT-92.3 needs two pictures whose *byte* sizes
@@ -68,7 +90,7 @@ final class FalStorageClientTests: XCTestCase {
         let client = FalStorageClient(
             transport: transport, baseURL: URL(fileURLWithPath: "/")) // unused; requests inspected
 
-        _ = try? await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+        _ = try? await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         let recorded = await transport.recorded()
         let initiate = try XCTUnwrap(recorded.first)
@@ -85,7 +107,7 @@ final class FalStorageClientTests: XCTestCase {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
 
-        _ = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+        _ = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         let requests = await transport.recorded()
         XCTAssertEqual(requests.count, 2, "one to ask, one to put")
@@ -97,7 +119,7 @@ final class FalStorageClientTests: XCTestCase {
     func test_theReturnedURLIsTheProvidersOwn_RT092_6() async throws {
         let client = FalStorageClient(transport: RecordingTransport())
 
-        let url = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+        let url = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         XCTAssertEqual(url.absoluteString, "https://v3.fal.media/files/1.png")
     }
@@ -112,10 +134,10 @@ final class FalStorageClientTests: XCTestCase {
     func test_twoAppliesUploadTwiceAndSendDifferentURLs_RT092_7() async throws {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
-        let data = try pngData()
+        let file = try pngFile()
 
-        let first = try await client.upload(data, fileName: "toby.png", apiKey: apiKey)
-        let second = try await client.upload(data, fileName: "toby.png", apiKey: apiKey)
+        let first = try await client.upload(fileURL: file, fileName: "toby.png", apiKey: apiKey)
+        let second = try await client.upload(fileURL: file, fileName: "toby.png", apiKey: apiKey)
 
         XCTAssertNotEqual(first, second, "a cache would return the first URL again")
         let recorded = await transport.recorded()
@@ -129,7 +151,8 @@ final class FalStorageClientTests: XCTestCase {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
 
-        _ = try await client.upload(try pngData(), fileName: "toby.jpg", apiKey: apiKey)
+        _ = try await client.upload(
+            fileURL: try pngFile(named: "toby.jpg"), fileName: "toby.jpg", apiKey: apiKey)
 
         let recorded = await transport.recorded()
         let initiate = try XCTUnwrap(recorded.first)
@@ -146,8 +169,12 @@ final class FalStorageClientTests: XCTestCase {
         let client = FalStorageClient(transport: transport)
 
         do {
+            let directory = try scratchDirectory()
+            let notAPicture = directory.appendingPathComponent("notes.png")
+            try Data("not an image at all".utf8).write(to: notAPicture)
+
             _ = try await client.upload(
-                Data("not an image at all".utf8), fileName: "notes.png", apiKey: apiKey)
+                fileURL: notAPicture, fileName: "notes.png", apiKey: apiKey)
             XCTFail("an unsupported file should be refused")
         } catch let error as FalStorageError {
             XCTAssertEqual(error, .unsupportedContent)
@@ -166,7 +193,7 @@ final class FalStorageClientTests: XCTestCase {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
 
-        _ = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+        _ = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         let recorded = await transport.recorded()
         let initiate = try XCTUnwrap(recorded.first)
@@ -184,11 +211,99 @@ final class FalStorageClientTests: XCTestCase {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
 
-        _ = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+        _ = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         let recorded = await transport.recorded()
         let put = recorded[1]
         XCTAssertNil(put.value(forHTTPHeaderField: "Authorization"))
+    }
+
+    // MARK: - AC92.1, AC92.5, AC92.6 across the read moving inside (#102)
+
+    // RT-102.1
+    //
+    // The substitution itself: passing a location must send exactly the bytes that passing the
+    // bytes did. Without this the change could quietly send something else.
+    func test_theUploadSendsTheBytesOfTheFileItWasGiven_RT102_1() async throws {
+        let transport = RecordingTransport()
+        let client = FalStorageClient(transport: transport)
+        let expected = try pngData(size: 16)
+        let directory = try scratchDirectory()
+        let url = directory.appendingPathComponent("toby.png")
+        try expected.write(to: url)
+
+        _ = try await client.upload(fileURL: url, fileName: "toby.png", apiKey: apiKey)
+
+        let recorded = await transport.recorded()
+        let transfer = recorded[1]
+        XCTAssertEqual(transfer.httpBody, expected, "the file's own bytes, byte for byte")
+    }
+
+    // RT-102.2
+    //
+    // **Asserts that nothing was sent**, not merely that an error was thrown. An implementation
+    // that initiates, fails to read, and still sends a zero-byte PUT before throwing would satisfy
+    // the weaker assertion — having handed the provider an empty file at a URL it issued.
+    func test_anUnreadableFileFailsWithoutSendingAnything_RT102_2() async throws {
+        let transport = RecordingTransport()
+        let client = FalStorageClient(transport: transport)
+        let directory = try scratchDirectory()
+        let absent = directory.appendingPathComponent("never-written.png")
+
+        do {
+            _ = try await client.upload(fileURL: absent, fileName: "gone.png", apiKey: apiKey)
+            XCTFail("a file that is not there cannot be uploaded")
+        } catch let error as FalStorageError {
+            XCTAssertEqual(error, .unreadableFile("never-written.png"))
+            XCTAssertFalse(
+                error.localizedDescription.isEmpty, "and it says which file")
+        } catch {
+            XCTFail("unexpected error: \(error)")
+        }
+
+        let recorded = await transport.recorded()
+        XCTAssertTrue(recorded.isEmpty, "the provider was never contacted at all")
+    }
+
+    // RT-102.3
+    //
+    // AC92.5's guarantee, carried across the change. The read now fails inside the client, so the
+    // question is whether a reference escapes anyway.
+    func test_aFailedReadLeavesNoPartialReferenceBehind_RT102_3() async throws {
+        let transport = RecordingTransport()
+        let client = FalStorageClient(transport: transport)
+        let directory = try scratchDirectory()
+
+        let reference = try? await client.upload(
+            fileURL: directory.appendingPathComponent("absent.png"),
+            fileName: "absent.png", apiKey: apiKey)
+
+        XCTAssertNil(reference, "no URL escapes a failed read")
+    }
+
+    // RT-102.4
+    //
+    // AC92.6 across the signature change, because a refactor that rebuilds a request is exactly
+    // where a credential ends up in a URL by accident.
+    func test_theCredentialStillAppearsOnlyInAHeader_RT102_4() async throws {
+        let transport = RecordingTransport()
+        let client = FalStorageClient(transport: transport)
+
+        _ = try await client.upload(
+            fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
+
+        let recorded = await transport.recorded()
+        XCTAssertEqual(recorded.count, 2, "initiate, then transfer")
+        for request in recorded {
+            XCTAssertFalse(
+                request.url?.absoluteString.contains(apiKey) ?? false,
+                request.url?.absoluteString ?? "")
+            let body = String(data: request.httpBody ?? Data(), encoding: .utf8) ?? ""
+            XCTAssertFalse(body.contains(apiKey), body.prefix(200).description)
+        }
+        XCTAssertEqual(
+            try XCTUnwrap(recorded.first).value(forHTTPHeaderField: "Authorization"),
+            "Key \(apiKey)")
     }
 
     // MARK: - AC92.1: the body carries a URL, never bytes
@@ -201,7 +316,7 @@ final class FalStorageClientTests: XCTestCase {
     func test_theGenerationBodyCarriesTheProvidersURLAndNoPayload_RT092_1() async throws {
         let transport = RecordingTransport()
         let reference = try await FalStorageClient(transport: transport)
-            .upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+            .upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         let prepared = try FalRequestBuilder().prepare(
             FalGenerationRequest(
@@ -232,7 +347,8 @@ final class FalStorageClientTests: XCTestCase {
         func bodyLength(forPixels size: Int) async throws -> Int {
             let transport = RecordingTransport()
             let reference = try await FalStorageClient(transport: transport)
-                .upload(try pngData(size: size), fileName: "toby.png", apiKey: apiKey)
+                .upload(
+                    fileURL: try pngFile(size: size), fileName: "toby.png", apiKey: apiKey)
             let prepared = try FalRequestBuilder().prepare(
                 FalGenerationRequest(
                     prompt: "a film noir portrait",
@@ -259,10 +375,10 @@ final class FalStorageClientTests: XCTestCase {
     func test_twoAppliesOfTheSameBaseSendTwoDifferentURLs_RT092_8() async throws {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
-        let bytes = try pngData()
+        let file = try pngFile()
 
-        let first = try await client.upload(bytes, fileName: "toby.png", apiKey: apiKey)
-        let second = try await client.upload(bytes, fileName: "toby.png", apiKey: apiKey)
+        let first = try await client.upload(fileURL: file, fileName: "toby.png", apiKey: apiKey)
+        let second = try await client.upload(fileURL: file, fileName: "toby.png", apiKey: apiKey)
 
         XCTAssertNotEqual(first, second, "each apply uploads afresh")
     }
@@ -300,7 +416,7 @@ final class FalStorageClientTests: XCTestCase {
         let client = FalStorageClient(transport: FailingTransport(failing: .initiate))
 
         do {
-            _ = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+            _ = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
             XCTFail("an initiate failure should not produce a reference")
         } catch {
             let described = error.localizedDescription
@@ -314,7 +430,7 @@ final class FalStorageClientTests: XCTestCase {
         let client = FalStorageClient(transport: FailingTransport(failing: .transfer))
 
         do {
-            _ = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+            _ = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
             XCTFail("a transfer failure should not produce a reference")
         } catch {
             let described = error.localizedDescription
@@ -335,7 +451,7 @@ final class FalStorageClientTests: XCTestCase {
             let client = FalStorageClient(transport: transport)
 
             let reference = try? await client.upload(
-                try pngData(), fileName: "toby.png", apiKey: apiKey)
+                fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
             XCTAssertNil(reference, "\(stage): no URL escapes a failed upload")
         }
@@ -352,7 +468,7 @@ final class FalStorageClientTests: XCTestCase {
         let transport = RecordingTransport()
         let client = FalStorageClient(transport: transport)
 
-        _ = try await client.upload(try pngData(), fileName: "toby.png", apiKey: apiKey)
+        _ = try await client.upload(fileURL: try pngFile(), fileName: "toby.png", apiKey: apiKey)
 
         let recorded = await transport.recorded()
         XCTAssertEqual(recorded.count, 2, "initiate, then transfer")

@@ -249,7 +249,7 @@ private final class FixtureFilterService: GenerationServing {
     private(set) var requests: [FalGenerationRequest] = []
     private(set) var uploads: [String] = []
 
-    func uploadReference(_ data: Data, fileName: String, apiKey: String) async throws -> URL {
+    func uploadReference(fileURL: URL, fileName: String, apiKey: String) async throws -> URL {
         uploads.append(fileName)
         return URL(string: "https://v3.fal.media/files/fixture/\(fileName)")
             ?? URL(fileURLWithPath: fileName)
