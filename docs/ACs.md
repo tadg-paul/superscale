@@ -294,12 +294,12 @@ Last migrated: AC87.12 from #87 on 2026-08-24
   - ✅ RT-91.8: a custom target above the ceiling is reduced proportionally, preserving its aspect
   - ✅ RT-91.9: the ceiling binds the output produced rather than the request typed
   - ✅ RT-91.10: the coordinator asks its processor for an output within the ceiling
-  - ⏳ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive — pending on master #79's roll-up
+  - ⏳ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive --- pending on master #79's roll-up
 - Note: **backfilled, not pre-existing.** #91 first cited AC83.7 as a legacy criterion on #83. It did
   not exist: #83 carries AC83.1 to AC83.6, and the resolution caps were only ever prose in
   `IMPLEMENTATION_GUIDE_v2.md` 2.5 and 3.8 plus a residual-risk note. The bound was acknowledged and
   never specified, which is how an 8000-pixel output came to sit between a warning at 4096 and a
-  refusal at 8192 — permitted, and fatal. Backfilled under the second path in `ISSUES.md`
+  refusal at 8192 --- permitted, and fatal. Backfilled under the second path in `ISSUES.md`
   §"Bug-fix issues reference existing ACs".
 
 ---
@@ -660,5 +660,54 @@ Last migrated: AC87.12 from #87 on 2026-08-24
 - Tests:
   - ✅ RT-87.29: an application in flight offers a cancel action
   - ✅ RT-87.30: cancelling leaves the working image unchanged and produces no candidate
+
+---
+
+## Provider request construction
+
+### AC97.1 - An edit request carries a sizing parameter only where its endpoint accepts one, and grok's does not.
+- Introduced: #97 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-97.1: an edit request's body contains no sizing field
+  - ✅ RT-97.2: a text-to-image request's body does carry one
+  - ✅ RT-97.3: the endpoint chosen for a request with a reference is the edit endpoint
+- Note: every request carried `aspect_ratio`, including the edit requests `IMPLEMENTATION_GUIDE_v2.md`
+  3.6 says reject it. A rejected parameter does not produce the sizing asked for; it produces
+  whatever the model does by default, which is one candidate explanation for filtered results
+  returning square. Recorded as a hypothesis rather than an established cause: confirming it
+  directly costs a paid call.
+
+### AC97.2 - One model is selectable, and the handlers are a table of values, so a further model is an entry rather than a branch.
+- Introduced: #97 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-97.4: the only model offered for selection is `xai/grok-imagine-image`
+  - ✅ RT-97.5: a handler added to the table produces correct requests with no change to the builder
+- Note: the handler was a `switch`, so "adding a model is a data change" was untrue and RT-97.5 was
+  unwritable --- a test cannot add a `case` at runtime. The `fal-ai/flux-pro/kontext` handler is
+  retained and unselectable, per guide 3.6's "knowledge held for later".
+
+### AC97.3 - A reference is sent in the form its field expects: a plural field receives a list, a singular field receives one value. Extra references beyond what the handler accepts are dropped with a warning naming what went.
+- Introduced: #97 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-97.6: a plural field receives a list, even for one reference
+  - ✅ RT-97.7: more references than the handler accepts produce a warning naming the counts
+  - ✅ RT-97.8: no reference at all produces no reference field
+  - ✅ RT-97.12: a singular field receives one value rather than a list
+- Note: a field's shape is its own property rather than a consequence of the reference limit. The two
+  coincide for the handlers that exist and are different questions --- a family accepting `image_urls`
+  while using only the first would have a plural field and a limit of one.
+
+### AC97.4 - Where the caller supplies an aspect ratio and the model supports only a fixed set, the request carries the nearest supported one, and the caller can tell which was used.
+- Introduced: #97 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-97.9: an unsupported ratio snaps to the nearest supported
+  - ✅ RT-97.10: a supported ratio passes through unchanged
+  - ✅ RT-97.11: a snapped ratio produces a warning naming both the requested ratio and the one sent
+- Note: nearest by the ratio's value rather than by where it sorts, so 2:3 finds 9:16. The supported
+  set is `FAL_REQUEST_REFERENCE.md`'s: 9:16, 1:1, 4:3, 16:9.
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
