@@ -3,7 +3,7 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC87.12 from #87 on 2026-08-24
+Last migrated: AC98.5 from #98 on 2026-08-25
 
 ---
 
@@ -537,6 +537,75 @@ Last migrated: AC87.12 from #87 on 2026-08-24
   rather than the two instances, because the same mistake elsewhere in the panel would leave RT-88.1
   and RT-88.2 passing.
 
+### AC95.1 - Each credential row names its field once, and that name is identifiable rather than merely visible.
+- Introduced: #95 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-95.1: exactly one element carries the generation key row's label, and the field contributes no second one
+  - ✅ RT-95.2: the same for the account key row
+- Note: the name carries an identifier of its own. `.labelsHidden()` hides a label *visually* while
+  the element may keep it as its accessibility label, so a test counting matches in the tree could
+  return the same number before and after the fix and pass against the unfixed view.
+
+### AC95.2 - A credential is legible while it is being entered and after it has been saved, so a pasted key can be checked by eye.
+- Introduced: #95 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-95.3: a typed key is readable in the field
+  - ✅ RT-95.4: a saved key is readable when Settings is reopened
+- Note: a FAL key is a bearer credential, not a password recited from memory, and masking it prevents
+  the one check anybody performs on a pasted key. Where it is *stored* is unchanged --- the
+  Keychain --- and so is the rule that it travels only in a request header. RT-95.3 asserts that no
+  secure field exists rather than that this element is a text field, so the unfixed view fails it for
+  the right reason.
+
+### AC95.3 - The generation key reads as working only after the provider has accepted it, and a stored but unverified key is distinguishable from both a verified one and an absent one. The account key reads as stored or absent and carries no verification state. Checking a key costs nothing, and editing one returns it to unverified.
+- Introduced: #95 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-95.5: a stored, unchecked generation key reads as stored rather than as working
+  - ✅ RT-95.6: a generation key the provider accepts reads as working
+  - ✅ RT-95.7: a generation key the provider rejects reads as rejected, with the provider's reason
+  - ✅ RT-95.8: an unreachable provider leaves the key as stored rather than reporting it rejected
+  - ✅ RT-95.14: the account key row shows no verification state
+  - ✅ RT-95.16: verification issues no generation request
+  - ✅ RT-95.17: editing a verified key returns it to unverified until it is saved and checked again
+- Note: the badge read from whether a key was *stored*, so a typo saved and showed a green tick.
+  RT-95.8 is the one that matters most: reporting an unreachable provider as a rejection has the
+  user delete a working key. RT-95.16 checks the request's own properties --- a GET, no body, one
+  call, no model name and no queue path in the URL --- because the client most obviously to hand
+  generates images at 2c each, and verifying by generating would charge a user for checking whether
+  they typed their key correctly.
+- Note: a verdict belongs to the key it was given, so the state holds the checked key alongside the
+  answer and derives the badge from both. Resetting on edit would need an ordering between a
+  keystroke and a reply, and there is none to be had.
+
+### AC95.4 - An output folder is always configured, defaulting to the user's Downloads folder until they choose another.
+- Introduced: #95 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-95.9: with no stored preference, the output folder is the user's Downloads folder
+  - ✅ RT-95.10: a chosen folder survives a restart
+  - ✅ RT-95.11: a stored folder that no longer exists falls back to Downloads rather than to nothing
+- Note: resolved through `FileManager.urls(for:in:)` rather than built from the home directory, so it
+  is correct on a machine where Downloads has been moved. RT-95.10 and RT-95.11 use a run-unique
+  `UserDefaults(suiteName:)`, removed in teardown, so no test rewrites the author's own preference.
+
+### AC95.5 - Settings offers no control that operates a feature the MVP excludes. Storing a credential for later is not operating anything, so the account key row remains.
+- Introduced: #95 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-95.12: no cost-confirmation control is present
+  - ✅ RT-95.13: no pricing or account-balance control is present
+  - ✅ RT-95.15: the account key row is present and can be saved and cleared
+- Note: the line is between *storing* a credential for later and *operating* a paused feature. A
+  Check Pricing button performs an operation the MVP has removed; a key field holds a value for a
+  version that will. Asserted by identifier *and* by the visible words, so a control renamed rather
+  than removed does not pass.
+- Note: `costThreshold` and its stored preference go with the control, and the retired defaults key
+  is removed on the next save rather than left for a later reader to prove is dead.
+
+
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
 
 ---
@@ -709,5 +778,620 @@ Last migrated: AC87.12 from #87 on 2026-08-24
   - ✅ RT-97.11: a snapped ratio produces a warning naming both the requested ratio and the one sent
 - Note: nearest by the ratio's value rather than by where it sorts, so 2:3 finds 9:16. The supported
   set is `FAL_REQUEST_REFERENCE.md`'s: 9:16, 1:1, 4:3, 16:9.
+
+**Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
+
+## The workspace's state
+
+
+### AC89.1 - Applying a filter reads the base asset and replaces the candidate, so filter results chain only when locked.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.1: a second filter applied without an intervening lock reads the base
+  - ✅ RT-89.2: a second filter applied after a lock reads the locked result
+  - ✅ RT-89.3: after two applications without a lock, toggling to the base shows the imported image
+
+### AC89.2 - Lock is the only action that moves the base, and it promotes the candidate at its own resolution, never the upscaled rendering of it.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.4: locking promotes the candidate and the base changes
+  - ✅ RT-89.5: applying a filter leaves the base unchanged
+  - ✅ RT-89.6: an upscale leaves the base unchanged
+  - ✅ RT-89.7: locking with no candidate leaves the base unchanged and reports why
+  - ✅ RT-89.23: with an upscale rendered and shown, locking promotes the candidate at its own resolution rather than the rendering
+- Note: RT-89.23 is the condition an implementation gets wrong by accident. With the scale on, what
+  the user is looking at *is* the upscaled rendering, so "lock what I see" is the natural code and it
+  stores a derivation as the base. The graph refuses an upscaled asset here, so the rule is enforced
+  rather than remembered.
+
+### AC89.3 - Every locked iteration remains reachable from the current base, each carrying the provenance of how it was produced and saveable at the current scale selection.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.8: after two locks, both iterations are reachable in order
+  - ✅ RT-89.9: a locked iteration produced by a filter carries that filter's identity
+  - ✅ RT-89.10: an iteration reached by scrolling back is saveable at the current scale selection
+- Note: saving is *at the current scale selection* rather than at whatever resolution the iteration
+  happens to be, because guide 2.6 rules that an earlier iteration re-derives its upscale on demand.
+
+### AC89.4 - An upscaled asset is never the input to a filter or to a further upscale, enforced by the graph rather than by the view.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.11: a filter applied while an upscaled asset exists reads the base
+  - ✅ RT-89.12: submitting an upscaled reference as a stage input reports the rule it breaks
+- Note: RT-89.12 is what makes this the graph's job rather than the view's. The view can only avoid
+  the mistake; the graph can refuse it. `AssetReference`'s initializer is not public, so a caller
+  outside the package cannot invent one for a file it happens to know about.
+- Note: the harm the rule prevents is exceeding the filter model's working resolution, not upscaling
+  as such --- which is why `raisedToMinimum` is a separate role that *is* valid filter input.
+
+### AC89.5 - The canvas shows the base or the candidate as the user chooses, the choice changes nothing that is stored, and a newly produced candidate is shown whichever was chosen before it.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.13: with a candidate present, the toggle shows the base
+  - ✅ RT-89.14: toggling back shows the candidate
+  - ✅ RT-89.15: toggling leaves the graph unchanged
+  - ✅ RT-89.27: with no candidate, the filter toggle is unavailable
+  - ✅ RT-89.28: applying while showing the base shows the new candidate
+- Note: RT-89.28 exists because applying while showing the base would otherwise look as though
+  nothing had happened.
+
+### AC89.6 - The scale selection and the filter toggle are independent, so each of base, base upscaled, candidate and candidate upscaled is reachable.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.16 to RT-89.19: the four combinations, asserted in one test that walks all four
+  - ~~🚫 RT-89.24~~ --- transferred to #90 as RT-90.18. Identifier retired and not reused.
+- Note: **written as one test rather than four, and that is what found the defect.** Four separate
+  tests each pass against an implementation that couples the toggle to the scale, because each only
+  ever asks about one pairing. Walking all four found that `WorkspaceState.recordUpscale` and
+  `displayedAsset(upscaledWhenAvailable:)` both asked the graph for the *working asset* --- the
+  candidate whenever one exists --- while the criterion is about what is *displayed*, and the two
+  differ exactly when the toggle shows the base.
+- Note: showing the base upscaled means running Core ML on the base, which is seconds of work started
+  by flicking a toggle. Showing an unupscaled base while the scale is on would be cheaper and worse:
+  the user could not tell whether they were looking at a rendering or a raw image. Making that cheap
+  is AC90.7's business, not this one's.
+
+### AC89.7 - Settings offers no pricing or account controls, and no pricing or account client is constructed.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.20: Settings presents no pricing control
+  - ✅ RT-89.21: Settings presents no account control
+  - ✅ RT-89.22: the application shows no pricing or account state, in either window
+- Note: the third condition is the point --- controls removed while the clients still ran would leave
+  the application contacting a provider the MVP excludes. **Its structural half is confirmed by
+  `audit-code` rather than asserted**, for the reason `TESTING.md` gives: a test cannot watch a
+  constructor run, and checking it by reading source is forbidden. RT-89.22 asserts the observable
+  half, by identifier *and* by the visible words so a renamed control does not pass.
+- Note: the clients remain in `FalGenerationKit` for the version that needs them. What went is the
+  application's plumbing, including the UI-test stubs for coordinators nobody builds.
+
+### AC89.8 - The lock chain belongs to the working image: importing another image starts a new chain, and the previous chain's files are released.
+- Introduced: #89 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-89.25: importing a new image empties the lock chain
+  - ✅ RT-89.26: the files of a released chain no longer occupy the output directory
+- Note: the chain belongs to the image it was built from. Carrying it across would offer iterations
+  of a picture no longer on screen, and keeping the files would grow the output directory for the
+  life of the session.
+
+## The display model
+
+### AC90.1 - An imported image occupies the canvas from the moment it is loaded and before anything derived from it exists, and progress appears over it rather than in place of it. Loading the import itself is the one operation with nothing beneath it.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.1: an imported image is on the canvas before an upscale completes
+  - ✅ RT-90.2: the canvas is never empty while an image is loaded
+  - ✅ RT-90.25: while an upscale is under way, the progress indicator and the image are both present
+  - ✅ RT-90.40: while the import itself is loading, progress is shown with no image beneath it
+
+### AC90.2 - An operation in flight leaves the canvas showing what it was showing, with progress over it.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.3: with a derivation present, the image is the same before work starts and while it runs
+  - ✅ RT-90.4: during an upscale progress is shown over the image rather than in place of it
+  - ✅ RT-90.5: during a second upscale the previous rendering remains visible until the new one is ready
+- Note: a canvas that empties itself to say it is busy has thrown away the thing the user came for.
+
+### AC90.3 - Turning off the upscale or the filter shows the base immediately, and any operation in flight for the thing turned off is cancelled rather than arriving later.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.6: turning the scale off shows the base without waiting
+  - ✅ RT-90.7: turning the filter off shows the base without waiting
+  - ✅ RT-90.8: neither leaves a stale rendering on the canvas
+  - ✅ RT-90.23: turning the scale off during an upscale cancels the run at the stage, and a late completion is not admitted
+- Note: RT-90.23's two halves are separate guarantees and neither implies the other. Cancellation
+  that does not stop the work wastes a Neural Engine for a minute; a stop that does not guard the
+  result puts an upscale on a canvas whose scale the user has just turned off.
+
+### AC90.4 - Toggling face enhancement leaves the canvas unchanged until the corresponding rendering exists, because both are renderings of one operation rather than one being a fallback for the other. With no upscale selected the face setting changes nothing on the canvas.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.9: toggling face enhancement leaves the previous rendering on screen while the new one builds
+  - ✅ RT-90.11: the rebuild count for two toggles of the same pair is one, not two
+  - ✅ RT-90.41: with the scale off, toggling face enhancement leaves the canvas showing the base
+
+### AC90.5 - The comparison is a curtain across the image, and the loupe does not exist.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.12: entering comparison shows the curtain
+  - ✅ RT-90.13: no loupe or mode toggle is present
+  - ✅ RT-90.14: the curtain's divider can be moved across the image
+- Note: the divider was a `Circle` with a drag gesture. SwiftUI keeps shapes out of the accessibility
+  tree entirely, identifier or not, so for five months it existed for nobody but a mouse --- which is
+  why RT-90.14 could not be made to pass until the shape was declared an element.
+
+### AC90.6 - The curtain compares whatever is displayed against the image it derives from, and is absent when there is no derivation.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Superseded in part by: AC94.3
+- Tests:
+  - ✅ RT-90.15: with an upscale present, the curtain compares base against upscale
+  - ✅ RT-90.16: with a filter result present, the curtain compares base against that result
+  - ✅ RT-90.17: with no derivation present, no curtain is shown
+  - ✅ RT-90.24: while an earlier iteration is being viewed, the curtain compares that iteration against its own derivation, or is absent
+- Note: "the image it derives from" is the *base*, not the immediate parent. Read as the parent it
+  paired a filter result with its own upscale --- a comparison of resolution and nothing else.
+  AC94.3 states it as the base explicitly.
+
+### AC90.7 - A rendering already produced for an asset, model, sizing and face setting is shown again without being rebuilt.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.10: a rendering already built is shown again without being rebuilt
+  - ✅ RT-90.18: turning the scale off and on again shows the upscale without rebuilding it
+  - ✅ RT-90.19: toggling face enhancement off and on again rebuilds neither rendering
+  - ✅ RT-90.20: a rendering of a different asset is not offered for the current one
+  - ✅ RT-90.21: a rendering at a different scale is not offered for the current one
+  - ✅ RT-90.22: no more than four renderings are held, and the least recently used is dropped first
+- Note: the key is the whole identity --- asset, model, sizing, faces --- so invalidation falls out
+  of it rather than being managed. Applying a filter mints a new asset identity, its renderings
+  simply miss, and nothing still valid is discarded.
+- Note: the author found the omission by its asymmetry: toggling faces was instant while toggling the
+  scale rebuilt from scratch, because the store was consulted on one path and not the other.
+
+### AC90.8 - An operation that fails leaves the canvas showing what it was showing, clears the progress indicator, and presents no partial or stale result as though it had succeeded.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.26: a failed upscale leaves the base on the canvas
+  - ✅ RT-90.27: a failed upscale clears the progress indicator
+  - ✅ RT-90.28: a failed filter leaves the previous display unchanged
+  - ✅ RT-90.29: a failed operation contributes no rendering to the store
+
+### AC90.9 - A rendering produced for a base or a setting that is no longer current is discarded rather than displayed.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.30: an upscale completing after a second import is not displayed
+  - ✅ RT-90.31: an upscale completing after a lock is not displayed
+  - ✅ RT-90.32: with two face-enhancement toggles in flight, the rendering displayed is the one matching the current setting rather than the one that finished last
+  - ✅ RT-90.33: the canvas shows the new base while the superseded rendering is still under way
+- Note: what a rendering was produced *from* travels with it, as a stamp. Without that, a slow
+  upscale of a picture the user has already replaced arrives and is presented as a derivation of its
+  successor.
+
+### ~~🚫 AC90.10 - The curtain presents both sides at one displayed size.~~
+- Introduced: #90 (closed 2026-08-25)
+- **Superseded by AC96.3.** One displayed size means one displayed *rectangle*, so the moment the two
+  sides differ in shape something has to be stretched to fill it. Grok raises a short edge under 1024
+  to its working size and squares the result, so a 3:4 photograph returns 1:1 --- and the criterion
+  as written produced the defect. What it was reaching for survives as AC96.4: the divider addressing
+  the same relative position in both.
+- Tests: ~~🚫 RT-90.34, RT-90.35, RT-90.36~~ --- superseded by RT-96.8 to RT-96.12 and RT-96.9. The
+  equal-aspect case they were written for is RT-96.10. Identifiers retired and not reused.
+
+### AC90.11 - A filter result already produced remains available while the filter is toggled off, and reappears without the provider being contacted again.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.37: toggling the filter off and on again shows the same result
+  - ✅ RT-90.38: the second toggle issues no provider request
+  - ✅ RT-90.39: applying a different filter replaces the preserved result rather than accumulating one
+- Note: RT-90.38 is about money. A filter result already in hand is a picture, not a reason to pay 2c
+  again for the same one.
+- Note: RT-90.39 is the plausible-wrong-image case. An implementation keying on "the candidate" as a
+  role rather than as an identity would serve the previous filter's picture for the new filter.
+
+### AC90.12 - The rendering on the canvas is not discarded by the bound on stored renderings.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.42: with the store full, admitting a further rendering does not evict the displayed one
+  - ✅ RT-90.43: the least recently used rendering other than the displayed one is dropped first
+- Note: four entries is exactly the base and candidate faces pairs, so in ordinary use the store is
+  full and the next admission would otherwise evict the picture the user is looking at.
+
+### AC90.13 - While an operation is under way the picture is drawn unaltered outside the progress indicator's own bounds, with no blur, dimming or material across it. The indicator sits at the top of the canvas and may carry a background within its own bounds.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.44: while an upscale is under way, the indicator's area is under a quarter of the canvas area
+  - ✅ RT-90.45: the image remains present and hit-testable while the indicator is shown
+  - ✅ RT-90.49: the indicator's vertical midpoint lies in the upper third of the canvas
+  - ✅ RT-90.52: the canvas outside the indicator's frame is identical before work begins and while it runs
+  - ⏳ UT-90.2: the picture is unaltered while the ticker sits on top
+- Note: **this criterion exists because its predecessor was reported as satisfied and failed.** The
+  author was told the picture remained visible with the ticker on top, and it did --- softened.
+  `ProgressOverlay` filled the canvas with a `.thinMaterial` background, which is a blur. The
+  requirement is exact: the picture is not merely *present*, it is *unaltered*. A blur moves no
+  element's frame, so RT-90.52 is the observable half and the visual half stays a user test.
+
+### AC90.14 - The curtain divider sits where the pointer is: its position within the displayed image frame matches the pointer's position within that frame, between 5% and 95% of its width, where it stops. The mapping holds at any window width, with any side-panel width, and at any zoom or pan.
+- Introduced: #90 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-90.46: a pointer position maps to the divider fraction at the same relative position
+  - ✅ RT-90.47: the mapping is unchanged by window width, by side-panel width, and by a canvas wider than the image's aspect
+  - ✅ RT-90.48: a divider dragged to a known point comes to rest at that point
+  - ✅ RT-90.50: a pointer beyond either end leaves the divider at 5% and 95% respectively
+  - ✅ RT-90.51: the mapping is unchanged at a zoom other than 1.0 and with a non-zero pan offset
+- Note: the arithmetic lives in `CurtainGeometry`, out of the view. Inside a `body` it was a defect
+  nobody could write a test for, and UT-90.1 failed on it --- "the mouse pointer does not align with
+  the curtain".
+- Note: RT-90.48 measures at **two** drag positions. The divider's fraction is clamped to the
+  *picture's* frame, which is narrower than the canvas, so a drag far enough across the canvas
+  legitimately stops at the picture's edge --- and one measurement cannot tell that from a
+  coordinate-space error, because both leave the handle short of the pointer.
+
+## Reference upload
+
+### AC92.1 - A filter's reference reaches the provider as a URL that the provider itself issued, and no request body carries image bytes.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.1: an applied filter's request body contains no base64 payload
+  - ✅ RT-92.2: the request references the URL the upload returned
+  - ✅ RT-92.3: the request body's size is independent of the reference's size
+- Note: RT-92.1 decodes the body rather than matching its text. `JSONSerialization` escapes forward
+  slashes, so a body genuinely containing `https://v3.fal.media/...` does not contain that string,
+  and a version relaxed to make the string match would pass against a body carrying no URL at all.
+
+### AC92.2 - Uploading a reference obtains its destination from the provider before sending, rather than posting to an address chosen locally.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.4: the initiate request carries the file name and content type as JSON
+  - ✅ RT-92.5: the bytes are sent to the address the initiate response gave, not to a fixed one
+  - ✅ RT-92.6: the returned file URL is the one the initiate response gave
+- Note: a composed URL is the plausible shortcut, and RT-92.6 blocks it.
+
+### AC92.3 - An uploaded reference URL is never reused across calls: each apply uploads afresh.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.7: two applies of the same base perform two uploads
+  - ✅ RT-92.8: with the provider issuing a different URL each time, two applies send two different URLs
+- Note: the guarantee is the absence of a cache, which is structural, so the test for it is
+  behavioural. The stub issues a different URL per upload; a cache would fail RT-92.8 in a way an
+  internals check would not.
+
+### AC92.4 - The reference's content type is determined by what the file contains, not by what it is called.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.9: a PNG named `.jpg` is uploaded as a PNG
+  - ✅ RT-92.10: a file whose content matches no supported type is refused before anything is uploaded
+- Note: the code this criterion was written about did the opposite. `MainView.dataURL(for:)` chose
+  the media type with `switch url.pathExtension`, so a PNG named `.jpg` went out declared a JPEG.
+  `FalStorageClient.contentType(of:)` reads the content, through `CGImageSourceGetType`.
+
+### AC92.5 - An upload that fails is reported against the filter stage, and the base and any candidate survive it.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.11: an initiate failure surfaces as a filter-stage failure in plain language
+  - ✅ RT-92.12: a byte-transfer failure surfaces the same way
+  - ✅ RT-92.13: neither leaves a partial reference behind for the generation request to use
+- Note: the transfer failure is the dangerous one. The initiate exchange has already returned a
+  `file_url`, so an implementation returning it before the bytes arrive would hand the provider a
+  URL with nothing behind it.
+
+### AC92.6 - The credential used for upload is the generation key, and it appears only in a request header.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.14: the initiate request carries `Authorization: Key <token>`
+  - ✅ RT-92.15: no request URL or body contains the token
+  - ✅ RT-92.16: no diagnostic or persisted record contains the token
+- Note: checked across *both* exchanges, not only the first. The signed upload address carries no
+  credential of ours, so the transfer sends none.
+
+### AC92.7 - The picture uploaded is the base at its own resolution, never a rendering of it.
+- Introduced: #92 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-92.17: the bytes uploaded are those of the base's own file
+  - ✅ RT-92.18: with an upscale present on the canvas, the upload is still the base
+  - ✅ RT-92.19: with a candidate present, the upload is the base rather than the candidate
+- Note: the three conditions are the three ways the wrong picture gets chosen --- reaching for what is
+  on screen (the upscale), for the working asset (the candidate), or for the last thing produced.
+
+## The controls report the state
+
+### AC93.1 - The scale control and the custom dimension fields show what is actually in effect, from the moment the picture is loaded rather than after an upscale completes, and where that differs from what was requested both are visible and distinguishable. Where no upscale can run at all, no scale reads as active. A scale shown as not in effect remains choosable.
+- Introduced: #93 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-93.1: with a reduction in force, the effective scale is the one shown as active
+  - ✅ RT-93.2: the requested scale remains visible, is marked as not in effect, and is still choosable
+  - ✅ RT-93.3: with no reduction, exactly one scale is shown and it is the requested one
+  - ✅ RT-93.9: a reduced custom target shows the effective dimensions, with the typed ones still legible
+  - ✅ RT-93.10: the readout derives the effective scale with no completed run available to it
+  - ✅ RT-93.11: where nothing fits at any scale, no scale reads as active
+  - ✅ RT-93.14: replacing a fitting picture with a larger one moves the effective scale directly
+  - ✅ RT-93.15: the scale control's accessibility value reports the readout's state, and is correct while an upscale is still in flight
+- Note: the author's report was "large image warning but UX buttons unchanged indicating 4x active
+  when it is not". `ScaleReadout` derives the effective scale from the picture's own dimensions
+  rather than from a completed run, so the control is correct from the moment the picture loads ---
+  which RT-93.10 and RT-93.15 assert directly, because a control reading from a finished run has
+  nothing to say before one exists.
+- Note: **still choosable** is the half a reduction must not take away. The reduction reports what
+  ran; it does not remove the choice.
+
+### AC93.2 - A reduction does not change which scale the user has chosen: choosing a smaller picture restores the full requested scale without the user reselecting it.
+- Introduced: #93 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-93.4: after a reduction, importing a picture that fits runs at the originally requested scale
+  - ✅ RT-93.5: the stored selection is unchanged by a reduction
+- Note: AC82.8 holds --- the selection changes only when the user changes it --- so the control keeps
+  showing what was asked for and the message reconciles it with what ran.
+
+### AC93.3 - Every face-enhancement control is unavailable while no scale is selected, and its unavailability is visible rather than silent. The face model remains obtainable while the controls are unavailable.
+- Introduced: #93 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-93.6: with the scale off, the toolbar's face control is disabled
+  - ✅ RT-93.7: selecting a scale enables it again
+  - ✅ RT-93.8: the disabled control explains why rather than merely being dimmed
+  - ✅ RT-93.12: with the scale off and the face model absent, the model is still reachable from the upscale-model sheet
+  - ✅ RT-93.13: with the scale off, the upscale-model sheet's face row is disabled too
+- Note: face enhancement is a stage of the upscale. With no scale selected there is no upscale for it
+  to be a stage of, so a control offering a setting that changes nothing is worse than no control.
+- Note: **the reason is an accessibility value, not only a `.help`.** A tooltip is a hover affordance:
+  it reaches nobody not holding a pointer still over the control, and nothing asking the tree what
+  the state is. That is guide 3.9's rule applied to a disabled control's reason rather than to an
+  active control's state.
+- Note: the model stays obtainable. Disabling the route to it along with the setting would leave a
+  user who has never downloaded it unable to, and no way to find out why.
+
+## What the canvas reports, and what the curtain compares
+
+### AC94.1 - Work of any kind on the working image shows progress on the canvas, whether it is a local upscale or a provider call, and stops showing it when that work stops for any reason including cancellation.
+- Introduced: #94 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-94.1: while a filter is being applied, the canvas shows progress
+  - ✅ RT-94.2: while an upscale runs, the canvas shows progress
+  - ✅ RT-94.3: with both in sequence, progress is continuous rather than lapsing between them
+  - ✅ RT-94.4: with nothing running, no progress is shown
+  - ✅ RT-94.15: a cancelled filter stops the progress and leaves the display as it was
+- Note: pressing Apply started a provider call that ran for tens of seconds while the canvas showed
+  nothing. The application knew --- the status dot and the filter panel both consulted the
+  coordinator --- and the one surface the user was looking at did not ask.
+
+### AC94.2 - The progress shown names the work currently under way, so where one operation hands over to another the name follows it.
+- Introduced: #94 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-94.5: an applying filter and a running upscale are distinguishable in what the canvas reports
+  - ✅ RT-94.6: a provider call reports that it is a provider call rather than reporting tile counts
+  - ✅ RT-94.14: at the handover from filter to upscale, the name changes with the work
+- Note: RT-94.14 is not RT-94.3 restated. Progress that persists under the *old* name looks identical
+  from outside and tells the user a provider call is still running while their Neural Engine grinds
+  through tiles.
+
+### AC94.3 - The curtain compares what is on the canvas against the base it descends from, so a filter result is compared against the picture it was made from rather than against its own upscale.
+- Introduced: #94 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Supersedes: AC90.6's comparison clause
+- Tests:
+  - ✅ RT-94.7: after a filter, the curtain's two sides are the base and the filter result
+  - ✅ RT-94.8: after an upscale of an unfiltered picture, the two sides are the picture and its upscale
+  - ✅ RT-94.9: after a filter and an upscale of it, the two sides are the base and the upscaled filter result
+  - ✅ RT-94.10: the two sides are never the same asset
+  - ✅ RT-94.16: while an earlier locked iteration is being viewed, the curtain compares that iteration against what descends from it, or is absent
+- Note: the far side came from `viewModel.originalImage`, which `processImage` replaces with whatever
+  it was last asked to upscale. After a filter that is the filter's own output, so the curtain showed
+  the filtered picture against the upscale of the same filtered picture --- two images differing in
+  resolution and in nothing else. "The before/after image is the same" was the author's description
+  and it was accurate.
+- Note: asserted against `baseFileURL`, the property the view reads, rather than against a helper
+  written for the occasion. A graph-based guard was tried and suppressed the curtain outright,
+  because the view model performs upscales the graph never records --- so "the graph does not know
+  what this is" is the ordinary case rather than an error.
+- Note: RT-94.16 asserts what both permitted answers have in common rather than demanding one of
+  them. Every earlier iteration is in the current base's own ancestry, so a comparison drawn there is
+  against something it genuinely descends from.
+
+### AC94.4 - Scrolling moves the picture only while the pointer is over it, and how far it has been moved is observable rather than only visible.
+- Introduced: #94 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-94.11: a scroll over the filter panel leaves the picture where it is
+  - ✅ RT-94.12: a scroll over the picture pans it
+  - ✅ RT-94.13: a scroll with no comparison on screen pans nothing
+  - ✅ RT-94.17: a location inside the picture belongs to it and one outside does not, at any window size
+  - ✅ RT-94.18: the comparison reports its pan as a value
+- Note: the picture was panned from an `NSEvent` monitor that never asked where the pointer was, so
+  scrolling the filter category strip moved the photograph. A monitor is a global interception
+  dressed as a view behaviour: it fires for the toolbar, the side panel, the lock chain and the
+  status bar alike.
+
+## The filterable minimum, and the curtain's geometry
+
+### AC96.1 - A picture whose long edge is under the documented minimum is raised to it before any filter sees it, and the user is told that happened. Where no available scale reaches the minimum, it is raised as far as it goes and the user is told the provider may alter it.
+- Introduced: #96 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-96.1: an undersized picture reaches the provider at or above the minimum long edge
+  - ✅ RT-96.2: a picture already at or above it is sent unchanged
+  - ✅ RT-96.3: the raising is reported
+  - ✅ RT-96.4: the raised picture becomes the base, and the scale is turned off, so it is not repeatedly re-upscaled
+  - ✅ RT-96.17: a picture too small to reach the minimum at 8x is raised as far as it goes and reported as possibly altered
+- Note: the floor is **1024 pixels on the long edge**, held in one named constant and open to
+  revision. Long edge rather than a width and a height, so portrait, landscape and square are covered
+  without baking in an aspect ratio. The check sits at Apply rather than at import, because the base
+  can change after import and a check made only on the way in leaves the defect in place on every
+  subsequent apply.
+- Note: a raise is a distinct asset role from an upscale. `raisedToMinimum` targets the filter
+  model's working resolution and remains valid filter input; `upscaled` targets the size the user
+  asked for and the graph refuses it as a stage input. Recorded as an upscale, a raised picture could
+  never be sent and the floor could never be enforced.
+
+### AC96.2 - The floor is re-enforced whenever a setting change would drop the working image below it.
+- Introduced: #96 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-96.5: a raise that fell short of its target leaves the floor still needing enforcement
+  - ✅ RT-96.6: the message appears again when it does
+  - ✅ RT-96.7: a change that stays above the minimum raises nothing
+- Note: this depends on the graph recording what a raise **produced** rather than what it targeted.
+  An allocation is made before the work runs, so its size is an intention: a model whose native scale
+  is lower than the one requested delivers less, and the area ceiling can reduce a request outright.
+  Recorded at its target, such a raise claims a floor it never reached and the next apply sends an
+  undersized picture believing it corrected.
+- Note: RT-96.5's planned wording was "changing the upscale model so the result falls below the
+  minimum raises it again", which describes a situation the application cannot reach --- changing the
+  model does not shrink a file that already exists. The model *is* the mechanism, but at the time the
+  work runs rather than afterwards. The test drives the reachable form and the criterion is
+  unchanged; the deviation is recorded on #96.
+
+### AC96.3 - The two sides of the curtain are drawn at the same displayed width, each keeping its own proportions, so neither is stretched to match the other's shape and their heights differ when their shapes do. That width is the largest at which both sides fit within the canvas.
+- Introduced: #96 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Supersedes: AC90.10
+- Tests:
+  - ✅ RT-96.8: sides of differing aspect are each drawn at their own ratio
+  - ✅ RT-96.9: a 1:1 return beside a 3:4 original leaves the original at 3:4
+  - ✅ RT-96.10: two sides of equal aspect produce two identical frames, so the ordinary case is unchanged
+  - ✅ RT-96.16: sides of differing aspect share a width and differ in height
+  - ✅ RT-96.18: a portrait side is not clipped in a wide canvas
+- Note: AC90.10 required both sides at one displayed *size*, which is one displayed rectangle --- so
+  the moment two shapes differ, something has to be stretched to fill it. Grok raises a short edge
+  under 1024 to its working size and squares the result, so a 3:4 photograph returns 1:1 and the
+  user's own picture was stretched to match it.
+- Note: the shared width is bounded by the canvas rather than equal to it. Using the full width
+  unconditionally clips the more portrait of the two off the bottom, which reads as a new defect
+  rather than an incomplete fix.
+
+### AC96.4 - The curtain's divider addresses the same fraction of width in both pictures whatever their shapes, so dragging it compares like with like.
+- Introduced: #96 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-96.11: a divider at 50% is at the horizontal midpoint of each side
+  - ✅ RT-96.12: the mapping holds where the two aspects differ
+  - ✅ RT-96.13: the divider's own position remains the pointer's, per AC90.14
+- Note: sharing the width is what makes AC96.3 and AC96.4 compatible. Each side drawn at its own
+  aspect in a frame of its own width would put one vertical line at a different fraction of each
+  picture, so "each keeps its proportions" and "the divider means the same on both" described a
+  geometry that does not exist.
+- Note: RT-96.13 asserts `dividerFraction` and `dividerX` as inverses across the clamped band rather
+  than checking each against arithmetic that could be wrong in the same direction twice. UT-90.1
+  failed on exactly that --- the pointer not aligning with the curtain.
+
+### AC96.5 - A returned picture whose shape differs from what was sent is identifiable as such, rather than silently presented as though the provider had preserved the framing.
+- Introduced: #96 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-96.14: a return of differing aspect is marked, and the mark appears in the window
+  - ✅ RT-96.15: a return of matching aspect is not marked
+- Note: recorded on the asset rather than recomputed by the view, because what was *sent* is not
+  always the parent --- the area ceiling reduces a picture before it goes and the minimum-resolution
+  floor raises one. A view deriving the answer from the parent's size would describe the graph while
+  appearing to describe the provider.
+- Note: compared as a ratio with a tolerance rather than by equality, so a provider rounding to an
+  even number of pixels is not reported as a reshaping. An unrecorded size yields "not known", never
+  a silent "no" --- and at the *view's* boundary that collapses to "say nothing", because telling a
+  user something on a guess is worse than staying quiet.
+- Note: **"identifiable as such" means the user can tell, not that the graph knows.** The provenance
+  recorded the difference and nothing displayed it, so the criterion was delivered to its tests and
+  not to anybody using the application. A notice now says so, on the same status-bar channel as the
+  raise and the area reduction.
+
+## Provider failures
+
+### AC98.1 - Every provider failure is read by the same parser, whichever client made the call.
+- Introduced: #98 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-98.1: a generation failure and a pricing failure with identical bodies produce identical diagnostics
+  - ✅ RT-98.2: a nested `error.message` is read on every client
+  - ✅ RT-98.3: a request identifier is attached on every client
+- Note: pricing had its own smaller reader --- `message` or `detail`, no nesting, no request
+  identifier, no redaction --- so an identical body produced a different and less safe diagnostic
+  depending on which call happened to fail. Identical bodies producing identical diagnostics is the
+  strongest form of "the same parser" that can be asserted from outside, and it is asserted that way
+  rather than by inspecting which function each client calls.
+
+### AC98.2 - A validation failure reported as a list is read, and each entry contributes.
+- Introduced: #98 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-98.4: a `detail` list of one entry produces that entry's message
+  - ✅ RT-98.5: a `detail` list of several produces all of them
+  - ✅ RT-98.6: a `detail` string still produces that string
+- Note: FastAPI --- which the platform host runs --- reports validation failures as
+  `detail: [{...}, {...}]`. Against a list the parser fell through to the next envelope and then to
+  "The provider rejected the request.", discarding the only part that said what was wrong. RT-98.6
+  guards the regression a list-handling fix invites.
+
+### AC98.3 - No credential the application holds appears in a diagnostic, whichever client produced it, whichever credential it is, and whatever shape the provider's body took, including a body long enough to be truncated.
+- Introduced: #98 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-98.7: a key echoed in a `message` is redacted
+  - ✅ RT-98.8: a key echoed in a `detail` list entry is redacted
+  - ✅ RT-98.9: a key echoed in an unparseable body is redacted
+  - ✅ RT-98.10: redaction happens on the pricing and account clients as well as on generation
+  - ✅ RT-98.16: a generation failure redacts an echoed account key, not only the one the call used
+  - ✅ RT-98.17: a secret straddling the truncation boundary leaves no fragment behind
+- Note: **redact, then truncate.** The other order leaves a fragment of any secret straddling the
+  limit, because redaction replaces whole occurrences and half a key is not one --- and a test
+  asserting the whole key is absent would pass, since the whole key genuinely is.
+- Note: **every credential, not the one the call used.** Redaction removes only what it is handed,
+  so each client takes the whole set rather than its own key. This application holds two.
+- Note: no test uses a real credential. The keys are strings the tests invent.
+
+### AC98.4 - A failure carries what a caller needs to decide what to do about it, without matching on which client raised it.
+- Introduced: #98 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-98.11: a missing or rejected credential is distinguishable from a transport failure
+  - ✅ RT-98.12: a rejected credential classifies as `credential` and an unreachable host as `transport`
+  - ✅ RT-98.13: the provider's own words survive the classification
+- Note: the classification is added to the diagnostic rather than replacing it. A taxonomy that
+  turned "the model rejected that aspect ratio" into "request error" would be worse than no taxonomy:
+  the category tells the caller what to do, the words tell the user what happened.
+
+### AC98.5 - A failure reaches the user through one surface, whatever raised it.
+- Introduced: #98 (closed 2026-08-25)
+- Migrated: 2026-08-25
+- Tests:
+  - ✅ RT-98.14: a filter failure and an upscale failure are presented the same way
+- Note: **half of this criterion is a design property, confirmed by `audit-code` rather than
+  asserted.** "No failure path bypasses that surface" asks a test to prove a negative across paths
+  that do not exist yet, and checking it by reading source is what `TESTING.md` forbids. What the
+  implementation does instead is make it a compile error: `UpscaleViewModel.errorMessage` is
+  `private(set)`, with `report` and `dismissError` the only ways in, so a later path finds nowhere
+  else to write. A compile error is a stronger guarantee than a test nobody re-runs.
+- Note: the one deliberate exception is the face-model download sheet, which shows its own failure as
+  a stage of its own flow with its own retry. The sheet is modal: an alert raised behind it would be
+  unreachable until the user dismissed the very flow the failure is about.
+- Note: RT-98.14 compares what each alert *says*, not its title. An `NSAlert`'s own label is "Error"
+  for every failure alike, so comparing labels would compare two identical strings and prove nothing.
 
 **Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
