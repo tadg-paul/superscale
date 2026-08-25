@@ -734,12 +734,42 @@ final class SuperscaleAppUITests: XCTestCase {
     private func selectScale(_ scale: Int) {
         let button = app.buttons["scale\(scale)x"]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "scale\(scale)x exists")
+        XCTAssertTrue(
+            button.isEnabled,
+            "scale\(scale)x is enabled; clicking a disabled button changes nothing and reports nothing")
         let value = (button.value as? String ?? "").lowercased()
         let alreadyInEffect = value.contains("in effect") && !value.contains("not in effect")
         XCTAssertFalse(
             alreadyInEffect,
             "scale\(scale)x is already in effect; clicking it would turn upscaling off")
         button.click()
+
+        // The click is not the outcome. A scale that never registers is the difference between "the
+        // notice never appeared" and "nothing was ever asked for", and without this the two look
+        // identical from the failure message.
+        //
+        // What is waited for is that the scale was **requested**, not that it is in effect. Those
+        // differ by design: AC93.1 requires the control to keep showing what was asked for while
+        // reporting what is actually running, so a scale the ceiling reduces reads "requested, not
+        // in effect" and never becomes "in effect" at all. Waiting for the stronger condition waits
+        // for something the application is correct not to do.
+        let registered = NSPredicate(format: "value CONTAINS[c] 'requested'")
+        let seen = XCTNSPredicateExpectation(predicate: registered, object: button)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [seen], timeout: 20), .completed,
+            "scale\(scale)x registers as requested after the click: \(scaleState())")
+    }
+
+    /// What every scale control currently reports, for a failure message.
+    private func scaleState() -> String {
+        [2, 4, 8]
+            .map { scale in
+                let button = app.buttons["scale\(scale)x"]
+                guard button.exists else { return "\(scale)x absent" }
+                let value = button.value as? String ?? "no value"
+                return "\(scale)x \(button.isEnabled ? "enabled" : "disabled") \"\(value)\""
+            }
+            .joined(separator: "; ")
     }
 
     // RT-101.1, RT-101.2
@@ -764,7 +794,13 @@ final class SuperscaleAppUITests: XCTestCase {
         // upscale **completes**, and 3200 x 2560 is real work on the Neural Engine. Ten seconds is
         // not enough, which is what failed the first run of this test.
         let said = statusBarText(of: "noticeMessage", timeout: 120)
-        XCTAssertFalse(said.isEmpty, "the reduction is reported")
+        XCTAssertFalse(
+            said.isEmpty,
+            """
+            the reduction is reported. \
+            status bar says "\(statusBarText(of: "statusText"))"; \
+            scales: \(scaleState())
+            """)
         XCTAssertTrue(
             said.localizedCaseInsensitiveContains("memory"),
             "and says why: \"\(said)\"")
@@ -802,7 +838,11 @@ final class SuperscaleAppUITests: XCTestCase {
         selectScale(8)
         XCTAssertFalse(
             statusBarText(of: "noticeMessage", timeout: 120).isEmpty,
-            "the notice is reachable rather than absorbed")
+            """
+            the notice is reachable rather than absorbed. \
+            status bar says "\(statusBarText(of: "statusText"))"; \
+            scales: \(scaleState())
+            """)
     }
 
     // RT-101.4

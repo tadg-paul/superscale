@@ -313,7 +313,18 @@ final class UpscaleViewModel: ObservableObject {
     /// the value being published rather than the one it is replacing.
     private func reupscaleIfNeeded(with selection: ScaleSelection? = nil) {
         let selection = selection ?? scaleSelection
-        guard !selection.isOff, let url = inputURL, !isProcessing else { return }
+        // **A run already in flight does not discard the new choice.** This guard used to include
+        // `!isProcessing`, which dropped the request silently: the scale control accepted the
+        // click and its readout — a pure function of the source and the request — began reporting
+        // "8x requested, 4x in effect", while nothing had been requested of anything. The user was
+        // shown a claim about a run that was never started.
+        //
+        // Superseding is already handled where it belongs. `start` cancels the task in flight, and
+        // both `publish` and `abandon` guard on `activeRun`, so a replaced run cannot land after
+        // its replacement; `abandon` also treats cancellation as not a failure, so the discarded
+        // run says nothing. That is what makes the guard unnecessary rather than merely
+        // inconvenient.
+        guard !selection.isOff, let url = inputURL else { return }
         processImage(source: currentInputSource ?? .imported(url), selection: selection)
     }
 
@@ -613,7 +624,20 @@ final class UpscaleViewModel: ObservableObject {
         // toggling the scale off and on again rebuilt from scratch every time while toggling faces
         // was instant — the asymmetry the author noticed, and the evidence for where the omission
         // was.
-        if let held = heldRendering(facesEnhanced: faceEnhance) {
+        // **The effective selection, not the property.** `@Published` publishes in `willSet`, so a
+        // caller inside the `$scaleSelection` sink is passing the value being published while
+        // `self.scaleSelection` still holds the one it replaces. The guard three lines into that
+        // sink was already written this way; the store lookup was not, and read the previous scale.
+        //
+        // What that cost: choosing 8x looked up the key for 4x, found the rendering made at import,
+        // returned it instantly and never called `start`. So no run happened, `publish` never fired,
+        // and the reduction from 8x to 4x was never reported — while the scale control, which
+        // derives its readout from a pure function rather than from a completed run, correctly said
+        // "8x requested, 4x in effect". Correct label over a picture nothing had produced for it.
+        //
+        // Worse where the ceiling does not intervene: choose 8x on a picture small enough for 8x to
+        // fit and the stale 4x rendering is shown beneath a readout saying 8x is in effect.
+        if let held = heldRendering(facesEnhanced: faceEnhance, selection: selection ?? scaleSelection) {
             result = held
             isProcessing = false
             progressMessage = ""
@@ -731,8 +755,8 @@ final class UpscaleViewModel: ObservableObject {
     ///
     /// Custom dimensions are part of it: a rendering at 1920 wide is not a rendering at 800 wide,
     /// and a key that said only "custom" would serve one for the other.
-    private var renderingSizingDescription: String {
-        switch scaleSelection {
+    private func renderingSizingDescription(for selection: ScaleSelection) -> String {
+        switch selection {
         case .off:
             return "off"
         case let .preset(scale):
@@ -766,17 +790,26 @@ final class UpscaleViewModel: ObservableObject {
         }
     }
 
-    private func renderingKey(facesEnhanced: Bool) -> RenderingKey? {
-        guard let inputURL, !scaleSelection.isOff else { return nil }
+    /// The store's key for a selection.
+    ///
+    /// Takes the selection rather than reading it, for the same reason `reupscaleIfNeeded` does: a
+    /// caller inside the `$scaleSelection` sink holds the value being published, while the property
+    /// still holds the one being replaced. Defaulting to the property keeps every settled caller
+    /// unchanged.
+    private func renderingKey(facesEnhanced: Bool, selection: ScaleSelection? = nil)
+        -> RenderingKey?
+    {
+        let selection = selection ?? scaleSelection
+        guard let inputURL, !selection.isOff else { return nil }
         return RenderingKey(
             assetID: inputURL.path,
             modelID: selectedModelName,
-            sizing: renderingSizingDescription,
+            sizing: renderingSizingDescription(for: selection),
             facesEnhanced: facesEnhanced)
     }
 
-    private func heldRendering(facesEnhanced: Bool) -> NSImage? {
-        guard let key = renderingKey(facesEnhanced: facesEnhanced),
+    private func heldRendering(facesEnhanced: Bool, selection: ScaleSelection? = nil) -> NSImage? {
+        guard let key = renderingKey(facesEnhanced: facesEnhanced, selection: selection),
             let identity = renderings.held(for: key)
         else { return nil }
 
