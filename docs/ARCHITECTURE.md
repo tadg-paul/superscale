@@ -1,4 +1,4 @@
-<!-- Version: 1.3 | Last updated: 2026-08-24 -->
+<!-- Version: 1.4 | Last updated: 2026-08-25 -->
 
 # Superscale v2 Architecture
 
@@ -71,137 +71,120 @@ flowchart LR
 
 ## Runtime Flow
 
-Text-to-image generation:
+*As built. Text-to-image generation is excluded from the MVP; the flow below
+is the filter (image-to-image edit) path the application actually runs, with
+one reference which is always the working image. The pre-delivery
+text-to-image flow with live pricing is in git history.*
 
-1. User enters a prompt, or selects a filter and edits the wording it loads.
-2. `GenerationViewModel` resolves the selected model and prompt options.
-3. `GenerationCoordinator` asks `PricingService` for a cached or live estimate.
-4. User starts generation.
-5. `FalGenerationClient` posts to the resolved FAL endpoint.
-6. The first generated image is downloaded into app-managed storage.
-7. The generated image appears in the workspace and can be saved or upscaled.
+Applying a filter:
 
-Image-to-image generation:
+1. The user selects a filter; its wording loads into the editable prompt field
+   and nothing is sent. Applying sends the field as it stands.
+2. `MainView.submitFilter` reads the **base** asset from the asset graph ---
+   never the candidate, never an upscaled rendering (invariant I1) --- and,
+   where the base's long edge is under the 1024 floor, the picture is raised
+   first and the user told (#96, guide 2.5).
+3. `GenerationServing.uploadReference(fileURL:fileName:apiKey:)` hands the
+   file's *location* to `FalStorageClient`, which reads it off the main actor,
+   initiates against provider storage and PUTs the bytes (#102, #107). The
+   returned CDN URL is the provider's own and is never cached (AC92.3).
+4. `FalGenerationClient.generate` posts the edit request --- prompt, model,
+   aspect ratio, the reference URL --- and downloads the returned image.
+5. The result enters the asset graph as the **candidate**, replacing any
+   prior candidate (AC89.1); the canvas shows it; the curtain compares it
+   against the base it descends from (AC94.3).
+6. **Lock** is the only action that moves the base: it promotes the candidate
+   at its own resolution and appends the old base to the lock chain (AC89.2).
 
-1. User adds up to three reference images.
-2. `ReferenceImageEncoder` prepares image data for the selected handler.
-3. The model handler builds the correct edit payload.
-4. The normal generation, download, history, and upscale flow continues.
-
-Generation-to-upscale handoff:
-
-1. Generated output is stored as an image file in app-managed storage.
-2. The GUI passes that file into a public app processing coordinator.
-3. `SuperscaleKit` runs the existing local pipeline.
-4. The app displays generated and upscaled outputs with comparison controls.
-
-The current `UpscaleViewModel` owns much of the app processing flow. V2 should
-extract a small GUI-facing processing coordinator so generated files can enter
-the same path as dropped files without duplicating pipeline code.
+Local upscaling is a *derivation* of whichever asset the canvas shows: the
+graph allocates the output location (`WorkspaceState.recordUpscale`, #103),
+`GUIUpscaleCoordinator` bounds the request by the 32-megapixel area ceiling
+(`UpscaleCeiling.decide`, #91) and runs `SuperscaleKit`'s pipeline, lent by a
+`PipelineCache` actor so the model load is paid once (#84). An upscaled asset
+is terminal: the graph refuses it as input to any further stage (AC89.4).
 
 ```mermaid
 sequenceDiagram
     actor User
-    participant View as GenerateView
-    participant VM as GenerationViewModel
-    participant Coord as GenerationCoordinator
-    participant Pricing as PricingService
-    participant Fal as FalGenerationClient
-    participant API as FAL API
-    participant Store as SessionStore
-    participant Upscale as UpscaleCoordinator
+    participant View as MainView
+    participant Graph as AssetGraph / WorkspaceState
+    participant Serve as GenerationServing
+    participant Store as FalStorageClient
+    participant Gen as FalGenerationClient
+    participant API as FAL (rest.fal.ai / fal.run)
+    participant Up as GUIUpscaleCoordinator
     participant Kit as SuperscaleKit
 
-    User->>View: prompt + optional references
-    View->>VM: generate()
-    VM->>Coord: build generation request
-    Coord->>Pricing: estimate(request)
-    Pricing-->>Coord: estimate or unavailable
-    Coord->>Fal: submit(request)
-    Fal->>API: POST /{endpoint}
-    API-->>Fal: image URL response
-    Fal->>API: download image
-    API-->>Fal: image bytes
-    Fal-->>Coord: generated asset
-    Coord->>Store: persist session + asset
-    Coord-->>VM: generated image ready
-    User->>View: upscale generated image
-    View->>Upscale: process(generated file)
-    Upscale->>Kit: run local pipeline
-    Kit-->>Upscale: upscaled image
-    Upscale-->>View: display comparison
+    User->>View: Apply (edited or loaded wording)
+    View->>Graph: read base (never candidate, never upscaled)
+    View->>Serve: uploadReference(fileURL)
+    Serve->>Store: upload (read off main actor)
+    Store->>API: initiate + PUT bytes
+    API-->>Store: provider's own CDN URL
+    View->>Gen: generate(prompt, model, reference URL)
+    Gen->>API: POST edit request
+    API-->>Gen: image URL, then bytes
+    Gen-->>View: candidate image
+    View->>Graph: candidate replaces candidate
+    User->>View: Lock
+    View->>Graph: promote candidate to base, chain the old base
+    User->>View: choose scale
+    View->>Up: process(displayed asset, ceiling-bounded)
+    Up->>Kit: run local pipeline (cancellable, structured progress)
+    Kit-->>Up: upscaled derivation
+    Up-->>View: rendering + reduction report if any
 ```
 
 ## FAL Client Layer
 
-The FAL layer should be a small Swift service modelled on the working behaviour
-in `pix`.
+*As built in `FalGenerationKit`. Wire-level detail --- endpoints, parameters,
+accepted values, response and error shapes --- lives in
+`FAL_REQUEST_REFERENCE.md`, which is cited from live probes (#107), not from
+SDK source.*
 
-Generation client responsibilities:
+`FalStorageClient` (the reference upload, #92/#102/#107):
 
-- build `https://fal.run/{endpoint}` requests;
-- send `Authorization: Key <generation-key>`;
-- support text-to-image and image-to-image/edit payloads;
-- parse image URLs from FAL responses;
-- download generated assets;
-- redact secrets in diagnostics.
+- initiates against `rest.fal.ai/storage/upload/initiate?storage_type=fal-cdn-v3`
+  and PUTs the bytes to the signed address the provider returns;
+- takes a file *location* and reads it once, off the main actor;
+- holds nothing between calls --- uploaded URLs expire at the provider's
+  discretion, so every apply uploads afresh, structurally (a `struct` with
+  nowhere to cache);
+- sniffs content type from bytes, never from the file extension.
 
-Pricing client responsibilities:
+`FalGenerationClient` (#97/#98):
 
-- fetch live unit pricing for a model endpoint;
-- request historical price estimates for specific payloads when supported;
-- cache responses for the session;
-- surface price unavailable without blocking generation.
+- builds `https://fal.run/{endpoint}` requests through a **table** of model
+  handlers keyed by endpoint ID --- adding a model is an entry, not a branch;
+- sizing belongs to the endpoint: `aspect_ratio` is sent only where the
+  endpoint accepts it, and the edit endpoint's rejection of it is recorded;
+- sends `Authorization: Key <generation-key>`, header only;
+- parses every failure through the one shared parser (both FastAPI `detail`
+  shapes), redacts **before** truncating, and downloads the returned asset.
 
-Account client responsibilities:
-
-- use a separate account/admin key;
-- show balance, recent usage, and billing events when authorized;
-- treat account-key failure as non-fatal for generation;
-- clearly identify scope errors without leaking key material.
-
-```mermaid
-sequenceDiagram
-    participant Gen as FalGenerationClient
-    participant Price as FalPricingClient
-    participant Account as FalAccountClient
-    participant Keychain
-    participant Run as fal.run
-    participant Api as api.fal.ai
-
-    Gen->>Keychain: read generation key
-    Gen->>Run: POST generation/edit request
-    Run-->>Gen: generated image URL
-
-    Price->>Keychain: read generation key
-    Price->>Api: GET pricing / POST estimate
-    Api-->>Price: unit price or estimate
-
-    Account->>Keychain: read account/admin key
-    Account->>Api: GET billing, usage, events
-    Api-->>Account: account data or scope error
-```
+`FalPricingClient` and `FalAccountClient` are **present, unreferenced, and
+paused for the MVP** (guide section 6): grok is a documented flat 2c, so
+nothing calls them, no account endpoint is ever contacted (AC89.7), and the
+account/admin key is stored for the future without verification --- see #109
+for the control-feedback defect that stance produced. They return when a
+second model makes a flat rate untenable; the cost-confirmation policy that
+consumed their output is gone entirely (#95, #103, AC76.3 superseded by
+AC103.2).
 
 ## Model Registry
 
-Model metadata should be data-driven. The initial registry should include the
-FAL image models needed for `pix` parity, with `xai/grok-imagine-image` as the
-default candidate unless product testing chooses another default.
+*As built by #97.* The registry is data-driven and holds **one selectable
+model**, `xai/grok-imagine-image`, with its `/edit` sibling for
+image-to-image; the `fal-ai/flux-pro/kontext` handler remains in the table,
+unselectable, as the shape-proof that adding a model is an entry rather than
+a branch. Each entry describes the endpoint, its accepted aspect ratios (an
+unsupported ratio snaps to the nearest and says so), which sizing parameters
+each endpoint accepts, and how a reference takes its field's shape.
 
-Each model entry should describe:
-
-- user-facing name;
-- endpoint ID;
-- supported modes, such as text-to-image and image-to-image;
-- accepted aspect ratios or image sizes;
-- output formats;
-- required and optional payload fields;
-- edit sibling endpoint, when applicable;
-- pricing support status;
-- warnings for unsupported options.
-
-The handler strategy used in `storyboard-gen` is the right pattern for model
-families. Views should not know how to construct provider-specific payloads.
+Views do not construct provider payloads; the handler table does. That the
+handler is a table rather than a `switch` is itself tested --- the property
+"admits more models" could not be tested of a `switch`, because a test cannot
+add a `case` at runtime.
 
 ## Prompt Packs
 
@@ -241,14 +224,19 @@ The GUI stores secrets in Keychain:
 removed from v2 scope. Users provide credentials directly through the GUI, and
 the app has no `pix` configuration parser or command-resolution path.
 
-Non-secret settings live in app preferences:
+Non-secret settings live in app preferences (`GenerationPreferences`, exactly
+these four):
 
+- output folder (defaults to Downloads, resolved through `FileManager` rather
+  than assembled; a stored folder that no longer exists falls back);
 - default generation model;
-- default upscale model;
-- output directory;
-- prompt pack selection;
-- cost confirmation threshold;
-- session history retention.
+- default upscale model (`"auto"` by default);
+- default prompt pack selection.
+
+**No cost-confirmation threshold is stored** and the policy that consumed it
+is absent (AC103.2; #95 removed the control and the key, #103 the types). A
+stored value nothing reads is a thing a later reader must prove is dead ---
+RT-103.5 pins the absence.
 
 ## Storage
 
@@ -301,7 +289,7 @@ classDiagram
 
     GenerationSession "1" --> "1" GeneratedAsset
     GenerationSession "1" --> "0..1" UpscaleAsset
-    GenerationSession "1" --> "0..3" ReferenceAsset
+    GenerationSession "1" --> "0..1" ReferenceAsset
 ```
 
 ## UX Structure
@@ -331,61 +319,88 @@ the existing save flow.
 
 ## Error Handling
 
-Errors should be classified by source:
+*As built by #98 and #104's family of findings.*
 
-- missing generation key;
-- missing or unauthorized account key;
-- model endpoint unavailable;
-- unsupported payload field;
-- network failure;
-- paid generation failure;
-- download failure;
-- local upscaling failure.
+**One parser, one surface, one owner.** Every provider failure --- from the
+generation client, the storage client, or any future caller --- is read by the
+same parser, which understands both FastAPI `detail` shapes (string and list),
+carries the request identifier, and **redacts before truncating**, because the
+other order leaves a fragment of a secret straddling the limit. Every failure
+reaches the user through one presentation surface;
+`UpscaleViewModel.errorMessage` is `private(set)` with `report` and
+`dismissError` the only ways in, so a later path finds nowhere else to write
+and fails to compile. The one deliberate exception is the face-model download
+sheet, which is modal and shows its own failure inside its own flow (AC98.5).
 
-The app should show actionable user-facing errors and keep more detailed
-diagnostics available for issue reports. Secrets must be redacted.
+Failure semantics worth knowing cold:
+
+- an upload that fails is reported against the **filter stage**, and the base
+  and any candidate survive it (AC92.5);
+- nothing is sent before a file read succeeds, so the provider is never left
+  holding a URL with nothing behind it (RT-102.2);
+- an unreadable file's error carries the *reason* as well as the name --- a
+  deleted picture and a permissions problem need different remedies;
+- cancellation is not a failure: a superseded run is discarded silently, and
+  `publish`/`abandon` guard on `activeRun` so a replaced run cannot land after
+  its replacement (#104, #105);
+- a control that accepts a click must cause something or say it did not
+  (guide 3.9; the rule #104 and #109 were both found violating).
 
 ```mermaid
 stateDiagram-v2
-    [*] --> EmptyWorkspace
-    EmptyWorkspace --> PromptReady: prompt entered
-    PromptReady --> EstimateReady: pricing available
-    PromptReady --> EstimateUnavailable: pricing unavailable
-    EstimateReady --> Generating: Generate
-    EstimateUnavailable --> Generating: Generate with warning
-    Generating --> Generated: image downloaded
-    Generating --> Failed: provider/network/download error
-    Generating --> Cancelled: user cancels
-    Generated --> Upscaling: Upscale
-    Upscaling --> Upscaled: local pipeline succeeds
-    Upscaling --> Failed: local pipeline fails
-    Failed --> PromptReady: edit and retry
-    Cancelled --> PromptReady: retry
-    Upscaled --> [*]
+    [*] --> Empty
+    Empty --> Working: import (raised to the floor if undersized, and told)
+    Working --> Filtering: Apply (upload, then edit request)
+    Filtering --> Candidate: result on canvas, curtain vs base
+    Filtering --> Working: failure at one surface; base and candidate survive
+    Candidate --> Working: Lock promotes at own resolution, chains old base
+    Working --> Upscaling: scale chosen (ceiling-bounded, reduction reported)
+    Candidate --> Upscaling: scale chosen (derivation of displayed asset)
+    Upscaling --> Working: rendering shown; upscaled asset is terminal
+    Upscaling --> Working: cancelled silently, or failure at the one surface
 ```
 
 ## Testing Strategy
 
-Automated tests should not call paid FAL endpoints.
+*As built. The full testing doctrine is guide section 7; this is the
+architecture-level shape.*
 
-Recommended coverage:
+**Four suites, strictly separated:**
 
-- FAL request construction with `URLProtocol` or local HTTP fixtures;
-- parsing successful and failed FAL responses;
-- pricing and account response parsing;
-- model registry resolution;
-- handler payload construction;
-- prompt pack loading and compatibility warnings;
-- Keychain abstraction using test storage;
-- generation coordinator cancellation and retry paths;
-- GUI smoke tests for Generate, Upscale, Settings, and History paths.
+- `make test` --- the package regression suite (533 tests at handover), plus
+  the layout guard. Hermetic: every FAL exchange runs against an injected
+  stub transport, no credential is readable, no network is reachable.
+- `make test-gui` --- the XCUITest suite (101 tests). Every test launches the
+  app with `UITestCredentialStorage` and stubbed generation service and
+  verifier (`SuperscaleApp.swift:59-71`), so the real Keychain is never read
+  and no live endpoint reachable. Needs the machine to itself and the display
+  awake (guide section 7 --- `caffeinate` plus a keepalive).
+- `make test-ssim` --- the quality gate against PyTorch references; required
+  whenever the v1 pipeline core changes.
+- `make test-one-off` --- the separate `OneOff/` package, unreachable from
+  `make test` by *location*, not by filter. Skips `LiveTests`.
 
-Manual release checks should include one real FAL text-to-image generation, one
-image-to-image generation, one pricing/account display check, and one generated
-image upscaled locally.
+**Live one-offs ran once and are not repeated.** OT-107.1 to OT-107.4 proved
+the wire protocol against the real provider --- initiate, CDN round trip, grok
+generation, error shape --- because the stubs verify we send what we *believe*
+the protocol is, and #107 was the day belief and reality differed. The entry
+point, if ever needed again, is `scripts/run-live-ot.sh`, which sources
+`.env`; there is deliberately no make target.
+
+**The stub-and-live division is a doctrine, not a habit:** stubs must match
+the live response shape field for field (checked against the #107 probe), and
+any future protocol change re-proves through a live OT before the stubs are
+trusted again.
 
 ## Changelog
 
+- **1.4 (2026-08-25):** Rewritten to as-built for the handover. The runtime flow is the filter
+  path the application runs (upload to provider storage, edit request, candidate, lock), not the
+  removed text-to-image design; the FAL layer section records the storage client, the handler
+  table, and the paused pricing/account clients with the tickets; preferences are the four that
+  exist, with the cost threshold's absence pinned; error handling records the one-parser,
+  one-surface, one-owner shape and the cancellation semantics; the testing strategy records the
+  four separated suites and the once-only live OTs. Sequence and state diagrams redrawn to match.
 - **1.3 (2026-08-24):** Replaced the mode-level navigation recommendation with
   the single workspace as built in #87: one canvas, a filter panel beside it, a
   `Settings` scene, and prior sessions on `File > Open Recent`. Recorded that a

@@ -1,6 +1,18 @@
-<!-- Version: 1.0 | Last updated: 2026-08-05 -->
+<!-- Version: 1.1 | Last updated: 2026-08-25 -->
 
 # Superscale v2 End-to-End Design
+
+> **Status (2026-08-25): historical design artefact, superseded in part.**
+> This document predates the delivered MVP and is retained as the record of
+> the journeys the design started from. What shipped differs materially: there
+> are **no peer modes** --- Generate, History and mode navigation were removed
+> by #87 in favour of one workspace (guide section 3.9, architecture "UX
+> Structure") --- **text-to-image is excluded** from the MVP, and **live
+> pricing is paused** in favour of grok's documented flat rate. Where this
+> document and `IMPLEMENTATION_GUIDE_v2.md` disagree, the guide is the design
+> of record; the criteria that bind are in `ACs.md`. Nothing here has been
+> rewritten to match the build, deliberately: the deltas are themselves the
+> record of what user contact changed.
 
 This document defines the end-to-end interaction model for Superscale v2. Its
 wireframes are intentionally low fidelity: they establish user journeys,

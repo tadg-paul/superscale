@@ -1,4 +1,4 @@
-<!-- Version: 1.1 | Last updated: 2026-08-24 -->
+<!-- Version: 1.2 | Last updated: 2026-08-25 -->
 
 # Superscale v2.0 Release Checklist
 
@@ -16,6 +16,9 @@ either provider is available in the MVP.
 - Run the package regression suite without paid network calls: `make test`.
 - Run the SSIM quality gate: `make test-ssim`.
 - Run the GUI regression suite in an exclusive UI-test window: `make test-gui`.
+  The display must stay awake and unlocked for the whole run --- wrap it in
+  `caffeinate` with a keepalive (guide section 7), since a screensaver engaging
+  mid-run fails tests in ways that read as element timeouts.
 - Build the Release app without publishing it, then run
   `make inspect-gui-release APP_PATH=/path/to/Superscale.app`.
 - Confirm the inspector reports 86 prompt packs and no credential, account,
@@ -47,20 +50,33 @@ licence, so this check is release-blocking rather than advisory.
 These checks use real credentials and may incur FAL charges. They must remain
 outside automated tests.
 
-- `UT-78.1`: Generate one image from text through FAL and inspect the output.
-- `UT-78.2`: Generate one image using at least one reference image and inspect
-  the output.
-- `UT-78.3`: Refresh pricing and account state. Confirm successful values are
-  understandable, or that an unavailable response is clear and non-fatal.
-- `UT-78.4`: Send a generated image to Upscale, process it locally, and save the
-  result.
-- `UT-78.5`: Review release wording and confirm it does not overpromise Google
-  or Replicate support.
+*Revised 2026-08-25: issue #78 was closed as superseded when the mode-based
+design was removed, and two of its checks describe surfaces the MVP excludes.
+The superseded rows stay, struck through, so the history is not dropped.*
 
-Record manual results on issue `#78`; only the human reviewer marks user tests.
+- ~~`UT-78.1`: Generate one image from text through FAL and inspect the
+  output.~~ **Superseded**: text-to-image is excluded from the MVP.
+- ~~`UT-78.3`: Refresh pricing and account state.~~ **Superseded**: pricing
+  and account surfaces are paused; grok ships at a documented flat rate and no
+  account endpoint is contacted (AC89.7).
+- `SMOKE-1` (was UT-78.2): apply one filter to a real photograph through the
+  live provider and inspect the result on the canvas and under the curtain.
+- `SMOKE-2` (was UT-78.4): upscale the filter result locally at a preset
+  scale, and save the output through the standard save flow.
+- `SMOKE-3` (was UT-78.5): review release wording; confirm it does not
+  overpromise Google or Replicate support, and that the privacy wording
+  matches the README's (upscaling local; filters upload the working image).
+
+Record manual results on the active release's tracking issue; only the human
+reviewer marks user tests. The wire protocol itself is proven separately by
+the one-off live tests recorded on #107 and is not re-proven at release.
 
 ## Changelog
 
+- **1.2 (2026-08-25):** The provider smoke checks are reconciled with the delivered MVP: the
+  text-to-image and pricing/account checks are struck as superseded with their reasons, the three
+  surviving checks are renumbered SMOKE-1 to SMOKE-3 against the shipped filter flow, and the GUI
+  suite's display-awake requirement is recorded beside its evidence step.
 - **1.1 (2026-08-24):** Added the licence exclusion check for the GFPGAN
   weights, following #88. The regression test that read the Homebrew formula as
   text was removed: a formula's text is not evidence about a built artefact, and

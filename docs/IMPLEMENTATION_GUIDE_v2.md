@@ -1,4 +1,4 @@
-<!-- Version: 3.23 | Last updated: 2026-08-25 -->
+<!-- Version: 3.24 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -917,25 +917,39 @@ point of *choosing* buys nothing and costs the choice.
 
 ## 4. What Exists Today
 
+*Rewritten 2026-08-25, after the v2 MVP delivery. The pre-delivery version of
+this section --- four peer modes, cloud work bolted alongside, a dead
+integration API --- described the world sections 3 and 6 were written to fix,
+and is preserved in git history.*
+
+**The v2 MVP is delivered and running.** One workspace: import a picture,
+browse 86 filters in the side panel, apply one through
+`xai/grok-imagine-image/edit`, lock the iterations worth keeping, native local
+upscaling over it all. Delivered under master #79 through slices 0--11
+(children #80--#98), plus the defect-closure delivery under master #99
+(children #100--#103). The asset graph owns base, candidate and the lock
+chain; stages share one progress and cancellation model; failures reach one
+surface; the floor and the ceiling both bind and both report.
+
+**The cloud path is live-proven, not merely believed.** Every stage below the
+view ran against the real provider on 2026-08-25 with the author's own key:
+storage initiate, byte-for-byte CDN round trip, grok generation, decodable
+image back (OT-107.1 to OT-107.4, recorded on #107). The author has applied
+filters and locked results in the running application. Before #107 no live
+call had ever been made --- every regression test stubs the transport, by
+design, and it cost a wrong hard-coded `storage_type` that no stub could
+catch.
+
 **The v1 foundation is sound and stays.** `SuperscaleKit` is dependency-free
-with a pinned public API: tiling, Core ML inference, seven models with
-content-based auto-selection, a compiled-model cache, alpha handling, and an
-SSIM gate against PyTorch references. The app has drag and drop, a magnifier
-loupe, a slider comparison with zoom and minimap, an info panel, and a
-face-model licence flow.
+with a pinned public API: tiling (edge-correct since #83 fixed D3), Core ML
+inference, seven models with content-based auto-selection, a compiled-model
+cache, alpha handling, cancellation, structured progress, and an SSIM gate
+against PyTorch references (`make test-ssim`).
 
-**The v2 cloud work is built but bolted alongside.** The clients, Keychain
-credentials, filter loading, session store and coordinator are sound components.
-They form a parallel app sharing a window: four peer modes, no shared state
-between `GenerateView` and `UpscaleViewModel`, and a handoff that is a bare URL
-plus a `UUID` in view-local `@State`.
-
-The telling detail: **the integration API already exists and is dead code.**
-`GUIUpscaleSource` distinguishes `.selectedFile` from `.generatedFile`,
-`GUIUpscaleResult` carries that provenance back, and both
-`GenerationCoordinator.upscaleSource` and
-`GenerationSessionRecord.upscaleSource` exist to carry it across the seam. None
-is called. Section 3.2 revives it.
+**What is not built** is exactly the section 6 exclusions --- pricing and
+account surfaces (components present in `FalGenerationKit`, unreferenced),
+text-to-image, undo/redo, release hardening --- plus the open defect tickets
+in section 5 and the human sign-offs listed in section 8.
 
 ## 5. Defects
 
@@ -959,6 +973,24 @@ feathering exists so two overlapping tiles can sum to one and there is no second
 boundary. The regression test that holds it samples the outermost row and column of a real 4x
 output; against the unfixed weighting it reports 1200 black pixels on a 400×200 image, which is
 exactly its perimeter.
+
+### Open defect tickets --- 2026-08-25
+
+The table above is the v2 design's original defect set, all closed. These are the defects open
+now, found by the #99 delivery's own verification and by the author's user-test rounds. **Each
+ticket carries its reproduction, its violated AC, and a staged debugging and fix procedure written
+to be executed cold** --- start from the ticket, not from memory of a conversation.
+
+| Ticket | Severity | Defect |
+|---|---|---|
+| #105 | regression fix committed, full-suite verification pending | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `ed25cb7`, spot-verified on 14 of 17 regressed GUI tests. The remaining step is the verification procedure on the ticket: targeted run of the last three, then full `make test-gui` (baseline to beat: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures). **This gates closure of #100--#103 and master #99.** |
+| #106 | open, deliberately unfixed | Choosing a scale after a completed run can serve the previous scale's cached rendering under the new scale's label --- `renderingKey` reads `scaleSelection` inside the `willSet` sink. The three-line fix exists and was reverted: it changes run-versus-cache timing that three closed issues' GUI tests encode (RT-156, RT-158, RT-090.52). The ticket holds the reachability analysis and a five-step procedure beginning with the failing test. |
+| #108 | open | The info panel does its own scale arithmetic (`InfoPanel.swift:76`, `input × scale`), reporting an output four times the ceiling while no scale is in effect. Failed UT-93.1. A third private derivation of sizing truth --- the disease #100 and #103 treated. Also: something populated the custom fields with the impossible dimensions; separately diagnosed per the ticket. |
+| #109 | open | The account/admin key row presents the same affordance as the verifying FAL-key row and answers a press with nothing. The *absence of verification* is deliberate (`SettingsView.swift:44-46`) and stays; the defect is a control that accepts a click and communicates nothing. Part of the UT-95.1 fail. |
+| #110 | open | Entering a credential makes the Settings text boxes change size and the form layout jump. Part of the UT-95.1 fail. Likely conditional status content not reserving space; diagnose before fixing, per the ticket. |
+| #111 | open | Opening a locked iteration hides the lock chain strip, so every other iteration becomes unreachable. Failed UT-89.1. Violates AC89.3's "remains reachable". |
+| #112 | open | A FAL filter result offers no curtain, so it cannot be compared against the picture it was made from. Violates AC94.3; also blocks UT-96.1. |
+| #66 | open, pre-v2 | The comparison divider is hard to see over bright regions. Paint-only; the fix procedure (2026-08-25 comment) warns off the geometry UT-90.1 was just re-passed on. |
 
 ---
 
@@ -1045,6 +1077,37 @@ in git history rather than in the tree, and AC76.3 is marked superseded on #76.
 
 Excluded and following separately: output fidelity
 polish, and release hardening.
+
+### Built and remaining --- 2026-08-25
+
+Every slice above is **built and closed**, with its ticket: slice 0 -> #80,
+1 -> #81, 2 -> #82, 3a -> #83, 3b -> #84, 4 -> #85, 5 -> #92 (wired by #92 after
+being found complete-but-never-called), 6 -> #97, 7 -> #96, 8 -> #98, 9a -> #87,
+9b -> #89, 9c -> #90, 10 -> #88, 11 -> documentation work carrying no ticket
+(the README privacy correction and the developer identifier). Slices without
+numbers, raised from use during the delivery: #91 (the area ceiling), #93 (the
+controls report the state), #94 (canvas progress and the curtain's subject),
+#95 (Settings reads cleanly), #96 also carries the floor. The
+defect-closure delivery under master #99 added #100 (one pixel measurement),
+#101 (the status bar verified where the user reads it), #102 (upload reads off
+the main actor), #103 (allocation contract, curtain rule, cost policy
+removed). The authoritative slice-to-ticket table with per-ticket status is
+master #79's "Child issues" section; criteria live in `docs/ACs.md` (118
+entries, per-test status marks).
+
+**Remaining, in dependency order:**
+
+1. **#105's verification procedure** (on the ticket): targeted GUI run, then
+   full `make test-gui` and `make test`. Green closes #105 and unblocks the
+   closure of #100--#103 and master #99's exit gate.
+2. **The open defect tickets** in section 5: #106, #108, #109, #110, #111,
+   #112, #66. Each carries its own staged procedure; none blocks another,
+   though #112 unblocks UT-96.1 and #111+#112 together re-offer UT-89.1.
+3. **Human sign-offs on #79**: UT-94.1 (unblocked, verdict pending), UT-93.1
+   (waits on #108), UT-95.1 (waits on #109+#110), UT-89.1 (waits on
+   #111+#112), UT-96.1 (waits on #112). Then `APPROVED 79`.
+4. **After the MVP**: the section 6 exclusions, in whatever order the author
+   rules. Pricing's return path is documented in this section and on #76.
 
 ## 7. Testing
 
@@ -1144,6 +1207,39 @@ bundle mid-run and one by running the package suite alongside. Neither
 announced itself as an environment problem; both looked exactly like a
 regression.
 
+**The display must stay awake and unlocked for the whole run.** XCUITest
+drives a live window; if the screensaver or lock engages mid-run, accessibility
+interactions do not pause, they **fail**, and the failures look like element
+timeouts rather than an environment problem. Wrap long runs in `caffeinate`:
+`caffeinate -dims` for the run itself, plus a keepalive that resets the idle
+timer inside the screensaver's window, since the suite's quiet stretches (a
+multi-minute Neural Engine upscale) accrue idle even while tests run:
+
+```
+caffeinate -dims make test-gui &
+TEST_PID=$!
+while kill -0 $TEST_PID 2>/dev/null; do caffeinate -u -t 1; sleep 300; done
+```
+
+Before trusting a full suite to a new machine, probe it: start the keepalive,
+touch nothing for longer than the screensaver interval, and confirm the screen
+is still unlocked. Lid open and on mains --- a closed lid with no external
+display gives the tests nowhere to run.
+
+### Live-API one-offs are not repeated
+
+OT-107.1 to OT-107.4 proved the wire protocol once (storage initiate, CDN
+round trip, grok generation, error shape) and are **not run again** --- the
+grok call costs real money and one-offs do not repeat (author's ruling,
+2026-08-25). There is deliberately no make target. If a provider protocol
+change ever warrants re-proving, the entry point is `scripts/run-live-ot.sh`,
+which **sources** `.env` (`FAL_KEY`, `FAL_ACCOUNT_KEY`; `.env` is gitignored
+and never parsed) and falls back to the application's Keychain slot.
+`make test-one-off` skips `LiveTests`; `make test` cannot reach the package at
+all. No regression test can source a credential: the package suite has none,
+and every GUI test launches the app with `UITestCredentialStorage` and a
+stubbed transport (`SuperscaleApp.swift:59-71`).
+
 ### Test layout
 
 `make test` runs **regression tests only**. One-off tests are invoked
@@ -1188,25 +1284,57 @@ a speed trade-off within regression, not a category boundary.
 
 ## 8. Status and Open Items
 
-Superseded tickets #70--#78 are closed; a fresh tree is raised from section 6.
-Legacy tickets #55, #57, #66 and #69 remain valid and untouched. The regression
-suite passes.
+*Rewritten 2026-08-25 as the handover of record. A session picking this
+project up cold starts here, then follows the tickets --- every open defect
+carries its reproduction, violated AC, and a staged debugging and fix
+procedure written to be executed without conversational context.*
 
-Open, not blocking:
+**Delivered.** The v2 MVP under master #79: slices 0--11, children #80--#98,
+all closed with ACs migrated to `docs/ACs.md` (the canonical criteria
+document, 118 entries with per-test status). The child-to-slice table with
+per-ticket closure notes is on #79. Baselines: `make test` 533 executed, 6
+skipped, 0 failures; `make test-gui` 101 executed, 0 failures at its last
+clean run (see #105 for the verification now pending).
 
-- **Filter catalogue as sidebar or sheet** (3.9). The only layout question left,
-  and one better answered against something running.
-- ~~**Filter corpus revision.** 26 of 86 filters lack a preserve clause and read as
-  style prompts rather than transforms. Authorial work.~~ **Closed 2026-08-23: not a
-  defect.** The author's ruling is that the absent preserve clauses are deliberate. Filter
-  wording is not to be changed. The `requiresInput` flag records which filters transform an
-  input rather than describing a style, which is the distinction the observation was reaching
-  for.
-- **The README** states images never leave the machine. True of local upscaling,
-  false once filtering ships. Needs correcting before release.
+**In flight --- master #99** (defect closure): children #100--#103 are
+implemented with all four audits PASS each, and wait only on **#105's
+verification procedure** before closure and the exit gate. That procedure is
+the next executable action for any new session: targeted GUI run, then full
+`make test-gui` and `make test`, per the ticket.
+
+**Open defect tickets:** #106, #108, #109, #110, #111, #112 from this
+delivery's verification and the author's user-test rounds, and pre-v2 #66.
+The table with one-line mechanisms is in section 5; the procedures are on the
+tickets. Legacy feature tickets #55 (signing and notarisation) and #57 (XCUITest
+infrastructure --- largely delivered by the roll-up, needs reconciling before
+work) remain open and untouched. #69 (Apache-2.0 conversion) is **done in
+substance** --- all four regression tests pass and the tree, CLI, formula and
+About modal report Apache-2.0 --- and stays open only on UT-69.1, a human
+review of README logo placement and trademark wording.
+
+**Human sign-offs outstanding on #79:** UT-94.1 (unblocked, verdict pending),
+UT-93.1 (waits on #108), UT-95.1 (waits on #109 and #110), UT-89.1 (waits on
+#111 and #112), UT-96.1 (waits on #112). Then `APPROVED 79`. The roll-up
+table on #79 carries every verdict with the author's words.
+
+**Resolved and recorded, no longer open:**
+
+- Filter catalogue layout: a sidebar, shipped by #87 and accepted by UT-79.1.
+- Filter corpus revision: **not a defect** (author's ruling 2026-08-23); the
+  absent preserve clauses are deliberate and `requiresInput` records the
+  distinction.
+- The README privacy claim: corrected by slice 11; the README now states that
+  applying a filter sends the picture to FAL.
 
 ## Changelog
 
+- **3.24 (2026-08-25):** The handover revision. Section 4 rewritten from "bolted alongside" to the
+  delivered state; section 5 gains the open-defect-ticket table (#105, #106, #108--#112, #66);
+  section 6 gains "Built and remaining" with every slice's ticket; section 7 gains the
+  display-awake requirement (`caffeinate` plus a keepalive --- a locked screen fails XCUITest in
+  ways that read as element timeouts) and the live-OT non-repetition ruling; section 8 rewritten as
+  the handover of record. Written so a session with no conversational context starts at section 8
+  and proceeds from the tickets.
 - **3.23 (2026-08-25):** Section 3.9 gains two rules, both from one defect #101's tests found in the
   running application rather than in review. Inside a `@Published` sink, take the value rather than
   reading the property --- `willSet` means the property still holds what is being replaced, and

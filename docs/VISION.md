@@ -1,4 +1,4 @@
-<!-- Version: 2.0 | Last updated: 2026-08-05 -->
+<!-- Version: 2.1 | Last updated: 2026-08-25 -->
 
 # Superscale v2 Vision
 
@@ -15,6 +15,19 @@ second generation interface. Users who need scripted image generation or
 transformations beyond upscaling are directed to the `pix` CLI.
 
 The original product direction is retained in [the v1 vision](v1/VISION.md).
+
+## Where the Build Stands Against This Vision
+
+*Added 2026-08-25.* This document describes the **end state** and is not
+rewritten as pieces land. The v2 MVP (master #79, delivered 2026-08-25)
+realizes the transform-and-enhance core: one workspace, 86 bundled filters
+applied through `xai/grok-imagine-image/edit` with the working image as the
+single reference, the lock chain, and native local upscaling under an area
+ceiling. Deliberately not yet built, and tracked in the guide's section 6
+exclusions: text-to-image from a bare prompt, multiple references, live
+pricing and account visibility (grok ships at a documented flat rate),
+additional providers, and user-saved filters. Current status and the
+remaining-work map live in `IMPLEMENTATION_GUIDE_v2.md` section 8.
 
 ## Product Thesis
 
