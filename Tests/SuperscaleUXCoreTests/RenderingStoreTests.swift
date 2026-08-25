@@ -214,4 +214,81 @@ final class RenderingStoreTests: XCTestCase {
             store.held(for: displayed), RenderedImage(id: "shown"),
             "the picture on the canvas survives a full store")
     }
+
+    // MARK: - AC90.5: the filter toggle costs nothing twice
+
+    // RT-90.37, RT-90.38
+    //
+    // The author's report: *"toggle off/on 4x loses cached upscale"*, and the asymmetry that gave
+    // it away — toggling **faces** was instant while toggling the **scale** rebuilt from scratch,
+    // so the store was being consulted on one path and not the other.
+    //
+    // The filter toggle is the same shape one level up. Showing the base and then the candidate
+    // again must offer both from the store, and must issue **no provider request** for the second
+    // look: a filter result already in hand is a picture, not a reason to pay 2c again.
+    func test_togglingTheFilterOffAndOnAgainRebuildsNeither_RT090_37() async throws {
+        let store = RenderingStore()
+        let producer = Producer()
+
+        let base = key(asset: "base")
+        let candidate = key(asset: "candidate")
+
+        // Both looked at once.
+        let firstBase = try await store.rendering(for: base, producedBy: producer.produce("b"))
+        let firstCandidate = try await store.rendering(
+            for: candidate, producedBy: producer.produce("c"))
+        XCTAssertEqual(producer.count, 2, "one build each, to begin with")
+
+        // Toggled off, and back on.
+        let againBase = try await store.rendering(for: base, producedBy: producer.produce("b"))
+        let againCandidate = try await store.rendering(
+            for: candidate, producedBy: producer.produce("c"))
+
+        // RT-90.38: nothing was built the second time. For the candidate that means no provider
+        // request, because producing a filter result *is* a provider request.
+        XCTAssertEqual(producer.count, 2, "the second look costs nothing")
+        XCTAssertEqual(againBase, firstBase, "and shows the same picture")
+        XCTAssertEqual(againCandidate, firstCandidate)
+    }
+
+    // RT-90.39
+    //
+    // A different filter replaces the preserved result rather than accumulating one. The key carries
+    // the asset's identity, so a new filter result is a new asset and simply misses — which is what
+    // makes invalidation fall out of the key rather than being managed. An implementation keying on
+    // "the candidate" as a role rather than as an identity would serve the old picture for the new
+    // filter, which is the worst available failure: a plausible, wrong image.
+    func test_applyingADifferentFilterReplacesThePreservedResult_RT090_39() async throws {
+        let store = RenderingStore()
+        let producer = Producer()
+
+        let noir = key(asset: "candidate-noir")
+        let firstResult = try await store.rendering(for: noir, producedBy: producer.produce("noir"))
+        store.markDisplayed(noir)
+
+        let woodblock = key(asset: "candidate-woodblock")
+        let secondResult = try await store.rendering(
+            for: woodblock, producedBy: producer.produce("woodblock"))
+
+        XCTAssertEqual(producer.count, 2, "a different filter is different work")
+        XCTAssertNotEqual(secondResult, firstResult, "and a different picture")
+        XCTAssertNil(
+            store.held(for: key(asset: "candidate")),
+            "there is no role-shaped entry for a later filter to collide with")
+    }
+
+    /// A new picture empties the store outright.
+    ///
+    /// Its predecessor's renderings describe something the user is no longer looking at, and an
+    /// asset identity is only unique within a session's graph.
+    func test_anewPictureEmptiesTheStore() async throws {
+        let store = RenderingStore()
+        let producer = Producer()
+        let held = key(asset: "base")
+        _ = try await store.rendering(for: held, producedBy: producer.produce("b"))
+
+        store.forget()
+
+        XCTAssertNil(store.held(for: held))
+    }
 }

@@ -401,6 +401,103 @@ final class WorkspaceStateTests: XCTestCase {
             try fileAFilterWouldUpload(), try workspace.graph.asset(for: locked).fileURL)
     }
 
+    // MARK: - AC94.3 what the curtain compares
+
+    // RT-94.7, RT-94.8, RT-94.9
+    //
+    // **Asserted against `baseFileURL`, which is the property the view actually reads**, rather than
+    // against a helper written for the occasion. The curtain's far side is whatever picture that
+    // names, so the criterion is a statement about it and about nothing else.
+    //
+    // The defect: the view took the far side from `viewModel.originalImage`, which `processImage`
+    // replaces with whatever it was last asked to upscale. After a filter that is the filter's own
+    // output, so the curtain showed the filtered picture against the upscale of the same filtered
+    // picture — two images differing in resolution and in nothing else. "The before/after image is
+    // the same" was the author's description of it, and it was accurate.
+    func test_theFarSideOfTheCurtainIsTheBaseThroughoutAFilterAndItsUpscale_RT094_7() throws {
+        let workspace = try importedWorkspace()
+        let imported = try XCTUnwrap(workspace.graph.base)
+        let importedFile = try workspace.graph.asset(for: imported).fileURL
+        XCTAssertEqual(workspace.baseFileURL, importedFile)
+
+        // RT-94.8: an upscale of an unfiltered picture. The base does not move, so the far side is
+        // still the picture and the near side is its upscale — the plain upscale case, and a real
+        // comparison rather than one to suppress.
+        try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(workspace.baseFileURL, importedFile, "an upscale does not move the base")
+
+        // RT-94.7: after a filter, the far side is the picture the filter was made from.
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+        let candidateFile = try workspace.graph.asset(for: candidate).fileURL
+        XCTAssertEqual(workspace.baseFileURL, importedFile)
+        XCTAssertNotEqual(
+            workspace.baseFileURL, candidateFile,
+            "the filter result is the near side, never the far one")
+
+        // RT-94.9: after a filter *and* an upscale of it. This is the case the old code got wrong:
+        // the far side must still be the original, not the unupscaled filter result.
+        try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(workspace.baseFileURL, importedFile)
+        XCTAssertNotEqual(workspace.baseFileURL, candidateFile)
+    }
+
+    // RT-94.10
+    //
+    // The two sides are never the same asset. A curtain drawn across one picture divides it from
+    // itself, which looks like a working control and compares nothing.
+    //
+    // `hasTwoAssetsToCompare` is the decision the view consults, and its asymmetry is deliberate:
+    // it suppresses the curtain only where it can *prove* both sides are one asset. With no base
+    // tracked there is nothing to prove it with, and returning false there suppressed the curtain
+    // outright — which is worse than the defect the guard exists to prevent, and is what happened.
+    func test_theTwoSidesAreNeverTheSameAsset_RT094_10() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+
+        XCTAssertFalse(
+            workspace.hasTwoAssetsToCompare(displaying: base),
+            "the base against itself is not a comparison")
+
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+        XCTAssertTrue(workspace.hasTwoAssetsToCompare(displaying: candidate))
+
+        // Not provable, so not suppressed. The view model performs upscales the graph never
+        // records, so "the graph does not know what this is" is the ordinary case rather than an
+        // error, and treating it as one is what stopped the curtain appearing at all.
+        XCTAssertTrue(workspace.hasTwoAssetsToCompare(displaying: nil))
+    }
+
+    // RT-94.16
+    //
+    // Viewing an earlier locked iteration. The criterion allows either answer — that iteration
+    // against what descends from it, or no curtain at all — and forbids the third: the iteration
+    // compared against a base it does not descend from, presenting two unrelated pictures as though
+    // one were made from the other.
+    func test_viewingAnEarlierIterationComparesItAgainstTheChainOrNotAtAll_RT094_16() throws {
+        let workspace = try importedWorkspace()
+        let imported = try XCTUnwrap(workspace.graph.base)
+        try workspace.recordFilter(named: "noir", fileURL: file("first"), pixelSize: modelSize)
+        let firstLock = try workspace.lock()
+        try workspace.recordFilter(named: "woodblock", fileURL: file("second"), pixelSize: modelSize)
+        let secondLock = try workspace.lock()
+
+        XCTAssertEqual(workspace.graph.base, secondLock, "the base is the latest lock")
+
+        // Every earlier iteration is in the current base's own ancestry, so a comparison against the
+        // base is a comparison against something it genuinely descends from. That is the property
+        // the criterion is protecting, and it is what makes the first answer legitimate.
+        let ancestry = workspace.lockedIterations.map(\.id)
+        XCTAssertTrue(ancestry.contains(imported.id), "the imported picture")
+        XCTAssertTrue(ancestry.contains(firstLock.id), "and the first lock")
+
+        // Each is a different asset from the base, so a curtain drawn there compares two pictures.
+        XCTAssertTrue(workspace.hasTwoAssetsToCompare(displaying: imported))
+        XCTAssertTrue(workspace.hasTwoAssetsToCompare(displaying: firstLock))
+        XCTAssertFalse(workspace.hasTwoAssetsToCompare(displaying: secondLock))
+    }
+
     // MARK: - Fixtures
 
     private func importedWorkspace() throws -> WorkspaceState {

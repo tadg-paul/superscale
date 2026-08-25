@@ -106,4 +106,37 @@ final class CanvasWorkTests: XCTestCase {
 
         XCTAssertFalse(both.message.lowercased().contains("tile"))
     }
+
+    // RT-94.14
+    //
+    // At the handover, the **name** changes with the work. RT-94.3 asserts that progress does not
+    // lapse across the handover; this asserts that it does not merely persist under the old name,
+    // which is the failure that looks identical from the outside and tells the user a provider call
+    // is still running while their Neural Engine grinds through tiles.
+    func test_atTheHandoverTheNameChangesWithTheWork_RT094_14() {
+        let applying = CanvasWork.of(
+            isUpscaling: false, isApplyingFilter: true, upscaleMessage: "")
+        let handedOver = CanvasWork.of(
+            isUpscaling: true, isApplyingFilter: false, upscaleMessage: "Processing tile 2 of 4")
+
+        XCTAssertTrue(applying.isBusy)
+        XCTAssertTrue(handedOver.isBusy, "progress does not lapse")
+        XCTAssertNotEqual(
+            applying.message, handedOver.message,
+            "and the name is not the one the previous stage left behind")
+        XCTAssertEqual(applying.message, CanvasWork.filterMessage)
+        XCTAssertTrue(handedOver.message.lowercased().contains("tile"), handedOver.message)
+    }
+
+    /// An upscale with nothing to say still says something.
+    ///
+    /// The kit reports per tile, and there is a gap between "started" and the first report. An empty
+    /// message during it would read as no work at all — the defect, arriving in a smaller window.
+    func test_anUpscaleWithNoReportYetStillNamesItself() {
+        let starting = CanvasWork.of(
+            isUpscaling: true, isApplyingFilter: false, upscaleMessage: "")
+
+        XCTAssertTrue(starting.isBusy)
+        XCTAssertFalse(starting.message.isEmpty)
+    }
 }

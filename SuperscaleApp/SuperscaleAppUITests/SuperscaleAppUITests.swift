@@ -653,6 +653,88 @@ final class SuperscaleAppUITests: XCTestCase {
         return settings
     }
 
+    // MARK: - AC94.4: whose scroll is it (#94)
+
+    /// How far the curtain reports it has been panned.
+    ///
+    /// The pan reaches the accessibility tree as a value. Expressed only as a rendered offset it
+    /// reaches nobody — not VoiceOver, and not a test asking whether the picture moved. RT-94.18 is
+    /// that the value exists at all; the scroll tests read it to see whether it changed.
+    private func reportedPan() -> String {
+        element(identifier: "curtainPicture").value as? String ?? ""
+    }
+
+    // RT-94.18
+    func test_theComparisonReportsItsPanAsAValue_RT094_18() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        enterComparison()
+
+        let curtain = element(identifier: "curtainPicture")
+        XCTAssertTrue(curtain.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            reportedPan().isEmpty,
+            "the pan is a value, not only a rendered offset")
+    }
+
+    // RT-94.11, RT-94.12
+    //
+    // The picture was panned from an `NSEvent` monitor that never asked where the pointer was, so
+    // scrolling the filter category strip moved the photograph. A monitor is a global interception
+    // dressed as a view behaviour: it fires for the toolbar, the side panel, the lock chain and the
+    // status bar alike.
+    func test_aScrollOverThePanelLeavesThePictureAndOneOverItPansIt_RT094_11() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        enterComparison()
+
+        let curtain = element(identifier: "curtainPicture")
+        XCTAssertTrue(curtain.waitForExistence(timeout: 5))
+        let before = reportedPan()
+
+        // RT-94.11: over the filter panel, which is not the picture.
+        let panel = element(identifier: "filterCatalogue")
+        XCTAssertTrue(panel.waitForExistence(timeout: 5))
+        panel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        panel.scroll(byDeltaX: 0, deltaY: -120)
+
+        XCTAssertEqual(
+            reportedPan(), before,
+            "scrolling the filter list must not move the photograph")
+
+        // RT-94.12: over the picture itself.
+        curtain.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        curtain.scroll(byDeltaX: 0, deltaY: -120)
+
+        XCTAssertNotEqual(
+            reportedPan(), before,
+            "scrolling the picture pans it")
+    }
+
+    // RT-94.13
+    //
+    // With no comparison on screen there is nothing to pan, and the monitor should not be installed
+    // at all — it is attached in `onAppear` and removed in `onDisappear` for exactly this reason.
+    func test_aScrollWithNoComparisonOnScreenPansNothing_RT094_13() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        // Deliberately *not* entering comparison.
+        let canvas = element(identifier: "workspaceCanvas")
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            element(identifier: "curtainPicture").exists, "no curtain is on screen")
+
+        canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
+        canvas.scroll(byDeltaX: 0, deltaY: -120)
+
+        // The claim is that nothing was panned, and with no curtain there is nothing that could
+        // report a pan. What can be checked is that the scroll did not conjure one, and that the
+        // picture is where it was.
+        XCTAssertFalse(element(identifier: "curtainPicture").exists)
+        XCTAssertTrue(app.images["workingImage"].exists, "the picture is undisturbed")
+    }
+
     // MARK: - AC93.3: the face controls follow the scale (#93)
 
     /// Turns the scale off by pressing whichever preset is currently active.
@@ -2003,6 +2085,49 @@ final class SuperscaleAppUITests: XCTestCase {
 
         // RT-90.45: the picture is still a real element, not something drawn behind a scrim.
         XCTAssertTrue(image.isHittable, "the picture is reachable beneath the indicator")
+    }
+
+    // RT-90.52 (GUI)
+    //
+    // **The user test this replaces failed.** The author was told the picture remained visible with
+    // the ticker on top, and it did — softened. `ProgressOverlay` filled the canvas with a
+    // `.thinMaterial` background, which is a blur, so every photograph went out of focus the moment
+    // work began. "I want to see the original unfucked unadulterated image while the upscale ticker
+    // sits on top" is the requirement, and it is exact: the picture is not merely *present*, it is
+    // *unaltered*.
+    //
+    // Asserted as the picture's own frame being unchanged, and the indicator occupying a small part
+    // of the canvas rather than all of it. A blur does not move an element's frame, so this is the
+    // observable half; the visual half is the user test, which is why AC90.13 keeps one.
+    func test_theCanvasOutsideTheIndicatorIsUndisturbedWhileWorkRuns_RT090_52() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let image = app.images["workingImage"]
+        XCTAssertTrue(image.waitForExistence(timeout: 10))
+        let atRest = image.frame
+        XCTAssertGreaterThan(atRest.width, 0)
+
+        // Start work again by changing the scale, which re-runs the upscale.
+        app.buttons["scale2x"].click()
+
+        let indicator = element(identifier: "workingIndicator")
+        guard indicator.waitForExistence(timeout: 3) else {
+            // The fixture is small enough that the run can outpace the poll. Nothing to observe is
+            // not a failure; a covered picture would be.
+            XCTAssertTrue(image.exists, "the picture is on the canvas either way")
+            return
+        }
+
+        XCTAssertEqual(
+            image.frame, atRest,
+            "the picture is where it was: the indicator sits over it, not in place of it")
+        XCTAssertTrue(image.isHittable, "and it is not behind a scrim")
+
+        let canvas = element(identifier: "workspaceCanvas")
+        let covered = (indicator.frame.width * indicator.frame.height)
+            / (canvas.frame.width * canvas.frame.height)
+        XCTAssertLessThan(covered, 0.25, "a badge, not a sheet: \(covered) of the canvas")
     }
 
     // RT-90.12, RT-90.13 (GUI)

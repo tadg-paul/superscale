@@ -1,4 +1,4 @@
-<!-- Version: 3.13 | Last updated: 2026-08-25 -->
+<!-- Version: 3.14 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -958,6 +958,39 @@ such tests have been removed. CLI stdout and stderr are a legitimate assertion
 target, because they are the CLI's interface; documents, Makefiles and scripts
 are not.
 
+### A planned test is not a written one
+
+**Before a test audit reports PASS, the set of test identifiers in the tree is
+compared against the set in the issue.** It takes seconds and it is mechanical:
+every identifier the criteria name either exists as a test or is marked removed
+with its reason.
+
+This is written here because six of this delivery's children reached
+implementation with tests that had never been begun --- sixty of them across the
+eight open issues. Nothing announced it. Each issue enumerated its tests with a
+type justification per row, so the list read as finished work when it was a
+plan, and the audits that should have caught it checked the plan's quality
+rather than its existence.
+
+Writing the sixty found four defects, one of them a whole slice delivered only
+in its package: `FalStorageClient` had seven passing tests and no caller, while
+the application went on encoding photographs into request bodies. **A package
+that is complete and a feature that is delivered are not the same claim**, and
+no test could tell them apart because none of them went through the
+application's own path.
+
+Two corollaries, both earned the same way:
+
+- **A criterion about *N* independent conditions gets one test that walks all
+  *N*, not *N* tests that each walk one.** AC89.6's four combinations of toggle
+  and scale, written as four tests, would each have passed against an
+  implementation that couples the two. Written as one, they found that
+  `WorkspaceState` and the application disagreed about which asset an upscale
+  belongs to.
+- **A method with no production caller but a passing test is a method whose
+  behaviour nobody has checked against the behaviour that ships.** Both halves
+  of that disagreement lived in such methods.
+
 ### Test layout
 
 `make test` runs **regression tests only**. One-off tests are invoked
@@ -1021,6 +1054,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.14 (2026-08-25):** Added "A planned test is not a written one" to section 7, after auditing
+  the eight open children found sixty tests enumerated in their issues and never begun. Records the
+  identifier-set check a test audit performs before reporting PASS, and the two rules the omission
+  cost: a criterion about N independent conditions gets one test walking all N, and a method with no
+  production caller but a passing test has not been checked against what ships.
 - **3.13 (2026-08-25):** Recorded slice 8's presentation rule in 3.9 as built by #98: failure has
   one owner and it is `private(set)`, with the face-model download sheet as the one deliberate
   exception and the reason for it. Added the corollary that a state expressed only as an
