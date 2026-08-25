@@ -48,18 +48,27 @@ public struct FalRequestBuilder: Sendable {
             )
         }
 
+        let isEdit = !acceptedReferences.isEmpty
+
         var payload: [String: Any] = [
             "prompt": request.prompt,
             "num_images": 1,
-            handler.sizingField: request.aspectRatio,
         ]
-        if let referenceField = handler.referenceField, !acceptedReferences.isEmpty {
+        // Sizing is a property of the endpoint. Grok's edit endpoint rejects it, and a rejected
+        // parameter does not produce the sizing asked for — it produces whatever the model does by
+        // default, which is one candidate explanation for filtered results coming back square.
+        if !isEdit || handler.editAcceptsSizing {
+            payload[handler.sizingField] = request.aspectRatio
+        }
+        if let referenceField = handler.referenceField, isEdit {
+            // In the form the field expects: a plural field receives a list, a singular field one
+            // value. Grok's `image_urls` takes a list even for a single reference.
             payload[referenceField] = handler.referenceLimit == 1
                 ? acceptedReferences[0]
                 : acceptedReferences
         }
 
-        let endpoint = acceptedReferences.isEmpty ? handler.textEndpoint : handler.editEndpoint
+        let endpoint = isEdit ? handler.editEndpoint : handler.textEndpoint
         guard let baseURL else {
             throw FalGenerationError.invalidRequest("The FAL base URL is invalid.")
         }
@@ -75,33 +84,53 @@ public struct FalRequestBuilder: Sendable {
     }
 }
 
-private struct FalModelHandler {
+/// What one model's endpoint expects.
+///
+/// A value in a table rather than a branch in a `switch`, so that a further model is an entry.
+/// Guide 3.6 calls the handler declarative; it was a `switch`, which made "adding a model is a data
+/// change" untrue and the test for it unwritable.
+struct FalModelHandler: Sendable {
     let textEndpoint: String
     let editEndpoint: String
     let referenceField: String?
+    /// How many references the model accepts. A plural field receives a list; a singular field
+    /// receives one value.
     let referenceLimit: Int
     let sizingField: String
+    /// Whether the *edit* endpoint accepts a sizing parameter.
+    ///
+    /// Grok's does not, and sent one anyway until this was a property rather than an assumption.
+    /// A rejected sizing parameter does not produce the sizing that was asked for; it produces
+    /// whatever the model does by default.
+    let editAcceptsSizing: Bool
+
+    /// The known models, keyed by identifier.
+    ///
+    /// `fal-ai/flux-pro/kontext` is here and is *not* selectable. Guide 3.6 keeps the family matrix
+    /// deliberately: "knowledge held for later, not work to do now."
+    static let table: [String: FalModelHandler] = [
+        FalGenerationRequest.defaultModelID: FalModelHandler(
+            textEndpoint: FalGenerationRequest.defaultModelID,
+            editEndpoint: "\(FalGenerationRequest.defaultModelID)/edit",
+            referenceField: "image_urls",
+            referenceLimit: 3,
+            sizingField: "aspect_ratio",
+            editAcceptsSizing: false
+        ),
+        "fal-ai/flux-pro/kontext": FalModelHandler(
+            textEndpoint: "fal-ai/flux-pro/kontext",
+            editEndpoint: "fal-ai/flux-pro/kontext",
+            referenceField: "image_url",
+            referenceLimit: 1,
+            sizingField: "aspect_ratio",
+            editAcceptsSizing: true
+        ),
+    ]
 
     static func handler(for modelID: String) throws -> FalModelHandler {
-        switch modelID {
-        case FalGenerationRequest.defaultModelID:
-            return FalModelHandler(
-                textEndpoint: modelID,
-                editEndpoint: "\(modelID)/edit",
-                referenceField: "image_urls",
-                referenceLimit: 3,
-                sizingField: "aspect_ratio"
-            )
-        case "fal-ai/flux-pro/kontext":
-            return FalModelHandler(
-                textEndpoint: modelID,
-                editEndpoint: modelID,
-                referenceField: "image_url",
-                referenceLimit: 1,
-                sizingField: "aspect_ratio"
-            )
-        default:
+        guard let handler = table[modelID] else {
             throw FalGenerationError.unsupportedModel(modelID)
         }
+        return handler
     }
 }
