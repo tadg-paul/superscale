@@ -1,4 +1,4 @@
-<!-- Version: 3.7 | Last updated: 2026-08-25 -->
+<!-- Version: 3.8 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -747,6 +747,21 @@ entirely: unreachable to VoiceOver, not merely to a test. Where a container need
 an identity of its own it declares `accessibilityElement(children: .contain)`
 alongside it. This cost three separate defects before it was written down.
 
+**A perceivable state is expressed as a value, not only as a colour.** Where a
+control or view has a state a user can see --- which scale is in effect, whether
+a picture has been panned, whether a key is configured --- it carries an
+`accessibilityValue` alongside its identifier. A tint reaches nobody: not
+VoiceOver, and not a test asking what the state is.
+
+This is the same rule as the paragraph above, one level down: the first says a
+control must be *present* in the tree, this says its *state* must be. It has cost
+four separate criteria in this delivery, each found by an audit rather than by
+implementation, and each would otherwise have produced a test that passed against
+the broken code --- `refreshAccountButton` in #88, the curtain divider in #90,
+the active scale in #93, the comparison's pan in #94. It is an accessibility
+defect before it is a testing one, which is the more important half and the half
+that went unnoticed until the tests could not be written.
+
 ---
 
 ## 4. What Exists Today
@@ -908,6 +923,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.8 (2026-08-25):** Added the rule in 3.9 that a perceivable state is expressed as a value
+  rather than only as a colour, after four criteria in this delivery named state the accessibility
+  tree could not see. Each was found by an audit rather than by implementation, and each would
+  otherwise have produced a test that passed against the broken code.
 - **3.7 (2026-08-25):** Corrected section 2.5's resolution bound, which was a long edge and is now
   32 megapixels of output area, with reduction rather than refusal and the minimum long edge
   explicitly unaffected --- the old rule permitted the 8000-pixel output that killed the application,
