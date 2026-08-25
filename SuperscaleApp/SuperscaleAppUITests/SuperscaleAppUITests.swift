@@ -118,10 +118,30 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     /// Waits for the upscale to complete by checking for result elements.
+    /// Waits until an upscale has produced a rendering.
+    ///
+    /// Bound to **Compare**, not to Save. Compare exists exactly when a derivation exists, which is
+    /// the condition this helper is named for. Save was the proxy until #96 made it appear whenever
+    /// there is any picture at all — because raising an undersized import to the filterable minimum
+    /// turns the scale off, and a filtered result the user had just paid for could not otherwise be
+    /// written to disk. Left on Save, this helper would have returned true before any upscale ran and
+    /// forty-one tests would have passed vacuously.
     private func waitForUpscaleComplete(timeout: TimeInterval = 120) -> Bool {
-        // The Save As button appears when result is ready
-        let saveButton = app.buttons["saveButton"]
-        return saveButton.waitForExistence(timeout: timeout)
+        app.buttons["compareButton"].waitForExistence(timeout: timeout)
+    }
+
+    /// Waits until a filter result has reached the canvas.
+    ///
+    /// A filter is not an upscale, and after #96 it may not be followed by one: raising an
+    /// undersized picture to the filterable minimum turns the scale off, so the result arrives at
+    /// its own resolution and nothing derived from it exists. What marks the arrival is the
+    /// candidate: Lock becomes available, because there is something to promote.
+    private func waitForFilterResult(timeout: TimeInterval = 120) -> Bool {
+        let lock = element(identifier: "lockButton")
+        guard lock.waitForExistence(timeout: 5) else { return false }
+        let enabled = NSPredicate(format: "isEnabled == true")
+        let promise = expectation(for: enabled, evaluatedWith: lock)
+        return XCTWaiter().wait(for: [promise], timeout: timeout) == .completed
     }
 
     private func showInfoPanel() {
@@ -505,8 +525,12 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(waitForUpscaleComplete(), "the first upscale should complete")
 
         scaleFour.click()                       // off again
+        // Asserted on **Compare**, which exists exactly when a derivation does. Save is now offered
+        // whenever there is a picture at all, so it no longer distinguishes "the upscale was
+        // released" from "there is something on the canvas" — see the note at
+        // `test_theCanvasKeepsTheImportedImageWithNoScaleSelected`.
         XCTAssertFalse(
-            app.buttons["saveButton"].waitForExistence(timeout: 2),
+            app.buttons["compareButton"].waitForExistence(timeout: 2),
             "turning the scale off releases the upscaled output"
         )
 
@@ -614,10 +638,9 @@ final class SuperscaleAppUITests: XCTestCase {
         prompt.click()
         prompt.typeText("UI fixture generation")
         app.buttons["applyFilterButton"].click()
-        XCTAssertTrue(waitForUpscaleComplete(), "the filter result should reach the canvas")
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
 
         let lock = element(identifier: "lockButton")
-        XCTAssertTrue(lock.waitForExistence(timeout: 5))
         XCTAssertTrue(lock.isEnabled, "there is a candidate to promote")
         lock.click()
 
@@ -630,8 +653,12 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(iteration.waitForExistence(timeout: 5), "an entry to scroll back to")
         iteration.click()
 
-        XCTAssertTrue(waitForUpscaleComplete(), "the iteration is re-derived at the current scale")
-        XCTAssertTrue(app.buttons["saveButton"].isEnabled, "and can be saved")
+        // At the *current* scale selection, which the raise turned off — so what is saveable is the
+        // iteration as it stands, and Save must be there for it. Bound to a completed upscale, Save
+        // vanished exactly here: the user has just paid for a filter and cannot write it to disk.
+        let save = app.buttons["saveButton"]
+        XCTAssertTrue(save.waitForExistence(timeout: 30), "an earlier iteration can be saved")
+        XCTAssertTrue(save.isEnabled)
     }
 
     @discardableResult
@@ -1728,8 +1755,12 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(apply.isEnabled, "applying should be available with an image and a prompt")
         apply.click()
 
-        XCTAssertTrue(waitForUpscaleComplete(), "the filter result should reach the canvas")
-        XCTAssertTrue(app.buttons["saveButton"].isEnabled)
+        // Waits for the *filter* rather than for an upscale. #96 changed what applying does to an
+        // undersized picture: it is raised to the filterable minimum first and the scale is turned
+        // off, so the result arrives at its own resolution and nothing derived from it exists. The
+        // journey this test describes is unchanged; what marks its end has moved.
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+        XCTAssertTrue(app.buttons["saveButton"].isEnabled, "and can be saved as it stands")
     }
 
     // MARK: - AC98.5: one failure surface (#98)
@@ -1823,7 +1854,23 @@ final class SuperscaleAppUITests: XCTestCase {
             element(identifier: "workingImage").waitForExistence(timeout: 10),
             "the imported image should occupy the canvas even with no upscale selected"
         )
-        XCTAssertFalse(app.buttons["saveButton"].exists, "there is no upscaled output to save")
+        // 🚫 **Superseded, not deleted.** This asserted that Save is absent with no upscale, and
+        // Save is now offered whenever there is a picture at all. The behaviour changed for a
+        // reason this test could not have anticipated: #96 raises an undersized picture to the
+        // filterable minimum and turns the scale off, so a user who filters a small photograph ends
+        // up in exactly this state — with a result they have just paid 2c for and no way to write it
+        // to disk. AC89.3 asks for an iteration to be saveable *at the current scale selection*, and
+        // with no scale selected that is the picture as it stands.
+        //
+        // What the test still checks is what it was really for: the canvas is occupied with no
+        // upscale selected. **Compare** is the control that genuinely requires a derivation, so it
+        // takes over the absence assertion.
+        XCTAssertFalse(
+            app.buttons["compareButton"].exists,
+            "there is nothing derived to compare the picture against")
+        XCTAssertTrue(
+            app.buttons["saveButton"].exists,
+            "but the picture itself can be saved as it stands")
     }
 
     // RT-87.25: the canvas offers somewhere to put an image before there is one.

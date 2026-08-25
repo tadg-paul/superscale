@@ -503,8 +503,21 @@ final class UpscaleViewModel: ObservableObject {
         processImage(source: source)
     }
 
+    /// What Save writes: the upscaled rendering when one exists, otherwise the picture itself.
+    ///
+    /// Save was bound to `result`, which only exists after an *upscale*. With the scale off there
+    /// was nothing to save at all — and #96 puts every user with a picture under 1024 pixels into
+    /// exactly that state, because raising it to the filterable minimum turns the scale off. A
+    /// filtered result the user had just paid 2c for could not be written to disk.
+    ///
+    /// AC89.3 asks for every iteration to be saveable *at the current scale selection*. With no
+    /// scale selected, that is the picture as it stands.
+    var savableImage: NSImage? {
+        result ?? originalImage
+    }
+
     func saveAs(defaultDirectory: URL? = nil) {
-        guard let image = result else { return }
+        guard let image = savableImage else { return }
 
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.png, .jpeg]

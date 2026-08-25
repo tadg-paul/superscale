@@ -487,7 +487,15 @@ struct MainView: View {
                 }
                 .disabled(viewModel.originalImage == nil)
                 .accessibilityIdentifier("compareButton")
+            }
 
+            // Save is offered whenever there is a picture, not only when an *upscale* has produced
+            // one. Bound to `result`, it disappeared with the scale off — and #96 puts every user
+            // with a picture under 1024 pixels into that state, because raising it to the filterable
+            // minimum turns the scale off. A filtered result just paid for could not be written to
+            // disk. Compare stays bound to `result`, because with nothing derived there is nothing
+            // to compare against.
+            if viewModel.savableImage != nil {
                 Button("Save As…") {
                     viewModel.saveAs(defaultDirectory: settingsState.outputFolder)
                 }
