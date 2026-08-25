@@ -77,10 +77,17 @@ public final class WorkspaceState: ObservableObject {
     /// The scale selection and this choice are independent: each of base, base upscaled, candidate
     /// and candidate upscaled is reachable.
     public func displayedAsset(upscaledWhenAvailable: Bool) -> AssetReference? {
-        guard upscaledWhenAvailable else { return displayedAsset }
+        guard let displayed = displayedAsset else { return nil }
+        guard upscaledWhenAvailable else { return displayed }
+        // The upscale of *what is displayed*, not of the graph's working asset. The two differ
+        // exactly when the filter toggle is showing the base, and asking the wrong question there
+        // returns nothing — so the canvas would fall back to the base unupscaled while a scale was
+        // selected, which AC89.6's enumeration calls the cheaper answer and the worse one: the user
+        // could not tell whether they were looking at a rendering or a raw image.
+        //
         // `try?` on a throwing function that returns an optional flattens to one optional, so the
         // guard already covers both "it threw" and "there is no current upscale".
-        guard let rendering = try? graph.currentUpscale() else { return displayedAsset }
+        guard let rendering = try? graph.currentUpscale(of: displayed) else { return displayed }
         return rendering
     }
 
@@ -126,9 +133,19 @@ public final class WorkspaceState: ObservableObject {
     }
 
     /// Allocates an upscale of whatever the canvas is showing.
+    ///
+    /// **The canvas, not the graph's working asset.** `graph.input(for: .upscale)` returns the
+    /// candidate when one exists, which is what the user is looking at *unless* the filter toggle is
+    /// showing the base — and then the two disagree. AC89.6 requires the base's own upscale to be
+    /// reachable, so an upscale started while showing the base must be of the base. The graph cannot
+    /// know this; `showsBase` lives here.
+    ///
+    /// The application never took the wrong branch, because it hands `display(_:)` an explicit
+    /// reference. This method was the one that disagreed with it.
     @discardableResult
     public func recordUpscale(pixelSize: CGSize, fileExtension: String = "png") throws -> AssetReference {
-        let input = try graph.input(for: .upscale)
+        guard let input = displayedAsset else { throw AssetGraphError.noWorkingAsset }
+        try graph.validateStageInput(input)
         let allocation = try graph.recordUpscale(
             of: input,
             pixelSize: pixelSize,

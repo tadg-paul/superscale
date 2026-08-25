@@ -449,11 +449,22 @@ public struct AssetGraph: Sendable {
     /// The upscaled output of the working asset, when one has been produced for it.
     public func currentUpscale() throws -> AssetReference? {
         guard let workingAsset else { throw AssetGraphError.noWorkingAsset }
+        return try currentUpscale(of: workingAsset)
+    }
+
+    /// The current upscale of a *named* asset.
+    ///
+    /// The working asset is the candidate when one exists, which is what the user is looking at
+    /// unless the filter toggle is showing the base — and then the two disagree. AC89.6 requires the
+    /// base's own upscale to be reachable, so the caller that knows which asset is displayed has to
+    /// be able to ask about that one. Only `WorkspaceState` knows; the graph holds no toggle.
+    public func currentUpscale(of reference: AssetReference) throws -> AssetReference? {
+        let asset = try asset(for: reference)
         // Read from the explicit pointer rather than searched for, because an allocated run that
-        // has not yet been promoted also has the working asset as its parent.
+        // has not yet been promoted also has this asset as its parent.
         guard let currentUpscaleID,
               let current = assets[currentUpscaleID],
-              current.parentID == workingAsset.id
+              current.parentID == asset.id
         else {
             return nil
         }

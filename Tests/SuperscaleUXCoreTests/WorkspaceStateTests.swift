@@ -265,6 +265,98 @@ final class WorkspaceStateTests: XCTestCase {
         }
     }
 
+    // MARK: - AC89.6 the scale and the toggle are independent
+
+    // RT-89.16, RT-89.17, RT-89.18, RT-89.19
+    //
+    // The four combinations, asserted together because the criterion is that they are *four* — the
+    // toggle chooses which asset and the scale chooses whether its upscale is preferred, and an
+    // implementation coupling the two would still pass any single one of them.
+    //
+    // Showing the base upscaled means running Core ML on the base, which is seconds of work started
+    // by flicking a toggle. Showing an unupscaled base while the scale is on would be cheaper and
+    // worse: the user could not tell whether they were looking at a rendering or a raw image.
+    func test_theToggleAndTheScaleReachAllFourCombinations_RT089_16() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+
+        // The candidate, unupscaled and upscaled. RT-89.18, RT-89.19.
+        workspace.showsBase = false
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: false), candidate,
+            "the candidate with the scale off")
+
+        let candidateUpscale = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: true), candidateUpscale,
+            "the candidate's upscale with a scale selected")
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: false), candidate,
+            "and the candidate itself is still reachable with the scale off")
+
+        // The base, unupscaled and upscaled. RT-89.16, RT-89.17.
+        workspace.showsBase = true
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: false), base,
+            "the base with the scale off")
+
+        let baseUpscale = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertEqual(
+            workspace.displayedAsset(upscaledWhenAvailable: true), baseUpscale,
+            "the base's upscale with a scale selected")
+        XCTAssertNotEqual(baseUpscale, candidateUpscale, "two renderings, not one reused")
+    }
+
+    // RT-89.14
+    //
+    // Separated from RT-89.13's outward journey. A toggle that could show the base and not return
+    // is a trap, and one assertion covering both directions cannot say which half failed.
+    func test_togglingBackShowsTheCandidateAgain_RT089_14() throws {
+        let workspace = try importedWorkspace()
+        let base = try XCTUnwrap(workspace.graph.base)
+        let candidate = try workspace.recordFilter(
+            named: "noir", fileURL: file("candidate"), pixelSize: modelSize)
+
+        workspace.showsBase = true
+        XCTAssertEqual(workspace.displayedAsset, base)
+
+        workspace.showsBase = false
+        XCTAssertEqual(workspace.displayedAsset, candidate)
+        XCTAssertEqual(workspace.graph.candidate, candidate, "and it is the same candidate")
+    }
+
+    // MARK: - AC89.8 a released chain releases its files
+
+    // RT-89.26
+    //
+    // The chain belongs to the image it was built from. Keeping the files would grow the output
+    // directory for the life of the session, one upscale of one photograph at a time.
+    func test_theFilesOfAReleasedChainNoLongerOccupyTheOutputDirectory_RT089_26() throws {
+        let directory = temporaryDirectory()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let workspace = WorkspaceState(outputDirectory: directory)
+
+        let source = directory.appendingPathComponent("source.png")
+        try Data("not really a png".utf8).write(to: source)
+        workspace.importImage(fileURL: source, pixelSize: modelSize)
+
+        // An upscale is allocated a location in the output directory, and its pixels written there.
+        let upscale = try workspace.recordUpscale(pixelSize: upscaledSize)
+        let upscaleURL = try workspace.graph.asset(for: upscale).fileURL
+        try Data("upscaled pixels".utf8).write(to: upscaleURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: upscaleURL.path))
+
+        // A second upscale of the same input supersedes the first, which is released.
+        let replacement = try workspace.recordUpscale(pixelSize: upscaledSize)
+        XCTAssertNotEqual(replacement, upscale, "a new location, never a reused one")
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: upscaleURL.path),
+            "the superseded rendering's file is released rather than left behind")
+    }
+
     // MARK: - Fixtures
 
     private func importedWorkspace() throws -> WorkspaceState {

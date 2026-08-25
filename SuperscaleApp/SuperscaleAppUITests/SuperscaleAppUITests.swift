@@ -561,6 +561,79 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertFalse(element(identifier: "billingEvents").exists)
     }
 
+    // RT-89.22: the application constructs no pricing or account client.
+    //
+    // **The observable half.** A test cannot watch a constructor run; what it can assert is that
+    // nothing the application shows carries pricing or account state, having exercised the journeys
+    // that would produce it. The structural half — that no client is constructed — is confirmed by
+    // `audit-code`, which is the same split AC98.5 records for the same reason: a fact about the
+    // code's shape can only be checked by reading it, and `TESTING.md` forbids a test that greps
+    // source.
+    //
+    // Both windows, because the controls that drove those clients lived in Settings and their
+    // status reached the workspace.
+    func test_theApplicationShowsNoPricingOrAccountState_RT089_22() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let forbidden = [
+            "checkPricingButton", "generationPricingSummary", "refreshAccountButton",
+            "accountSummaryState", "billingEvents", "generationCloudStatus",
+        ]
+        for identifier in forbidden {
+            XCTAssertFalse(element(identifier: identifier).exists, identifier)
+        }
+
+        // And no words for it either, so a control renamed rather than removed does not pass.
+        let words = NSPredicate(
+            format: "label CONTAINS[c] 'balance' OR label CONTAINS[c] 'billing'"
+                + " OR label CONTAINS[c] 'credits'")
+        XCTAssertEqual(app.staticTexts.matching(words).count, 0)
+
+        openSettings()
+        XCTAssertTrue(app.textFields["generationKeyField"].waitForExistence(timeout: 5))
+        for identifier in forbidden {
+            XCTAssertFalse(element(identifier: identifier).exists, "\(identifier) in Settings")
+        }
+        XCTAssertEqual(app.staticTexts.matching(words).count, 0)
+    }
+
+    // RT-89.10: an iteration reached by scrolling back is saveable at the current scale selection.
+    //
+    // Guide 2.6 rules that saving an earlier iteration re-derives its upscale on demand, which is
+    // why this is *at the current scale selection* rather than at whatever resolution the iteration
+    // happens to be. What the test can see is that selecting an earlier iteration leaves the
+    // application able to save — the chain is a record of work, and a record you cannot retrieve
+    // from is a list.
+    func test_anEarlierIterationIsSaveableAtTheCurrentScale_RT089_10() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForUpscaleComplete(), "the filter result should reach the canvas")
+
+        let lock = element(identifier: "lockButton")
+        XCTAssertTrue(lock.waitForExistence(timeout: 5))
+        XCTAssertTrue(lock.isEnabled, "there is a candidate to promote")
+        lock.click()
+
+        let chain = element(identifier: "lockChain")
+        XCTAssertTrue(chain.waitForExistence(timeout: 10), "a locked iteration joins the chain")
+
+        let iteration = chain.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH 'lockedIteration-'")
+        ).firstMatch
+        XCTAssertTrue(iteration.waitForExistence(timeout: 5), "an entry to scroll back to")
+        iteration.click()
+
+        XCTAssertTrue(waitForUpscaleComplete(), "the iteration is re-derived at the current scale")
+        XCTAssertTrue(app.buttons["saveButton"].isEnabled, "and can be saved")
+    }
+
     @discardableResult
     private func openSettings() -> XCUIElement {
         let appMenu = app.menuBars.menuBarItems.element(boundBy: 1)

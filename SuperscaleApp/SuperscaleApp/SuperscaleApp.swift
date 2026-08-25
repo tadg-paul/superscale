@@ -229,36 +229,11 @@ private struct UITestFailingUpscaleProcessor: GUIUpscaleProcessing {
     }
 }
 
-private struct UITestPricingService: GenerationPricingServing {
-    func pricing(modelID: String, apiKey: String) async throws -> FalPricing {
-        FalPricing(
-            unitPrice: FalUnitPrice(amount: 0.02, unit: "image", currency: "USD"),
-            estimatedCost: 0.02,
-            currency: "USD"
-        )
-    }
-}
-
-private struct UITestAccountService: GenerationAccountServing {
-    func summary(accountKey: String) async throws -> FalAccountSummary {
-        FalAccountSummary(
-            username: "UI Test Account",
-            balance: 12.50,
-            currency: "USD",
-            recentUsageCost: 0.04,
-            billingEvents: [
-                FalBillingEvent(
-                    requestID: "ui-test-request",
-                    endpointID: FalGenerationRequest.defaultModelID,
-                    timestamp: "2026-07-15T00:00:00Z",
-                    outputUnits: 1,
-                    unitPrice: 0.02,
-                    costEstimateNanoUSD: 20_000_000
-                ),
-            ]
-        )
-    }
-}
+// 🚫 `UITestPricingService` and `UITestAccountService` are removed by #89. They stubbed coordinators
+// this issue stopped constructing, so nothing referenced them. AC89.7's third condition is that no
+// pricing or account client is *constructed*, and leaving stubs behind for clients nobody builds is
+// how a later reader concludes the feature is still wired. The real clients remain in
+// `FalGenerationKit` for the version that needs them; what goes is the application's plumbing.
 
 private func seedUITestHistory(store: GenerationSessionStore, imageURL: URL) throws {
     guard try store.sessions().isEmpty else { return }
