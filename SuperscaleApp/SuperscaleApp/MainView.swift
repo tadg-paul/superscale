@@ -544,6 +544,11 @@ struct MainView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    // The status bar is one line 26 points tall, so a long notice truncates. The
+                    // whole sentence stays reachable on hover, and reaches the accessibility tree
+                    // as the element's own value rather than only as rendered text.
+                    .help(notice)
+                    .accessibilityValue(notice)
                     .accessibilityIdentifier("noticeMessage")
             }
         }
