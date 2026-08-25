@@ -1,4 +1,4 @@
-<!-- Version: 3.17 | Last updated: 2026-08-25 -->
+<!-- Version: 3.18 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -812,12 +812,25 @@ the active scale in #93, the comparison's pan in #94. It is an accessibility
 defect before it is a testing one, which is the more important half and the half
 that went unnoticed until the tests could not be written.
 
-**A state expressed only as a value can still be unreachable.** An element
-SwiftUI renders from an `Image` reports its label to the accessibility tree and
+**A state expressed only as a value can still be unreachable, and this has cost
+two criteria in two different element types.** Set both the label and the value.
+An element SwiftUI renders from an `Image` reports its label to the accessibility tree and
 does not reliably carry a value, so a badge whose state was set as an
 `accessibilityValue` alone read as empty --- the same failure as a tint, one
-layer along. Set both. Found by the suite on the credential badge in #95, an hour
-after the rule above was written down.
+layer along. Found by the suite on the credential badge in #95, an hour after the
+rule above was written down.
+
+**A container declaring `children: .contain` behaves the same way**, and the
+comparison's pan hit it next: three GUI tests read an empty string and one of
+them passed its first assertion and failed its second by comparing `""` with
+`""`. Set both there too.
+
+That is the mechanism a second time in a second element type, which is why the
+rule is now "set both" rather than "set the value". The four mechanisms are
+distinct --- a container absorbing its children, a state that is only a colour, a
+shape that is not an element, and a value the tree does not carry --- and each
+was found by a test that could not be written or by one that passed against
+broken code.
 
 **Failure has one owner, and it is `private(set)`.** `UpscaleViewModel.errorMessage`
 was assignable from `MainView`, `SuperscaleApp` and the view model alike --- nine
@@ -1118,6 +1131,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.18 (2026-08-25):** Extended 3.9's value rule after the comparison's pan hit the same mechanism
+  as #95's badge in a different element type: a container declaring `children: .contain` reports its
+  label where it does not reliably report its value. Three GUI tests read an empty string, and one
+  passed its first assertion and failed its second by comparing two empty strings. The rule is now
+  "set both" rather than "set the value".
 - **3.17 (2026-08-25):** Added "Widening what a control means can blind the suite" to section 7.
   Save was bound to a completed upscale and the GUI suite used its appearance as the signal that one
   had finished, at forty-one call sites; making Save appear whenever there is any picture --- which
