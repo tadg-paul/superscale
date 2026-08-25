@@ -152,6 +152,26 @@ final class SuperscaleAppUITests: XCTestCase {
         app.descendants(matching: .any)[identifier]
     }
 
+    /// The application's failure alert, however the platform chooses to present it.
+    ///
+    /// A SwiftUI `.alert` is a dialog on some macOS releases and a sheet on others, and which one it
+    /// is says nothing about the criterion. Both routes are tried so the test fails when the failure
+    /// is not presented, rather than when it is presented in the other container.
+    private var failureAlert: XCUIElement {
+        let dialog = app.dialogs.firstMatch
+        return dialog.exists ? dialog : app.sheets.firstMatch
+    }
+
+    /// Everything the alert actually says, which is not its title.
+    ///
+    /// An `NSAlert`'s own label is the title — "Error" for every failure alike — so comparing labels
+    /// would compare two identical strings and prove nothing.
+    private func spokenText(of alert: XCUIElement) -> String {
+        alert.staticTexts.allElementsBoundByIndex
+            .map { textContent(of: $0) }
+            .joined(separator: " | ")
+    }
+
     /// Replaces a field's contents rather than appending to them.
     ///
     /// The UI-test credential storage seeds both key fields, so a bare `typeText` produces the
@@ -1405,6 +1425,53 @@ final class SuperscaleAppUITests: XCTestCase {
 
         XCTAssertTrue(waitForUpscaleComplete(), "the filter result should reach the canvas")
         XCTAssertTrue(app.buttons["saveButton"].isEnabled)
+    }
+
+    // MARK: - AC98.5: one failure surface (#98)
+
+    // RT-98.14
+    //
+    // `errorMessage` was assignable from `MainView`, `SuperscaleApp` and `UpscaleViewModel` alike —
+    // nine sites in `MainView` alone — and each decided for itself how to turn an error into a
+    // sentence. This asserts the two subsystems arrive at the *same* surface, which is the claim
+    // AC98.5 makes about the window.
+    //
+    // Both failures are induced through `SUPERSCALE_UI_TEST_FAIL`, because neither can be made to
+    // fail from outside otherwise: the generation service is stubbed to succeed and the upscale runs
+    // the real pipeline on a real fixture.
+    func test_aFilterFailureAndAnUpscaleFailureArePresentedTheSameWay_RT098_14() {
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "1"
+        app.launch()
+
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        // Importing runs an upscale, which now fails.
+        XCTAssertTrue(
+            failureAlert.waitForExistence(timeout: 60), "an upscale failure reaches a surface")
+        let upscaleWords = spokenText(of: failureAlert)
+        XCTAssertTrue(
+            upscaleWords.localizedCaseInsensitiveContains("upscale"),
+            "and it says what happened: \"\(upscaleWords)\"")
+        failureAlert.buttons.firstMatch.click()
+
+        // The filter, which fails for an entirely different reason in an entirely different
+        // subsystem, and must arrive at the same place.
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+
+        XCTAssertTrue(
+            failureAlert.waitForExistence(timeout: 60), "a filter failure reaches the same surface")
+        let filterWords = spokenText(of: failureAlert)
+        XCTAssertTrue(
+            filterWords.localizedCaseInsensitiveContains("provider"),
+            "carrying the provider's own words: \"\(filterWords)\"")
+        XCTAssertNotEqual(
+            filterWords, upscaleWords,
+            "the same surface, and not because both failures say the same thing")
     }
 
     // RT-87.15: no reference wells exist. The working image is the reference.

@@ -1,4 +1,4 @@
-<!-- Version: 3.12 | Last updated: 2026-08-25 -->
+<!-- Version: 3.13 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -812,6 +812,27 @@ the active scale in #93, the comparison's pan in #94. It is an accessibility
 defect before it is a testing one, which is the more important half and the half
 that went unnoticed until the tests could not be written.
 
+**A state expressed only as a value can still be unreachable.** An element
+SwiftUI renders from an `Image` reports its label to the accessibility tree and
+does not reliably carry a value, so a badge whose state was set as an
+`accessibilityValue` alone read as empty --- the same failure as a tint, one
+layer along. Set both. Found by the suite on the credential badge in #95, an hour
+after the rule above was written down.
+
+**Failure has one owner, and it is `private(set)`.** `UpscaleViewModel.errorMessage`
+was assignable from `MainView`, `SuperscaleApp` and the view model alike --- nine
+sites in `MainView` alone --- and each site decided for itself how to turn an
+error into a sentence. `report` and `dismissError` are now the only ways in, so a
+later path finds nowhere else to write and fails to compile. A compile error is a
+stronger guarantee than a test nobody re-runs, which is why AC98.5's "nowhere
+else" half is a design property confirmed by `audit-code` rather than an
+assertion.
+
+The one deliberate exception is the face-model download sheet, which shows its
+own failure as a stage of its own flow with its own retry. The sheet is modal: an
+alert raised behind it would be unreachable until the user dismissed the very
+flow the failure is about.
+
 ---
 
 ## 4. What Exists Today
@@ -1000,6 +1021,10 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.13 (2026-08-25):** Recorded slice 8's presentation rule in 3.9 as built by #98: failure has
+  one owner and it is `private(set)`, with the face-model download sheet as the one deliberate
+  exception and the reason for it. Added the corollary that a state expressed only as an
+  `accessibilityValue` can still be unreachable, which the suite found on #95's credential badge.
 - **3.12 (2026-08-25):** Recorded slice 7's two rules as built by #96. Section 2.3 gains the
   curtain's shared width, which supersedes AC90.10: fitting each side into the canvas independently
   gave a 1:1 return a different width from a 3:4 original, so one divider meant two different things.

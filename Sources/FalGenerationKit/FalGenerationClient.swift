@@ -57,7 +57,17 @@ public struct FalGenerationClient: Sendable {
         self.requestBuilder = FalRequestBuilder(baseURL: baseURL)
     }
 
-    public func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
+    /// - Parameter otherSecrets: every other credential the application holds.
+    ///
+    ///   Redaction removes only what it is handed, so a call passing its own key alone leaves an
+    ///   *account* key echoed in a provider's body untouched — and this application holds both. The
+    ///   credential a call used is not the only credential a diagnostic can contain.
+    public func generate(
+        _ request: FalGenerationRequest,
+        apiKey: String,
+        otherSecrets: [String] = []
+    ) async throws -> FalGeneratedImage {
+        let secrets = [apiKey] + otherSecrets
         let prepared = try requestBuilder.prepare(request, apiKey: apiKey)
         let generationResponse: FalHTTPResponse
         do {
@@ -66,7 +76,7 @@ public struct FalGenerationClient: Sendable {
             throw error
         } catch {
             throw FalGenerationError.transportFailure(
-                FalDiagnosticRedactor.redact(error.localizedDescription, secrets: [apiKey])
+                FalDiagnosticRedactor.redact(error.localizedDescription, secrets: secrets)
             )
         }
 
@@ -75,7 +85,7 @@ public struct FalGenerationClient: Sendable {
                 statusCode: generationResponse.statusCode,
                 diagnostic: FalDiagnosticRedactor.providerDiagnostic(
                     from: generationResponse.body,
-                    secrets: [apiKey]
+                    secrets: secrets
                 )
             )
         }
@@ -95,7 +105,7 @@ public struct FalGenerationClient: Sendable {
             imageResponse = try await transport.send(URLRequest(url: imageURL))
         } catch {
             throw FalGenerationError.downloadFailure(
-                FalDiagnosticRedactor.redact(error.localizedDescription, secrets: [apiKey])
+                FalDiagnosticRedactor.redact(error.localizedDescription, secrets: secrets)
             )
         }
         guard (200..<300).contains(imageResponse.statusCode) else {

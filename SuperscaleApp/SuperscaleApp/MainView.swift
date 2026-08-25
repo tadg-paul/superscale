@@ -90,10 +90,15 @@ struct MainView: View {
         .onChange(of: viewModel.scaleSelection) { infoPanelDismissed = false }
         .onChange(of: viewModel.stretchEnabled) { infoPanelDismissed = false }
         .onChange(of: viewModel.faceEnhance) { infoPanelDismissed = false }
+        // The application's one failure surface. Identified so a test can assert that a filter
+        // failure and an upscale failure arrive at the same place rather than at two that merely
+        // look alike.
         .alert("Error", isPresented: showError, actions: {
-            Button("OK") { viewModel.errorMessage = nil }
+            Button("OK") { viewModel.dismissError() }
+                .accessibilityIdentifier("failureAlertDismiss")
         }, message: {
             Text(viewModel.errorMessage ?? "")
+                .accessibilityIdentifier("failureAlertMessage")
         })
     }
 
@@ -277,7 +282,7 @@ struct MainView: View {
             viewModel.noticeMessage = decision.report
             return true
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
             return false
         }
     }
@@ -299,7 +304,7 @@ struct MainView: View {
             guard let built = request.applyRequest() else { return }
             generationCoordinator.start(built, apiKey: settingsState.generationKey)
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
         }
     }
 
@@ -325,7 +330,7 @@ struct MainView: View {
                 sentSize: sentSize
             )
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
             return
         }
         upscale(source, arrival: .filterResult)
@@ -337,7 +342,7 @@ struct MainView: View {
             let locked = try workspace.lock()
             try display(locked)
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
         }
     }
 
@@ -349,7 +354,7 @@ struct MainView: View {
         do {
             try display(reference)
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
         }
     }
 
@@ -359,7 +364,7 @@ struct MainView: View {
         do {
             try display(chosen)
         } catch {
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
         }
     }
 
@@ -592,7 +597,7 @@ struct MainView: View {
     private var showError: Binding<Bool> {
         Binding(
             get: { viewModel.errorMessage != nil },
-            set: { if !$0 { viewModel.errorMessage = nil } }
+            set: { if !$0 { viewModel.dismissError() } }
         )
     }
 }

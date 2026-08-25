@@ -23,7 +23,7 @@ enum V2AppPaths {
 
 @main
 struct SuperscaleApp: App {
-    @StateObject private var viewModel = UpscaleViewModel()
+    @StateObject private var viewModel: UpscaleViewModel
     @StateObject private var settingsState: GenerationSettingsState
     @StateObject private var generationCoordinator: GenerationCoordinator
     private let sessionStore: GenerationSessionStore
@@ -35,9 +35,16 @@ struct SuperscaleApp: App {
         var coordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
         var store = GenerationSessionStore(rootDirectory: V2AppPaths.history)
         var credentialVerifier = FalCredentialVerifier()
+        var upscaleCoordinator = GUIUpscaleCoordinator()
 
 #if DEBUG
         let environment = ProcessInfo.processInfo.environment
+        // Makes both subsystems fail on demand, so a GUI test can see where each failure is
+        // presented. Without it neither can be made to fail from outside: the generation service is
+        // stubbed to succeed and the upscale runs the real pipeline on a real fixture.
+        if environment["SUPERSCALE_UI_TEST_FAIL"] == "1" {
+            upscaleCoordinator = GUIUpscaleCoordinator(processor: UITestFailingUpscaleProcessor())
+        }
         if let rootPath = environment["SUPERSCALE_UI_TEST_ROOT"],
            let generatedImagePath = environment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] {
             let root = URL(fileURLWithPath: rootPath, isDirectory: true)
@@ -48,7 +55,9 @@ struct SuperscaleApp: App {
             // makes the suite depend on a network and on somebody else's uptime.
             credentialVerifier = FalCredentialVerifier(transport: UITestVerificationTransport())
             coordinator = GenerationCoordinator(
-                service: UITestGenerationService(imageURL: generatedImage),
+                service: UITestGenerationService(
+                    imageURL: generatedImage,
+                    fails: environment["SUPERSCALE_UI_TEST_FAIL"] == "1"),
                 outputStore: GeneratedImageStore(
                     directory: root.appendingPathComponent("Generated", isDirectory: true)
                 )
@@ -74,6 +83,8 @@ struct SuperscaleApp: App {
                 startupError: startupError
             )
         )
+        _viewModel = StateObject(
+            wrappedValue: UpscaleViewModel(upscaleCoordinator: upscaleCoordinator))
         _generationCoordinator = StateObject(wrappedValue: coordinator)
         sessionStore = store
     }
@@ -144,7 +155,7 @@ struct SuperscaleApp: App {
         } catch {
             // Session assets live in Application Support, which users clear out. A menu entry
             // whose image is gone reports why rather than doing nothing.
-            viewModel.errorMessage = error.localizedDescription
+            viewModel.report(error)
         }
     }
 }
@@ -185,14 +196,36 @@ private struct UITestVerificationTransport: FalHTTPTransport {
 @MainActor
 private struct UITestGenerationService: GenerationServing {
     let imageURL: URL
+    var fails = false
 
     func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
-        FalGeneratedImage(
+        if fails {
+            // A classified failure carrying the provider's own words, which is what a real one is.
+            // Presented the same way as an upscale failure is the whole point of AC98.5.
+            throw FalFailure(
+                kind: .provider, diagnostic: "The provider rejected the request. (request ui-test)")
+        }
+        return FalGeneratedImage(
             remoteURL: imageURL,
             data: try Data(contentsOf: imageURL),
             contentType: "image/png",
             warnings: []
         )
+    }
+}
+
+/// Fails every upscale, so a GUI test can see where an upscale failure is presented.
+///
+/// The upscale otherwise runs the real pipeline on a real fixture and succeeds, so there is no way
+/// to make it fail from outside the process.
+private struct UITestFailingUpscaleProcessor: GUIUpscaleProcessing {
+    func process(
+        inputURL: URL,
+        options: GUIUpscaleOptions,
+        onProgress: @escaping @Sendable (PipelineProgress) -> Void
+    ) async throws -> GUIUpscaleProcessedImage {
+        throw StageFailure.processingFailed(
+            stage: "upscale", reason: "The upscale could not be completed.")
     }
 }
 

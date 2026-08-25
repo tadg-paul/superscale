@@ -74,24 +74,33 @@ public struct FalAccountClient: Sendable {
         self.baseURL = baseURL
     }
 
-    public func summary(accountKey: String) async throws -> FalAccountSummary {
+    /// - Parameter otherSecrets: every other credential the application holds, so a body echoing one
+    ///   of them is redacted here as it would be on a generation call. Redaction removes only what
+    ///   it is handed.
+    public func summary(
+        accountKey: String, otherSecrets: [String] = []
+    ) async throws -> FalAccountSummary {
         guard !accountKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw FalAccountError.missingCredential
         }
+        let secrets = [accountKey] + otherSecrets
         let billing: AccountBillingResponse = try await get(
             path: "v1/account/billing",
             queryItems: [URLQueryItem(name: "expand", value: "credits")],
-            accountKey: accountKey
+            accountKey: accountKey,
+            secrets: secrets
         )
         let usage: UsageResponse = try await get(
             path: "v1/models/usage",
             queryItems: [URLQueryItem(name: "expand", value: "time_series")],
-            accountKey: accountKey
+            accountKey: accountKey,
+            secrets: secrets
         )
         let events: BillingEventsResponse = try await get(
             path: "v1/models/billing-events",
             queryItems: [URLQueryItem(name: "limit", value: "20")],
-            accountKey: accountKey
+            accountKey: accountKey,
+            secrets: secrets
         )
         let usageCost = usage.timeSeries.flatMap(\.results).reduce(0) { $0 + $1.cost }
         return FalAccountSummary(
@@ -106,7 +115,8 @@ public struct FalAccountClient: Sendable {
     private func get<Response: Decodable>(
         path: String,
         queryItems: [URLQueryItem],
-        accountKey: String
+        accountKey: String,
+        secrets: [String]
     ) async throws -> Response {
         guard var components = URLComponents(
             url: baseURL.appendingPathComponent(path),
@@ -124,7 +134,7 @@ public struct FalAccountClient: Sendable {
             response = try await transport.send(request)
         } catch {
             throw FalAccountError.transportFailure(
-                falRedact(error.localizedDescription, secrets: [accountKey]))
+                falRedact(error.localizedDescription, secrets: secrets))
         }
         switch response.statusCode {
         case 200..<300:
@@ -136,7 +146,7 @@ public struct FalAccountClient: Sendable {
         default:
             throw FalAccountError.httpFailure(
                 statusCode: response.statusCode,
-                diagnostic: falDiagnostic(from: response.body, secrets: [accountKey])
+                diagnostic: falDiagnostic(from: response.body, secrets: secrets)
             )
         }
         do {

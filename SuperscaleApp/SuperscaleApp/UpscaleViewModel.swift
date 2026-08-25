@@ -4,6 +4,7 @@
 import AppKit
 import Combine
 import CoreGraphics
+import FalGenerationKit
 import Foundation
 import SuperscaleKit
 import SuperscaleUXCore
@@ -58,7 +59,36 @@ final class UpscaleViewModel: ObservableObject {
     private var renderedImages: [String: NSImage] = [:]
     @Published var inputWidth: Int?
     @Published var inputHeight: Int?
-    @Published var errorMessage: String?
+    /// The failure the user is shown, and the only one.
+    ///
+    /// `private(set)`, so `report` and `dismissError` are the only ways in. It was assignable from
+    /// `MainView`, `SuperscaleApp` and this class alike — nine sites in `MainView` alone — and every
+    /// one of them decided for itself how to turn an error into a sentence. A later path now finds
+    /// nowhere else to write and fails to compile, which is a stronger guarantee than a test that
+    /// nobody re-runs.
+    @Published private(set) var errorMessage: String?
+
+    /// The one way a failure reaches the user.
+    ///
+    /// A `FalFailure` carries a diagnostic already read from the provider's own words and already
+    /// stripped of every credential; `localizedDescription` on it would say the same thing, but
+    /// going through the diagnostic makes the guarantee explicit rather than incidental.
+    func report(_ error: any Error) {
+        if let failure = error as? FalFailure {
+            errorMessage = failure.diagnostic
+        } else {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    /// The one way a failure with no `Error` behind it reaches the user.
+    func report(_ message: String) {
+        errorMessage = message
+    }
+
+    func dismissError() {
+        errorMessage = nil
+    }
 
     /// Something the user should know that is not a failure.
     ///
@@ -439,7 +469,7 @@ final class UpscaleViewModel: ObservableObject {
 
         guard let tiff = image.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiff) else {
-            errorMessage = "Failed to create image data for saving."
+            report("Failed to create image data for saving.")
             return
         }
 
@@ -449,14 +479,14 @@ final class UpscaleViewModel: ObservableObject {
             : bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.9])
 
         guard let imageData = data else {
-            errorMessage = "Failed to encode image."
+            report("Failed to encode image.")
             return
         }
 
         do {
             try imageData.write(to: url)
         } catch {
-            errorMessage = "Failed to write file: \(error.localizedDescription)"
+            report("Failed to write file: \(error.localizedDescription)")
         }
     }
 
@@ -469,7 +499,7 @@ final class UpscaleViewModel: ObservableObject {
         let isNewImage = inputURL != url
         currentInputSource = source
 
-        errorMessage = nil
+        dismissError()
         isProcessing = true
         progressMessage = "Loading..."
 
@@ -743,7 +773,7 @@ final class UpscaleViewModel: ObservableObject {
         progressMessage = ""
         // Cancellation is not a failure: the run was replaced, and the replacement reports itself.
         guard !(error is CancellationError) else { return }
-        errorMessage = error.localizedDescription
+        report(error)
     }
 
     /// The options for a run, or nothing when no scale is selected and no run is due.

@@ -10,6 +10,13 @@ struct FaceModelDownloadView: View {
 
     @State private var stage: Stage = .confirm
     @State private var downloadProgress: String = ""
+    /// Why this one does *not* go through the application's failure surface.
+    ///
+    /// AC98.5 puts every failure through one surface, and #98 makes `UpscaleViewModel` its only
+    /// owner. This is deliberately outside that: the message is a **stage of this sheet**, shown in
+    /// `errorView` with its own retry, and the sheet is modal — an alert raised behind it would be
+    /// unreachable until the user dismissed the very flow the failure is about. A download that
+    /// failed is answered here, where the user already is.
     @State private var errorMessage: String?
 
     enum Stage {

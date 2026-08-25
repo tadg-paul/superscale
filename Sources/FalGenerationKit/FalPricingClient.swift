@@ -42,14 +42,22 @@ public struct FalPricingClient: Sendable {
         self.baseURL = baseURL
     }
 
-    public func pricing(modelID: String, apiKey: String) async throws -> FalPricing {
+    /// - Parameter otherSecrets: every other credential the application holds, so a body echoing one
+    ///   of them is redacted here as it would be on a generation call. Redaction removes only what
+    ///   it is handed.
+    public func pricing(
+        modelID: String, apiKey: String, otherSecrets: [String] = []
+    ) async throws -> FalPricing {
         try validate(key: apiKey)
-        let unitPrice = try await fetchUnitPrice(modelID: modelID, apiKey: apiKey)
-        let estimate = try await fetchEstimate(modelID: modelID, apiKey: apiKey)
+        let secrets = [apiKey] + otherSecrets
+        let unitPrice = try await fetchUnitPrice(modelID: modelID, apiKey: apiKey, secrets: secrets)
+        let estimate = try await fetchEstimate(modelID: modelID, apiKey: apiKey, secrets: secrets)
         return FalPricing(unitPrice: unitPrice, estimatedCost: estimate.amount, currency: estimate.currency)
     }
 
-    private func fetchUnitPrice(modelID: String, apiKey: String) async throws -> FalUnitPrice {
+    private func fetchUnitPrice(
+        modelID: String, apiKey: String, secrets: [String]
+    ) async throws -> FalUnitPrice {
         guard var components = URLComponents(
             url: baseURL.appendingPathComponent("v1/models/pricing"),
             resolvingAgainstBaseURL: false
@@ -60,7 +68,7 @@ public struct FalPricingClient: Sendable {
         guard let url = components.url else { throw FalPricingError.invalidRequest }
         var request = URLRequest(url: url)
         request.setValue("Key \(apiKey)", forHTTPHeaderField: "Authorization")
-        let response = try await send(request, apiKey: apiKey)
+        let response = try await send(request, secrets: secrets)
         let decoded: PricingResponse
         do {
             decoded = try JSONDecoder().decode(PricingResponse.self, from: response.body)
@@ -71,7 +79,9 @@ public struct FalPricingClient: Sendable {
         return FalUnitPrice(amount: price.unitPrice, unit: price.unit, currency: price.currency)
     }
 
-    private func fetchEstimate(modelID: String, apiKey: String) async throws -> Estimate {
+    private func fetchEstimate(
+        modelID: String, apiKey: String, secrets: [String]
+    ) async throws -> Estimate {
         let url = baseURL.appendingPathComponent("v1/models/pricing/estimate")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -81,7 +91,7 @@ public struct FalPricingClient: Sendable {
             "estimate_type": "historical_api_price",
             "endpoints": [modelID: ["call_quantity": 1]],
         ])
-        let response = try await send(request, apiKey: apiKey)
+        let response = try await send(request, secrets: secrets)
         do {
             let decoded = try JSONDecoder().decode(EstimateResponse.self, from: response.body)
             return Estimate(amount: decoded.totalCost, currency: decoded.currency)
@@ -90,18 +100,18 @@ public struct FalPricingClient: Sendable {
         }
     }
 
-    private func send(_ request: URLRequest, apiKey: String) async throws -> FalHTTPResponse {
+    private func send(_ request: URLRequest, secrets: [String]) async throws -> FalHTTPResponse {
         let response: FalHTTPResponse
         do {
             response = try await transport.send(request)
         } catch {
             throw FalPricingError.transportFailure(
-                falRedact(error.localizedDescription, secrets: [apiKey]))
+                falRedact(error.localizedDescription, secrets: secrets))
         }
         guard (200..<300).contains(response.statusCode) else {
             throw FalPricingError.httpFailure(
                 statusCode: response.statusCode,
-                diagnostic: falDiagnostic(from: response.body, secrets: [apiKey])
+                diagnostic: falDiagnostic(from: response.body, secrets: secrets)
             )
         }
         return response
