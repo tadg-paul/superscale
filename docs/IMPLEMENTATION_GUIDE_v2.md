@@ -1,4 +1,4 @@
-<!-- Version: 3.18 | Last updated: 2026-08-25 -->
+<!-- Version: 3.19 | Last updated: 2026-08-25 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -365,6 +365,25 @@ remains valid filter input; an `upscaled` asset targets the size the user asked
 for and is terminal, which the graph enforces by refusing it as a stage input.
 Recording a raise as an upscale would make the floor unenforceable, because the
 raised picture could then never be sent.
+
+**A raise is still work, so it reports.** It runs the same Neural Engine
+operation and takes the same seconds as any other upscale, and AC94.1's rule
+covers work of any kind on the working image. It also **records what it produced rather
+than what it asked for**: a model whose native scale is lower than the scale
+requested delivers less, and a raise recorded at its target would claim a floor
+it never reached, so the next apply would send an undersized picture believing it
+had been corrected.
+
+**The floor reads pixels, not points.** `NSImage.size` is DPI-adjusted, so a
+2048 x 1536 photograph saved at 300 dpi reports about 492 x 369 --- undersized by
+this rule's reckoning, and raised 4x it does not need. Every size the asset graph
+records comes from `ImageLoader`, which reads the file's true pixel dimensions,
+and the area ceiling and the scale readout depend on the same thing.
+
+**With the scale off, Save writes the picture as it stands.** The raise turns the
+scale off, so binding Save to a completed upscale --- as it was --- leaves a user
+who has just filtered a small photograph with a result they paid for and no way
+to write it to disk.
 
 **Face enhancement is unchanged from v1.** GFPGAN is not bundled, because of its
 non-commercial licence. It is present only if the user deliberately downloaded
@@ -1131,6 +1150,11 @@ Open, not blocking:
 
 ## Changelog
 
+- **3.19 (2026-08-25):** Recorded in section 2.5 the four consequences of enforcing the floor at
+  Apply, none of which the criterion describes: a raise reports because it is work; it records what
+  it produced rather than what it targeted; the floor reads pixels rather than DPI-adjusted points;
+  and Save writes the picture as it stands, because the raise turns the scale off and a filtered
+  result was otherwise unsaveable.
 - **3.18 (2026-08-25):** Extended 3.9's value rule after the comparison's pan hit the same mechanism
   as #95's badge in a different element type: a container declaring `children: .contain` reports its
   label where it does not reliably report its value. Three GUI tests read an empty string, and one
