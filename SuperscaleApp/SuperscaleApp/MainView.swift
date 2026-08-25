@@ -79,6 +79,10 @@ struct MainView: View {
         .onChange(of: viewModel.inputURL) { _, url in adoptImportedImage(url) }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
         .onChange(of: workspace.showsBase) { _, _ in displayChosenAsset() }
+        // On appearance as well as on change. Driven by the change alone, a view recreated while a
+        // base already exists — a window reopened, the scene rebuilt — would start with no loaded
+        // image and nothing to observe, and silently fall back to the wrong picture.
+        .onAppear(perform: reloadBaseImage)
         .onChange(of: workspace.graph.base) { _, _ in reloadBaseImage() }
         // A setting change makes the info panel's summary stale, so it comes back to say what the
         // new setting will do.
