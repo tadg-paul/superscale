@@ -1,4 +1,4 @@
-<!-- Version: 3.25 | Last updated: 2026-08-26 -->
+<!-- Version: 3.26 | Last updated: 2026-08-26 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -1242,6 +1242,25 @@ touch nothing for longer than the screensaver interval, and confirm the screen
 is still unlocked. Lid open and on mains --- a closed lid with no external
 display gives the tests nowhere to run.
 
+**No other process may be able to take the screen, and the display never has to
+sleep for that to ruin a run.** A managed installer prompt, a software-update
+dialogue or a remote-assistance session takes first responder, and the synthesized
+click that follows lands nowhere. It reads as `Failed to synthesize event:
+Neither element nor any descendant has keyboard focus`, or in the worse case as
+`Failed to initialize for UI testing: Timed out while enabling automation mode`,
+and neither says "another application did this".
+
+On a managed host, check before starting: no pending installer or update prompt,
+and no remote-assistance capture running. `pgrep -fl 'Installer|softwareupdate|
+jamf|Self Service'` finds the usual culprits on this machine.
+
+**Treat a focus-synthesis failure as an environment signal until it reproduces
+on a quiet host.** It is not evidence of a defect, and the distinguishing
+information is not in the log --- it is on the screen, where only a person can
+see it. The 2026-08-26 delivery lost roughly an hour to three hypotheses about
+the suite and the application before the author looked at the machine and found
+an installer prompt (#118).
+
 ### Live-API one-offs are not repeated
 
 OT-107.1 to OT-107.4 proved the wire protocol once (storage initiate, CDN
@@ -1361,6 +1380,13 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.26 (2026-08-26):** Section 7's GUI-run rules gain the condition that cost this delivery an
+  hour: no other process may be able to take the screen, and the display never has to sleep for
+  that to ruin a run. A managed installer prompt, an update dialogue or a remote-assistance capture
+  takes first responder and the synthesized click lands nowhere, reported as a focus failure or as
+  a timeout enabling automation mode, and neither names the cause. A focus-synthesis failure is an
+  environment signal until it reproduces on a quiet host, because the distinguishing information is
+  on the screen rather than in the log (#118).
 - **3.25 (2026-08-26):** Section 3.1's outstanding correction is struck as done: `StorageRoots` in
   `SuperscaleUXCore` is the single resolution for every directory the application writes to, and
   `V2AppPaths` is gone (#116). Recorded what the delay cost - the entry point and a view's property
