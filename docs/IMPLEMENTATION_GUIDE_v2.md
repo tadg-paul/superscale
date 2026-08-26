@@ -983,7 +983,7 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 
 | Ticket | Severity | Defect |
 |---|---|---|
-| #105 | regression fix committed, full-suite verification pending | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `ed25cb7`, spot-verified on 14 of 17 regressed GUI tests. The remaining step is the verification procedure on the ticket: targeted run of the last three, then full `make test-gui` (baseline to beat: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures). **This gates closure of #100--#103 and master #99.** |
+| #105 | regression fix committed, full-suite verification pending | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `264ce6e` (cited as `ed25cb7` in ticket comments written before the 2026-08-25 history rewrite), spot-verified on 14 of 17 regressed GUI tests. The remaining step is the verification procedure on the ticket: targeted run of the last three, then full `make test-gui` (baseline to beat: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures). **This gates closure of #100--#103 and master #99.** |
 | #106 | open, deliberately unfixed | Choosing a scale after a completed run can serve the previous scale's cached rendering under the new scale's label --- `renderingKey` reads `scaleSelection` inside the `willSet` sink. The three-line fix exists and was reverted: it changes run-versus-cache timing that three closed issues' GUI tests encode (RT-156, RT-158, RT-090.52). The ticket holds the reachability analysis and a five-step procedure beginning with the failing test. |
 | #108 | open | The info panel does its own scale arithmetic (`InfoPanel.swift:76`, `input × scale`), reporting an output four times the ceiling while no scale is in effect. Failed UT-93.1. A third private derivation of sizing truth --- the disease #100 and #103 treated. Also: something populated the custom fields with the impossible dimensions; separately diagnosed per the ticket. |
 | #109 | open | The account/admin key row presents the same affordance as the verifying FAL-key row and answers a press with nothing. The *absence of verification* is deliberate (`SettingsView.swift:44-46`) and stays; the defect is a control that accepts a click and communicates nothing. Part of the UT-95.1 fail. |
@@ -1290,6 +1290,18 @@ a speed trade-off within regression, not a category boundary.
 project up cold starts here, then follows the tickets --- every open defect
 carries its reproduction, violated AC, and a staged debugging and fix
 procedure written to be executed without conversational context.*
+
+> **Read this before trusting any commit SHA in a ticket.** The repository's
+> history was rewritten with `git filter-repo` on 2026-08-25 (erasing a
+> tracked build log and EXIF GPS data) and force-pushed, so **every commit
+> SHA changed** from 2026-03-19 onward. Any SHA cited in an issue comment
+> written before that date refers to the old history and will not resolve in
+> a current clone --- that is expected, not corruption. The old-to-new
+> translation table for every cited SHA is a comment on #99 ("commit SHA
+> translation table"). Two practical consequences: a clone taken before the
+> rewrite must be discarded or hard-reset to `origin/master`, never merged;
+> and the `git log` *messages* still name the same work, so where a SHA is
+> stale, search the log for the commit subject quoted in the ticket.
 
 **Delivered.** The v2 MVP under master #79: slices 0--11, children #80--#98,
 all closed with ACs migrated to `docs/ACs.md` (the canonical criteria
