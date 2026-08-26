@@ -28,10 +28,6 @@ struct SuperscaleApp: App {
     init() {
         var startupError: String?
 
-#if DEBUG
-        let environment = ProcessInfo.processInfo.environment
-#endif
-
         // The storage root is decided once, here, before anything that writes is constructed.
         //
         // Every location the application writes to hangs off this one value, which is what AC116.1
@@ -43,7 +39,13 @@ struct SuperscaleApp: App {
         // The environment is read here rather than inside `StorageRoots`, so that honouring it stays
         // a decision this application makes under its own build conditions. A resolver reading the
         // environment itself would apply to release builds too.
+        //
+        // The root is honoured on its own, where the stubbed generation service below still also
+        // requires `SUPERSCALE_UI_TEST_GENERATED_IMAGE`. Where the application keeps its files is a
+        // separate question from whether the provider is stubbed, and coupling the two is what let
+        // a launch redirect two of the three storage kinds and leave the third behind.
 #if DEBUG
+        let environment = ProcessInfo.processInfo.environment
         let configuredRoot = environment["SUPERSCALE_UI_TEST_ROOT"].map {
             URL(fileURLWithPath: $0, isDirectory: true)
         }
