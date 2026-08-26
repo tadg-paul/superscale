@@ -2160,6 +2160,87 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(app.buttons["saveButton"].isEnabled, "and can be saved as it stands")
     }
 
+    // MARK: - AC82.9, AC82.10 and AC116.1: where an allocated location is, and that it exists (#115, #116)
+
+    /// The configured root's asset directory, which the launch empties and only the graph creates.
+    private var configuredGeneratedDirectory: URL {
+        projectRoot
+            .appendingPathComponent(".agent/tmp/ui-test-runtime/Generated", isDirectory: true)
+    }
+
+    /// The user's own storage, which no test run may touch.
+    private var userGeneratedDirectory: URL? {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("Superscale/Generated", isDirectory: true)
+    }
+
+    /// Imports the fixture and applies a filter, which raises the undersized picture first.
+    ///
+    /// The raise is the allocation both tests below are about: it is the application's own path
+    /// into `AssetGraph`, and it is what six GUI tests failed on when the graph allocated into a
+    /// directory nothing had created.
+    private func applyFilterToFixture() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+    }
+
+    /// RT-115.5: a raise completes with the output directory absent beforehand.
+    ///
+    /// The one test of this pair that would have failed against the broken code end to end. The
+    /// seven package tests hold the allocation contract; this holds the consequence, and it is at
+    /// this layer deliberately — `make test` reported 533 executed and 0 failures throughout,
+    /// because a package test constructs the graph with a directory it made itself.
+    func test_aRaiseCompletesWithTheOutputDirectoryAbsent_RT115_5() {
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: configuredGeneratedDirectory.path),
+            """
+            the launch empties the test root, so the output directory must start absent. \
+            If it is here, the condition this test exists for is not being exercised.
+            """
+        )
+
+        applyFilterToFixture()
+
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: configuredGeneratedDirectory.path),
+            "the graph did not create the directory it allocated into"
+        )
+    }
+
+    /// RT-116.4: the assets land beneath the configured root, and the user's own storage is untouched.
+    ///
+    /// The positive assertion comes first and carries the test. Asserting only that the user's
+    /// directory is untouched passes against a build where the writes fail and land nowhere, which
+    /// is exactly the state #115 described.
+    func test_assetsLandBeneathTheConfiguredRoot_RT116_4() throws {
+        let userGenerated = try XCTUnwrap(userGeneratedDirectory)
+        let userDirectoryExistedBefore = FileManager.default.fileExists(atPath: userGenerated.path)
+
+        applyFilterToFixture()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+
+        let landed = (try? FileManager.default.contentsOfDirectory(
+            atPath: configuredGeneratedDirectory.path
+        )) ?? []
+        XCTAssertFalse(
+            landed.isEmpty,
+            "nothing was written beneath the configured root \(configuredGeneratedDirectory.path)"
+        )
+
+        XCTAssertEqual(
+            FileManager.default.fileExists(atPath: userGenerated.path),
+            userDirectoryExistedBefore,
+            "the run changed the user's own application-support storage at \(userGenerated.path)"
+        )
+    }
+
     // MARK: - AC98.5: one failure surface (#98)
 
     // RT-98.14
