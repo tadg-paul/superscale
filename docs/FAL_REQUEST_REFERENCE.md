@@ -9,9 +9,12 @@ knowledge, the request shapes, the per-family quirks, and the hard-won lessons,
 so the Swift implementation does not have to rediscover them from the original
 Go and Python sources.
 
-It is a reference, not a plan. The target Swift design lives in the
-[generation design](GENERATION_DESIGN.md); how the current code diverges from it
-lives in the [gap analysis](GENERATION_GAP_ANALYSIS.md). Facts below are observed
+It is a reference, not a plan. ~~The target Swift design lives in the
+generation design; how the current code diverges from it lives in the gap
+analysis.~~ *(Those two documents were retired before the v2 delivery and are
+not in the tree; the design of record is now `IMPLEMENTATION_GUIDE_v2.md` and
+the as-built architecture is `ARCHITECTURE.md`. Sentence struck 2026-08-26
+after a fresh-clone review found the dangling links.)* Facts below are observed
 behaviours of the two reference clients, with source citations of the form
 `pix:file:line` and `sg:file:line` (sg = storyboard-gen) so any claim can be
 checked against the original.

@@ -139,6 +139,8 @@ make install
 | [Release checklist](docs/RELEASE_CHECKLIST.md) | Automated and human v2 release evidence |
 | [Legacy v1 documentation](docs/v1/) | Original vision, architecture, implementation plan, and testing strategy |
 | [Model licensing](docs/model-licensing.md) | Licence status of bundled model weights |
+| [Trademark](docs/trademark.md) | The Superscale name and logo: permitted descriptive use, and what forks may not do |
+| [Proposals](docs/proposal/) | Historical v2 proposal drafts, retained for provenance; superseded by the documents above |
 
 ## Licence
 

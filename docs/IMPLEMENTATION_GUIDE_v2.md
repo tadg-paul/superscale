@@ -983,7 +983,7 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 
 | Ticket | Severity | Defect |
 |---|---|---|
-| #105 | regression fix committed, full-suite verification pending | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `264ce6e` (cited as `ed25cb7` in ticket comments written before the 2026-08-25 history rewrite), spot-verified on 14 of 17 regressed GUI tests. The remaining step is the verification procedure on the ticket: targeted run of the last three, then full `make test-gui` (baseline to beat: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures). **This gates closure of #100--#103 and master #99.** |
+| #105 | closed 2026-08-25 under MODE DELIVER, full-suite verification still outstanding | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `264ce6e` (cited as `ed25cb7` in ticket comments written before the 2026-08-25 history rewrite), spot-verified on 14 of 17 regressed GUI tests. The delivery closed #105 alongside #100, #101 and #103 at 21:23 on 2026-08-25 **before the full-suite run had happened** --- premature against its own gate, and the run is still owed: the next full `make test-gui` (baseline: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures) is the delivery-level verification for master #99's exit gate. |
 | #106 | open, deliberately unfixed | Choosing a scale after a completed run can serve the previous scale's cached rendering under the new scale's label --- `renderingKey` reads `scaleSelection` inside the `willSet` sink. The three-line fix exists and was reverted: it changes run-versus-cache timing that three closed issues' GUI tests encode (RT-156, RT-158, RT-090.52). The ticket holds the reachability analysis and a five-step procedure beginning with the failing test. |
 | #108 | open | The info panel does its own scale arithmetic (`InfoPanel.swift:76`, `input × scale`), reporting an output four times the ceiling while no scale is in effect. Failed UT-93.1. A third private derivation of sizing truth --- the disease #100 and #103 treated. Also: something populated the custom fields with the impossible dimensions; separately diagnosed per the ticket. |
 | #109 | open | The account/admin key row presents the same affordance as the verifying FAL-key row and answers a press with nothing. The *absence of verification* is deliberate (`SettingsView.swift:44-46`) and stays; the defect is a control that accepts a click and communicates nothing. Part of the UT-95.1 fail. |
@@ -1310,11 +1310,16 @@ per-ticket closure notes is on #79. Baselines: `make test` 533 executed, 6
 skipped, 0 failures; `make test-gui` 101 executed, 0 failures at its last
 clean run (see #105 for the verification now pending).
 
-**In flight --- master #99** (defect closure): children #100--#103 are
-implemented with all four audits PASS each, and wait only on **#105's
-verification procedure** before closure and the exit gate. That procedure is
-the next executable action for any new session: targeted GUI run, then full
-`make test-gui` and `make test`, per the ticket.
+**In flight --- master #99** (defect closure): all four children are
+implemented with all four audits PASS each, and all four are now closed ---
+#100, #101, #103 and #105 by the delivery on 2026-08-25 at 21:23, and #102
+on 2026-08-26 once a fresh-clone review caught that it had been missed from
+that batch. The closures ran ahead of the delivery's own gate: the
+delivery-level verification is **still owed** and is the next executable
+action for a new session --- full `make test-gui` (baseline 101 executed,
+0 failures) and `make test` (533 executed, 6 skipped, 0 failures), the
+result recorded on #99. Then #99's exit gate, then the open defect tickets
+below.
 
 **Open defect tickets:** #106, #108, #109, #110, #111, #112, #113 from this
 delivery's verification and the author's user-test rounds, and pre-v2 #66.

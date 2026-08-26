@@ -2,6 +2,13 @@
 
 # Testing
 
+> **Superseded --- 2026-08-26.** This is the v1 testing strategy, retained as
+> history. The layout it describes (a flat `Tests/SuperscaleTests/`, `RT-NNN`
+> identifiers) was replaced by slice 0 of the v2 delivery (#80): one-off tests
+> live in the separate `OneOff/` package unreachable from `make test`, and
+> test IDs are issue-scoped (`RT-{issue}.{n}`). The current doctrine is
+> `IMPLEMENTATION_GUIDE_v2.md` section 7 and the SDLC's `TESTING.md`.
+
 ## Strategy
 
 Testing follows TDD per project standards. All tests use XCTest and run via `make test` (`swift test`).
@@ -41,28 +48,28 @@ Tests/SuperscaleTests/
 Output quality is validated by inspection and automated checks:
 
 1. Output image has the correct dimensions (input × scale factor)
-2. Visual inspection — sharp detail, no tiling artefacts, no colour shifts
+2. Visual inspection --- sharp detail, no tiling artefacts, no colour shifts
 3. Automated regression: a known input image produces output that is pixel-identical (or within tolerance) across builds
-4. **SSIM quality gate** — automated comparison of CoreML output against PyTorch reference images ([#34](https://github.com/tigger04/superscale/issues/34))
+4. **SSIM quality gate** --- automated comparison of CoreML output against PyTorch reference images ([#34](https://github.com/tigger04/superscale/issues/34))
 
 ### SSIM quality regression testing
 
 SSIM (Structural Similarity Index Measure) compares CoreML output against ground-truth PyTorch Real-ESRGAN output for a set of 7 test images. A score of 1.0 means identical; ≥ 0.90 passes. Any image scoring below 0.90 blocks `make release`. This catches quality regressions (colour shifts, sharpness loss, spatial rearrangement) that visual inspection might miss.
 
-**Test separation:** The regression pack (`make test`) already takes ~5 minutes. RT-064 (the full pipeline SSIM comparison) adds another ~2.5 minutes — nearly 50% on top. To keep the development cycle from growing further, RT-064 runs via `make test-ssim` at release time, not during development. Fast SSIM unit tests (RT-062 reference existence, RT-063 SSIM computation correctness) remain in `make test`. `make release` runs both packs (~7.5 min total) — a failing SSIM gate blocks the release.
+**Test separation:** The regression pack (`make test`) already takes ~5 minutes. RT-064 (the full pipeline SSIM comparison) adds another ~2.5 minutes --- nearly 50% on top. To keep the development cycle from growing further, RT-064 runs via `make test-ssim` at release time, not during development. Fast SSIM unit tests (RT-062 reference existence, RT-063 SSIM computation correctness) remain in `make test`. `make release` runs both packs (~7.5 min total) --- a failing SSIM gate blocks the release.
 
-**SSIM test set:** All 7 test images. (`roundwood.jpg` was removed from the repo — it scored 0.826 due to the cumulative effect of photographic content, JPEG compression, and 4-tile processing, which would have required lowering the threshold and compromising the gate's sensitivity.)
+**SSIM test set:** All 7 test images. (`roundwood.jpg` was removed from the repo --- it scored 0.826 due to the cumulative effect of photographic content, JPEG compression, and 4-tile processing, which would have required lowering the threshold and compromising the gate's sensitivity.)
 
 **Reference images** are stored in `Tests/SuperscaleTests/Resources/references/` as PNG files named `{stem}_ref.png`. They are generated from the default model (`realesrgan-x4plus`) using the original PyTorch weights.
 
-**Regenerating references** (requires PyTorch — dev-time only):
+**Regenerating references** (requires PyTorch --- dev-time only):
 ```bash
 source .venv/bin/activate
 pip install -r scripts/requirements-convert.txt
 python scripts/generate_references.py
 ```
 
-**Threshold:** SSIM ≥ 0.90 (configurable in `SSIMTests.swift`). The initial target of 0.95 proved too tight due to inherent differences between PyTorch CPU and CoreML Neural Engine pipelines — tiling strategy, padding mode, and JPEG quantisation all contribute to divergence. 0.90 balances sensitivity (flags real degradation) against tolerance (accepts legitimate pipeline differences). See the [SSIM findings](https://github.com/tigger04/superscale/issues/34#issuecomment-4143555309) for the full score breakdown per image.
+**Threshold:** SSIM ≥ 0.90 (configurable in `SSIMTests.swift`). The initial target of 0.95 proved too tight due to inherent differences between PyTorch CPU and CoreML Neural Engine pipelines --- tiling strategy, padding mode, and JPEG quantisation all contribute to divergence. 0.90 balances sensitivity (flags real degradation) against tolerance (accepts legitimate pipeline differences). See the [SSIM findings](https://github.com/tigger04/superscale/issues/34#issuecomment-4143555309) for the full score breakdown per image.
 
 **Alpha masking:** For RGBA images, 8×8 windows where ≥50% of pixels are transparent (alpha < 128) are excluded from the SSIM score. Without this, images with large transparent regions score artificially low because the RGB content behind transparent pixels differs between PyTorch (which composites against white via PIL) and CoreML (which strips alpha and processes raw RGB).
 
@@ -90,7 +97,7 @@ IDs are allocated from `Tests/SuperscaleTests/NEXT_IDS.txt`.
 
 `make test-visual` upscales all images in `Tests/images/` and saves the results to `Tests/visual_output/` for manual inspection (UT-002 and similar user tests).
 
-**Output directory:** `Tests/visual_output/` — gitignored, treated as ephemeral. Stale files from previous runs should be cleaned out before each run. The Makefile target handles this automatically.
+**Output directory:** `Tests/visual_output/` --- gitignored, treated as ephemeral. Stale files from previous runs should be cleaned out before each run. The Makefile target handles this automatically.
 
 **Originals** are copied with an `original_` prefix so before/after comparison is straightforward.
 
@@ -103,7 +110,7 @@ IDs are allocated from `Tests/SuperscaleTests/NEXT_IDS.txt`.
 | `icon3.png` | Icon (PNG, with alpha) | Sub-tile-size, alpha channel |
 | `remy1.png` | Sketch (PNG, with alpha) | Illustration upscaling, alpha channel handling |
 | `remy2.jpg` | Sketch (JPEG) | Illustration upscaling, JPEG format |
-| `toby.jpg` | Dog photo | Photo upscaling (no human faces — control) |
+| `toby.jpg` | Dog photo | Photo upscaling (no human faces --- control) |
 | `vance-wilson.jpg` | Two people | Face enhancement validation |
 
 ### What to look for
@@ -127,5 +134,5 @@ test-visual     # Upscale test images for visual inspection
 
 ## See also
 
-- [Architecture](architecture.md) — component overview
-- [Implementation plan](implementation-plan.md) — which phases introduce which tests
+- [Architecture](architecture.md) --- component overview
+- [Implementation plan](implementation-plan.md) --- which phases introduce which tests
