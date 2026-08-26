@@ -3,8 +3,10 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC100.1, AC100.2 from #100; AC101.1 from #101; AC103.1, AC103.2 from #103,
-all on 2026-08-25. #102 introduced no criteria of its own and extended AC92.1, AC92.5 and AC92.6.
+Last migrated: AC82.9, AC82.10 from #115 (backfilled onto the #82 stage family) and AC116.1
+from #116, both on 2026-08-26. Before those: AC100.1, AC100.2 from #100; AC101.1 from #101;
+AC103.1, AC103.2 from #103, all on 2026-08-25. #102 introduced no criteria of its own and
+extended AC92.1, AC92.5 and AC92.6.
 
 ---
 
@@ -216,6 +218,28 @@ all on 2026-08-25. #102 introduced no criteria of its own and extended AC92.1, A
   - ✅ RT-82.23: changing the upscale model while the selection is cleared leaves it cleared
   - ✅ RT-82.24: a change to the custom dimension text never creates a selection where there was none
   - ✅ RT-82.25: importing an image while a scale is selected adopts the model's native scale rather than clearing the selection
+
+### AC82.9 - The directory beneath which the graph allocates an output location exists at the moment of allocation, independently of any other component having been constructed.
+- Introduced: #115 (closed 2026-08-26), backfilled onto the #82 stage family
+- Migrated: 2026-08-26
+- Tests:
+  - ✅ RT-115.1: allocating a raise creates the output directory, absent before and present after
+  - ✅ RT-115.2: the same for an upscale allocation
+  - ✅ RT-115.3: a stage writes to a freshly allocated location with no directory prepared by any other component
+  - ✅ RT-115.4: an output directory already holding assets is not disturbed by allocation
+  - ✅ RT-115.5: with the output directory absent, a raise completes through the application and its result reaches the canvas
+  - ✅ RT-115.8: allocation succeeds where the directory already exists, so the guarantee is not satisfied by throwing unconditionally
+- Note: **backfilled, not pre-existing.** AC82.5 constrains where a stage writes and is silent on whether the allocation is usable. `AssetGraph` minted paths beneath an `outputDirectory` it never created, and worked only because `GenerationCoordinator` created the same directory as a side effect on the ordinary launch path. The UI-test launch replaces that coordinator, the side effect disappeared, and six of the 101 GUI tests failed with *"The folder `raised-<uuid>.png` doesn't exist."*
+- Note: **RT-115.5 is the only one of them that would have caught this**, and it is at GUI level for that reason. `make test` reported 533 executed and 0 failures throughout the entire broken period, because a package test constructs the graph with a directory it made itself.
+- Note: creation happens in the allocation methods rather than in `init`. `AssetGraph` is public and its initializer is not throwing, so creating a directory there would have been a public API change and a mandatory architecture stop.
+
+### AC82.10 - Where the output directory cannot be brought into existence, allocation fails at the point of allocation, naming the directory and the reason, rather than yielding a location that fails when a stage writes to it.
+- Introduced: #115 (closed 2026-08-26), backfilled onto the #82 stage family
+- Migrated: 2026-08-26
+- Tests:
+  - ✅ RT-115.6: where the directory cannot be created, allocation throws rather than returning a location
+  - ✅ RT-115.7: the failure names the directory and carries the underlying reason, so two distinct impossibilities are distinguishable
+- Note: AC82.9 alone admits the defect one layer along, in an implementation that guarantees existence on the happy path and stays silent when creation fails. RT-115.7 compares the two failures with the directory removed from each, so a message that names the directory and drops the reason fails.
 
 ---
 
@@ -1464,6 +1488,26 @@ all on 2026-08-25. #102 introduced no criteria of its own and extended AC92.1, A
   orientation exactly as the pipeline's own decode is --- so a rotated photograph measures as it will
   actually be treated. An orientation-correcting source would look more careful and disagree with the
   pixels.
+
+## Storage locations
+
+### AC116.1 - Every directory into which the application writes assets, generated images, or session history derives from a single configured root, so a launch given a test root leaves the user's application-support directory untouched.
+- Introduced: #116 (closed 2026-08-26)
+- Migrated: 2026-08-26
+- Tests:
+  - ✅ RT-116.1: with a root configured, an upscale location resolves beneath it
+  - ✅ RT-116.2: with a root configured, a raise location resolves beneath it
+  - ✅ RT-116.3: with no root configured, all three storage kinds resolve beneath the application-support path
+  - ⏳ RT-116.4: after a filter and a raise in the GUI suite, the assets are present beneath the configured root and the user's own directory is unchanged
+  - ✅ RT-116.5: with a root configured, the session history root resolves beneath it
+  - ✅ RT-116.6: with a root configured, the generated-image store resolves beneath it
+- Note: the behaviour was never specified, so this is defined under path 2 of `ISSUES.md` §"Bug-fix issues reference existing ACs" rather than backfilled onto a family that did not exist.
+- Note: the application resolved its storage root in two independent places, the entry point for the coordinator and the session store, and `MainView`'s property initializer for the workspace's asset graph. A launch given a test root redirected two of the three storage kinds and left the third writing into the user's own application-support directory. Two ways of deciding one thing with nothing able to tell them apart, which is the shape AC100.2 records for measurement.
+- Note: RT-116.4 asserts positively that the assets land beneath the configured root before asserting the user's directory is untouched. The negative alone cannot discriminate: against the unfixed code the writes failed and landed nowhere, so a negative-only test passed without the fix. It last ran in a GUI run whose three failures were the environmental focus fault of #118, and passes in isolation.
+
+**Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
+
+---
 
 ## Provider failures
 
