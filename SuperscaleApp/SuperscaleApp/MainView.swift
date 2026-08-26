@@ -144,7 +144,42 @@ struct MainView: View {
                 }
             }
             .padding(.top, 16)
+
+            // What the canvas is showing, said out loud rather than left to be inferred from which
+            // controls happen to be present.
+            //
+            // **A declared element of its own, not a value on the canvas container.** The canvas
+            // carries `accessibilityElement(children: .contain)` so that its picture, indicator and
+            // info panel stay individually reachable, and a container in that mode reports its
+            // label while dropping its value — the mechanism recorded in AC101.1's notes and guide
+            // section 3.18, measured again here: the value read back as an empty string.
+            //
+            // `Color.clear` is a shape, and shapes never enter the accessibility tree on their own
+            // (guide 3.11), so it is declared an element deliberately. It carries both a label and
+            // a value, because an element that sets only one of the two has twice shipped in this
+            // codebase reporting nothing.
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("canvasState")
+                .accessibilityLabel("Canvas content")
+                .accessibilityValue(displayedKind.reportedValue)
         }
+    }
+
+    /// What the canvas is currently displaying.
+    ///
+    /// Derived from `viewModel.result` rather than from `viewModel.isProcessing`, so the report
+    /// follows the picture rather than the request. AC90.2 leaves the previous picture on screen
+    /// while work runs, and a value that moved when a run *started* would tell the suite an upscale
+    /// had finished before one had.
+    private var displayedKind: CanvasKind {
+        CanvasKind.of(
+            hasImage: viewModel.originalImage != nil,
+            showsBase: workspace.showsBase,
+            hasCandidate: workspace.canCompare,
+            hasUpscaledRendering: viewModel.result != nil
+        )
     }
 
     /// Whether anything is happening, and what to call it.

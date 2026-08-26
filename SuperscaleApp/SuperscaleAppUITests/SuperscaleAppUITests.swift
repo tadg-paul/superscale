@@ -132,8 +132,23 @@ final class SuperscaleAppUITests: XCTestCase {
     /// turns the scale off, and a filtered result the user had just paid for could not otherwise be
     /// written to disk. Left on Save, this helper would have returned true before any upscale ran and
     /// forty-one tests would have passed vacuously.
+    /// Waits until an upscaled rendering is on the canvas.
+    ///
+    /// Reads the canvas's own report of what it is displaying, not the existence of a control.
+    /// It was `app.buttons["compareButton"].waitForExistence(...)` until #117, at 45 call sites,
+    /// and #112 is about to make Compare appear whenever there is *anything* to compare — including
+    /// a filter result with no upscale behind it. Bound to that control, this helper would have
+    /// returned before any upscale had run, and every test built on it would have gone on reporting
+    /// green while asserting nothing.
+    ///
+    /// The same trap took the Save control in #96 and is recorded in guide section 7. A control's
+    /// meaning can widen; a state's cannot.
     private func waitForUpscaleComplete(timeout: TimeInterval = 120) -> Bool {
-        app.buttons["compareButton"].waitForExistence(timeout: timeout)
+        let canvas = element(identifier: "canvasState")
+        guard canvas.waitForExistence(timeout: 5) else { return false }
+        let rendered = NSPredicate(format: "value == %@", "An upscaled rendering")
+        let promise = expectation(for: rendered, evaluatedWith: canvas)
+        return XCTWaiter().wait(for: [promise], timeout: timeout) == .completed
     }
 
     /// Waits until a filter result has reached the canvas.
@@ -1140,7 +1155,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // deliberate act rather than the starting state. The first version of this test assumed
         // otherwise and failed on its own premise.
         leaveComparison()
-        let canvas = element(identifier: "workspaceCanvas")
+        let canvas = element(identifier: "canvasState")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
         XCTAssertFalse(
             element(identifier: "curtainPicture").exists, "no curtain is on screen")
@@ -2241,6 +2256,325 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC117.1: the canvas reports what it is displaying (#117)
+
+    private var canvasKind: String? {
+        element(identifier: "canvasState").value as? String
+    }
+
+    /// RT-117.1: with no image, the canvas reports that it is showing nothing.
+    func test_withNoImageTheCanvasReportsNothing_RT117_1() {
+        let canvas = element(identifier: "canvasState")
+        XCTAssertTrue(canvas.waitForExistence(timeout: 5), "the canvas is not in the accessibility tree")
+        XCTAssertEqual(canvasKind, "Nothing")
+    }
+
+    /// RT-117.2: with an image imported and no scale selected, it reports the base.
+    func test_withNoScaleTheCanvasReportsTheBase_RT117_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        selectScale(4)  // clears the selection: the scale control is a toggle group
+        XCTAssertEqual(canvasKind, "The base")
+    }
+
+    /// RT-117.3: with an upscale rendered, it reports an upscaled rendering.
+    func test_withAnUpscaleRenderedTheCanvasReportsIt_RT117_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        XCTAssertEqual(canvasKind, "An upscaled rendering")
+    }
+
+    /// RT-117.4: with a filter result and no upscale, it reports a filter result.
+    ///
+    /// The raise to the filterable minimum clears the scale, so this is the ordinary state after
+    /// applying a filter to an undersized picture rather than a contrived one.
+    func test_withAFilterResultAndNoUpscaleTheCanvasReportsIt_RT117_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        let field = element(identifier: "generationPromptField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+
+        XCTAssertEqual(canvasKind, "A filter result")
+    }
+
+    /// RT-117.5: the report follows the filter toggle between base and candidate.
+    func test_theCanvasReportFollowsTheFilterToggle_RT117_5() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        let field = element(identifier: "generationPromptField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult())
+
+        let toggle = element(identifier: "filterToggle")
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        toggle.click()
+        XCTAssertEqual(canvasKind, "The base")
+        toggle.click()
+        XCTAssertEqual(canvasKind, "A filter result")
+    }
+
+    /// RT-117.6: the label names the element, the value carries state, and they differ.
+    ///
+    /// A value that echoes the label reports nothing. This codebase has twice shipped an element
+    /// whose label read fine while its value read empty, on #95's credential badge and #101's
+    /// comparison pan, so each half is asserted separately.
+    func test_theCanvasCarriesBothALabelAndAValue_RT117_6() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let canvas = element(identifier: "canvasState")
+        let label = canvas.label
+        let value = canvasKind
+
+        XCTAssertFalse(label.isEmpty, "the canvas has no accessibility label")
+        XCTAssertFalse((value ?? "").isEmpty, "the canvas has no accessibility value")
+        XCTAssertNotEqual(value, label, "the value merely repeats the label and reports no state")
+    }
+
+    /// RT-117.7: the value follows the picture, not the request.
+    ///
+    /// The test that stops this work recreating the defect it exists to prevent. AC90.2 keeps the
+    /// previous picture on the canvas while an operation runs, so a value that flips when an
+    /// upscale *starts* would make `waitForUpscaleComplete` return before one had finished.
+    func test_theCanvasReportFollowsThePictureNotTheRequest_RT117_7() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        selectScale(4)  // clears it
+        XCTAssertEqual(canvasKind, "The base")
+
+        selectScale(8)
+        // Read while the work is in flight. The indicator's presence is what says so.
+        let indicator = element(identifier: "workingIndicator")
+        if indicator.waitForExistence(timeout: 5) {
+            XCTAssertEqual(
+                canvasKind, "The base",
+                "the canvas reported an upscaled rendering while the upscale was still running"
+            )
+        }
+        XCTAssertTrue(waitForUpscaleComplete())
+        XCTAssertEqual(canvasKind, "An upscaled rendering")
+    }
+
+    /// RT-117.9: the four kinds are four distinct values, collected in one test.
+    ///
+    /// Written as one walk rather than four tests, because four tests each seeing one value all
+    /// pass against an implementation that reports the same string for two of them — and
+    /// `waitForUpscaleComplete` discriminates on exactly one, so a collision returns it on the
+    /// wrong state at 45 call sites.
+    func test_theFourKindsAreFourDistinctValues_RT117_9() throws {
+        var seen: [String] = []
+
+        XCTAssertEqual(canvasKind, "Nothing")
+        seen.append("Nothing")
+
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        seen.append(try XCTUnwrap(canvasKind))
+
+        selectScale(4)  // clears it
+        seen.append(try XCTUnwrap(canvasKind))
+
+        let field = element(identifier: "generationPromptField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult())
+        seen.append(try XCTUnwrap(canvasKind))
+
+        XCTAssertEqual(Set(seen).count, 4, "two of the four states report the same value: \(seen)")
+    }
+
+    // MARK: - AC89.3 and AC89.8: the lock chain survives being used (#111)
+
+    /// Applies a filter to whatever is on the canvas and locks the result.
+    ///
+    /// Each call extends the lock chain by one, which is the state every test below needs.
+    private func applyAndLock(_ prompt: String) {
+        let field = element(identifier: "generationPromptField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText(prompt)
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+
+        let lock = element(identifier: "lockButton")
+        XCTAssertTrue(lock.isEnabled, "there is a candidate to promote")
+        lock.click()
+    }
+
+    /// Every entry in the lock chain strip, in order.
+    private var lockChainEntries: [XCUIElement] {
+        element(identifier: "lockChain")
+            .descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'lockedIteration-'"))
+            .allElementsBoundByIndex
+    }
+
+    /// Imports the fixture and builds a chain of `count` locked iterations.
+    private func buildLockChain(of count: Int) {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        for index in 0..<count {
+            applyAndLock("UI fixture generation \(index)")
+        }
+        XCTAssertTrue(
+            element(identifier: "lockChain").waitForExistence(timeout: 10),
+            "the locked iterations join the chain"
+        )
+    }
+
+    /// RT-111.1: opening an iteration leaves the strip present, whole, and usable.
+    ///
+    /// The entry count is asserted because a strip that survives while losing its contents
+    /// satisfies presence and hittability alone.
+    func test_openingAnIterationLeavesTheChainWhole_RT111_1() {
+        buildLockChain(of: 2)
+        let before = lockChainEntries.count
+        XCTAssertEqual(before, 2, "two locks make two entries")
+
+        lockChainEntries[0].click()
+
+        let chain = element(identifier: "lockChain")
+        XCTAssertTrue(chain.exists, "the chain strip disappeared when an iteration was opened")
+        XCTAssertEqual(lockChainEntries.count, before, "the chain lost entries when one was opened")
+        XCTAssertTrue(lockChainEntries[1].isHittable, "the other iteration is no longer reachable")
+    }
+
+    /// RT-111.2: moving from one open iteration directly to another.
+    ///
+    /// The author's actual attempted action: *"i can not navigate to any other previously locked
+    /// images."*
+    func test_navigatingFromOneIterationToAnother_RT111_2() {
+        buildLockChain(of: 2)
+        lockChainEntries[0].click()
+        XCTAssertTrue(element(identifier: "lockChain").exists)
+
+        lockChainEntries[1].click()
+
+        XCTAssertEqual(
+            lockChainEntries[1].value as? String, "Showing",
+            "the second iteration did not become the one on the canvas"
+        )
+    }
+
+    /// RT-111.3: a chain of exactly one survives being opened.
+    func test_aChainOfOneSurvivesBeingOpened_RT111_3() {
+        buildLockChain(of: 1)
+        XCTAssertEqual(lockChainEntries.count, 1)
+
+        lockChainEntries[0].click()
+
+        XCTAssertTrue(
+            element(identifier: "lockChain").exists,
+            "a single-entry chain disappeared when its only entry was opened"
+        )
+    }
+
+    /// RT-111.4: a genuine import from the viewing state still empties the chain.
+    ///
+    /// AC89.8 must survive the fix. The shortest route to green on the tests above is to stop
+    /// `importImage` clearing the chain, or to widen the guard until nothing re-imports; either
+    /// satisfies RT-111.1 and RT-111.2 and breaks this.
+    func test_aGenuineImportFromTheViewingStateStillEmptiesTheChain_RT111_4() {
+        buildLockChain(of: 2)
+        lockChainEntries[0].click()
+        XCTAssertTrue(element(identifier: "lockChain").exists)
+
+        XCTAssertTrue(loadTestImage(), "a genuine import while viewing an iteration")
+
+        let chain = element(identifier: "lockChain")
+        let gone = NSPredicate(format: "exists == false")
+        let promise = expectation(for: gone, evaluatedWith: chain)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [promise], timeout: 20), .completed,
+            "importing a new image left the previous image's chain in place"
+        )
+    }
+
+    /// RT-111.5: an entry whose file has gone stays in the chain and reports itself unavailable.
+    func test_anEntryWhoseFileHasGoneStaysInTheChain_RT111_5() throws {
+        buildLockChain(of: 2)
+
+        let generated = configuredGeneratedDirectory
+        let locked = try FileManager.default
+            .contentsOfDirectory(at: generated, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("raised-") || $0.pathExtension == "png" }
+        let victim = try XCTUnwrap(locked.first, "the chain wrote no file to remove")
+        try FileManager.default.removeItem(at: victim)
+
+        lockChainEntries[0].click()
+
+        XCTAssertTrue(
+            element(identifier: "lockChain").exists,
+            "removing an iteration's file emptied the chain"
+        )
+        XCTAssertEqual(lockChainEntries.count, 2, "the entry left the chain when its file did")
+    }
+
+    /// RT-111.6: one action returns to the live image, and it is that image.
+    ///
+    /// Asserting only that the viewing state ended would pass against a control that returns to
+    /// some other picture.
+    func test_oneActionReturnsToTheLiveImage_RT111_6() {
+        buildLockChain(of: 2)
+        lockChainEntries[0].click()
+
+        let back = element(identifier: "returnToCurrentButton")
+        XCTAssertTrue(back.waitForExistence(timeout: 5), "no way back to the live image")
+        back.click()
+
+        XCTAssertEqual(
+            element(identifier: "canvasState").value as? String, "The base",
+            "returning did not put the live base on the canvas"
+        )
+        for entry in lockChainEntries {
+            XCTAssertNotEqual(
+                entry.value as? String, "Showing",
+                "an iteration is still marked as the one on the canvas"
+            )
+        }
+    }
+
+    /// RT-111.7: the strip reports which entry is open, as a value, across two entries.
+    ///
+    /// Asserted at two different entries so a hard-coded value fails. Guide section 3.9: a
+    /// perceivable state is a value, not a tint.
+    func test_theChainReportsWhichEntryIsOpen_RT111_7() {
+        buildLockChain(of: 2)
+
+        lockChainEntries[0].click()
+        XCTAssertEqual(lockChainEntries[0].value as? String, "Showing")
+        XCTAssertNotEqual(lockChainEntries[1].value as? String, "Showing")
+
+        lockChainEntries[1].click()
+        XCTAssertEqual(lockChainEntries[1].value as? String, "Showing")
+        XCTAssertNotEqual(lockChainEntries[0].value as? String, "Showing")
+    }
+
+    /// RT-111.8: the strip persists with the scale both cleared and selected.
+    ///
+    /// Viewing runs through the upscale path, so the two states are not the same journey.
+    func test_theChainPersistsAtEitherScaleState_RT111_8() {
+        buildLockChain(of: 2)
+
+        // The raise to the filterable minimum has already cleared the scale.
+        lockChainEntries[0].click()
+        XCTAssertTrue(element(identifier: "lockChain").exists, "with the scale cleared")
+
+        selectScale(2)
+        XCTAssertTrue(waitForUpscaleComplete())
+        lockChainEntries[1].click()
+        XCTAssertTrue(element(identifier: "lockChain").exists, "with a scale selected")
+    }
+
     // MARK: - AC98.5: one failure surface (#98)
 
     // RT-98.14
@@ -2365,7 +2699,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // RT-87.2: the canvas and the filter panel are one surface, seen together.
     func test_theCanvasAndTheFilterPanelAreVisibleTogether_RT087_2() {
-        XCTAssertTrue(element(identifier: "workspaceCanvas").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(identifier: "canvasState").waitForExistence(timeout: 5))
         XCTAssertTrue(element(identifier: "filterPanel").exists)
     }
 
@@ -2380,7 +2714,7 @@ final class SuperscaleAppUITests: XCTestCase {
     // adversarial case: any larger window makes dominance easier.
     func test_theCanvasDominatesTheWindow_RT087_4() {
         let window = app.windows.firstMatch
-        let canvas = element(identifier: "workspaceCanvas")
+        let canvas = element(identifier: "canvasState")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
         let ratio = canvas.frame.width / window.frame.width
@@ -2393,7 +2727,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // RT-87.5: the canvas and the panel coexist rather than replacing one another.
     func test_theFilterPanelDoesNotReplaceTheCanvas_RT087_5() {
-        let canvas = element(identifier: "workspaceCanvas")
+        let canvas = element(identifier: "canvasState")
         let panel = element(identifier: "filterPanel")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
@@ -2405,7 +2739,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_settingsOpensAsASceneLeavingTheWorkspace_RT087_6() {
         openSettings()
 
-        XCTAssertTrue(element(identifier: "workspaceCanvas").exists, "the workspace remains behind it")
+        XCTAssertTrue(element(identifier: "canvasState").exists, "the workspace remains behind it")
     }
 
     // RT-87.7: the workspace itself holds no Settings surface.
@@ -2589,7 +2923,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // `workspaceCanvas` carries `.accessibilityElement(children: .contain)`, which makes it a
         // group rather than an "Other", so `app.otherElements` finds nothing and the failure
         // surfaces later as "no matches found" against whatever the test does with it next.
-        let canvas = element(identifier: "workspaceCanvas")
+        let canvas = element(identifier: "canvasState")
         let image = app.images["workingImage"]
 
         // The suite's fixture is 240×320 deliberately, so its upscale can finish before the
@@ -2668,7 +3002,7 @@ final class SuperscaleAppUITests: XCTestCase {
             "the picture is where it was: the indicator sits over it, not in place of it")
         XCTAssertTrue(image.isHittable, "and it is not behind a scrim")
 
-        let canvas = element(identifier: "workspaceCanvas")
+        let canvas = element(identifier: "canvasState")
         let covered = (indicator.frame.width * indicator.frame.height)
             / (canvas.frame.width * canvas.frame.height)
         XCTAssertLessThan(covered, 0.25, "a badge, not a sheet: \(covered) of the canvas")
@@ -2720,7 +3054,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // `workspaceCanvas` carries `.accessibilityElement(children: .contain)`, which makes it a
         // group rather than an "Other", so `app.otherElements` finds nothing and the failure
         // surfaces later as "no matches found" against whatever the test does with it next.
-        let canvas = element(identifier: "workspaceCanvas")
+        let canvas = element(identifier: "canvasState")
         guard divider.waitForExistence(timeout: 5) else {
             XCTFail("no curtain to drag")
             return
