@@ -991,6 +991,7 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 | #111 | open | Opening a locked iteration hides the lock chain strip, so every other iteration becomes unreachable. Failed UT-89.1. Violates AC89.3's "remains reachable". |
 | #112 | open | A FAL filter result offers no curtain, so it cannot be compared against the picture it was made from. Violates AC94.3; also blocks UT-96.1. |
 | #66 | open, pre-v2 | The comparison divider is hard to see over bright regions. Paint-only; the fix procedure (2026-08-25 comment) warns off the geometry UT-90.1 was just re-passed on. |
+| #113 | open | A provider error after Apply lands only in the status bar's caption: the upload path reaches the one failure surface through `report()`, but a failed generation request only sets the coordinator's phase, rendered as grey caption text and a red dot. Violates AC98.5's "one surface, whatever raised it". |
 
 ---
 
@@ -1101,8 +1102,9 @@ entries, per-test status marks).
    full `make test-gui` and `make test`. Green closes #105 and unblocks the
    closure of #100--#103 and master #99's exit gate.
 2. **The open defect tickets** in section 5: #106, #108, #109, #110, #111,
-   #112, #66. Each carries its own staged procedure; none blocks another,
-   though #112 unblocks UT-96.1 and #111+#112 together re-offer UT-89.1.
+   #112, #113, #66. Each carries its own staged procedure; none blocks
+   another, though #112 unblocks UT-96.1 and #111+#112 together re-offer
+   UT-89.1.
 3. **Human sign-offs on #79**: UT-94.1 (unblocked, verdict pending), UT-93.1
    (waits on #108), UT-95.1 (waits on #109+#110), UT-89.1 (waits on
    #111+#112), UT-96.1 (waits on #112). Then `APPROVED 79`.
@@ -1302,7 +1304,7 @@ verification procedure** before closure and the exit gate. That procedure is
 the next executable action for any new session: targeted GUI run, then full
 `make test-gui` and `make test`, per the ticket.
 
-**Open defect tickets:** #106, #108, #109, #110, #111, #112 from this
+**Open defect tickets:** #106, #108, #109, #110, #111, #112, #113 from this
 delivery's verification and the author's user-test rounds, and pre-v2 #66.
 The table with one-line mechanisms is in section 5; the procedures are on the
 tickets. Legacy feature tickets #55 (signing and notarisation) and #57 (XCUITest
