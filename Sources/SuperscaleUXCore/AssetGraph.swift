@@ -146,6 +146,12 @@ public enum AssetGraphError: LocalizedError, Equatable, Sendable {
     case upscaledAssetIsNotAStageInput(UUID)
     case noCandidateToLock
     case notAnUpscaledOutput(UUID)
+    /// The directory an output was to be allocated in could not be brought into existence.
+    ///
+    /// Carries the reason as well as the location because they call for different remedies: a
+    /// volume with no room, a path already taken by a file, and a directory the user cannot write
+    /// to are three different problems wearing one sentence otherwise.
+    case outputDirectoryUnavailable(URL, reason: String)
 
     public var errorDescription: String? {
         switch self {
@@ -164,6 +170,10 @@ public enum AssetGraphError: LocalizedError, Equatable, Sendable {
             return """
                 Asset \(id.uuidString) is not an upscaled output. Only an upscaled output can be \
                 promoted or released; everything else is the user's image or a locked iteration.
+                """
+        case let .outputDirectoryUnavailable(url, reason):
+            return """
+                There is nowhere to write the result: \(url.path) could not be created. \(reason)
                 """
         }
     }
@@ -197,6 +207,30 @@ public struct AssetGraph: Sendable {
 
     public init(outputDirectory: URL) {
         self.outputDirectory = outputDirectory
+    }
+
+    /// Brings the output directory into existence, so that an allocated location can be written to.
+    ///
+    /// Called from each allocation rather than from `init`, for two reasons. The initialiser is
+    /// `public` and not `throws`, so creating a directory there would either change a public
+    /// signature or swallow the failure where nothing can report it. And a directory that existed
+    /// at construction may not exist by the time a stage writes — a graph outlives any one moment,
+    /// and the allocation is the moment the guarantee is needed.
+    ///
+    /// The graph did none of this until #115. It minted paths beneath a directory it never created,
+    /// and worked only because `GenerationCoordinator` created the same directory as a side effect
+    /// on the ordinary launch path. Replacing that coordinator — as the UI-test launch does —
+    /// removed the side effect, and every raise then failed with *"The folder … doesn't exist."*
+    private func ensureOutputDirectoryExists() throws {
+        do {
+            try FileManager.default.createDirectory(
+                at: outputDirectory, withIntermediateDirectories: true
+            )
+        } catch {
+            throw AssetGraphError.outputDirectoryUnavailable(
+                outputDirectory, reason: error.localizedDescription
+            )
+        }
     }
 
     /// The last locked result, or the imported image when nothing has been locked.
@@ -266,6 +300,7 @@ public struct AssetGraph: Sendable {
         promote: Bool = true
     ) throws -> UpscaleAllocation {
         try validateStageInput(input)
+        try ensureOutputDirectoryExists()
         let id = UUID()
         let resolvedExtension = fileExtension.isEmpty ? "png" : fileExtension
         let fileURL = outputDirectory
@@ -388,6 +423,7 @@ public struct AssetGraph: Sendable {
         promote: Bool = true
     ) throws -> UpscaleAllocation {
         try validateStageInput(input)
+        try ensureOutputDirectoryExists()
         let id = UUID()
         let resolvedExtension = fileExtension.isEmpty ? "png" : fileExtension
         let fileURL = outputDirectory
