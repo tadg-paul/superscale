@@ -6,20 +6,15 @@ import FalGenerationKit
 import SuperscaleKit
 import SuperscaleUXCore
 
-/// Where the application keeps what it produces.
-///
-/// Lived in `GenerateView` until #87 deleted that surface. Application-level locations belong
-/// with the application rather than with any one view.
-enum V2AppPaths {
-    static var root: URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        return base.appendingPathComponent("Superscale", isDirectory: true)
-    }
-
-    static var generated: URL { root.appendingPathComponent("Generated", isDirectory: true) }
-    static var history: URL { root.appendingPathComponent("History", isDirectory: true) }
-}
+// 🚫 `V2AppPaths` is removed by #116. It computed the application's storage locations, and it was
+// the *second* place they were computed: `MainView` read it from a property initialiser while the
+// entry point read it here, so a launch given a test root redirected some of the application's
+// writes and not others. `StorageRoots` in `SuperscaleUXCore` is the one resolution now, which is
+// also where `ARCHITECTURE.md` §"Target Module Boundary" says storage policy belongs.
+//
+// It had lived in `GenerateView` until #87 deleted that surface, and moved here then. That was the
+// right direction and not far enough: application-level locations belong with neither a view nor
+// an entry point, but with the module that owns storage.
 
 @main
 struct SuperscaleApp: App {
@@ -27,18 +22,44 @@ struct SuperscaleApp: App {
     @StateObject private var settingsState: GenerationSettingsState
     @StateObject private var generationCoordinator: GenerationCoordinator
     private let sessionStore: GenerationSessionStore
+    /// Every directory the application writes to, resolved once in `init`.
+    private let storageRoots: StorageRoots
 
     init() {
         var startupError: String?
 
+#if DEBUG
+        let environment = ProcessInfo.processInfo.environment
+#endif
+
+        // The storage root is decided once, here, before anything that writes is constructed.
+        //
+        // Every location the application writes to hangs off this one value, which is what AC116.1
+        // requires. Resolving it a second time elsewhere is the defect #116 fixes: the workspace's
+        // asset graph read `V2AppPaths` from a view's property initialiser, so a launch given a test
+        // root redirected the coordinator and the session store and left the workspace writing into
+        // the user's own application-support directory.
+        //
+        // The environment is read here rather than inside `StorageRoots`, so that honouring it stays
+        // a decision this application makes under its own build conditions. A resolver reading the
+        // environment itself would apply to release builds too.
+#if DEBUG
+        let configuredRoot = environment["SUPERSCALE_UI_TEST_ROOT"].map {
+            URL(fileURLWithPath: $0, isDirectory: true)
+        }
+#else
+        let configuredRoot: URL? = nil
+#endif
+        let storageRoots = StorageRoots.resolved(configuredRoot: configuredRoot)
+        self.storageRoots = storageRoots
+
         var credentialStorage: any CredentialStorage = KeychainCredentialStorage()
-        var coordinator = GenerationCoordinator(outputDirectory: V2AppPaths.generated)
-        var store = GenerationSessionStore(rootDirectory: V2AppPaths.history)
+        var coordinator = GenerationCoordinator(outputDirectory: storageRoots.generated)
+        var store = GenerationSessionStore(rootDirectory: storageRoots.history)
         var credentialVerifier = FalCredentialVerifier()
         var upscaleCoordinator = GUIUpscaleCoordinator()
 
 #if DEBUG
-        let environment = ProcessInfo.processInfo.environment
         // Makes one subsystem fail on demand, so a GUI test can see where each failure is presented.
         // Without it neither can be made to fail from outside: the generation service is stubbed to
         // succeed and the upscale runs the real pipeline on a real fixture.
@@ -52,28 +73,25 @@ struct SuperscaleApp: App {
         if failingSubsystem == "upscale" {
             upscaleCoordinator = GUIUpscaleCoordinator(processor: UITestFailingUpscaleProcessor())
         }
-        if let rootPath = environment["SUPERSCALE_UI_TEST_ROOT"],
+        if let configuredRoot,
            let generatedImagePath = environment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] {
-            let root = URL(fileURLWithPath: rootPath, isDirectory: true)
             let generatedImage = URL(fileURLWithPath: generatedImagePath)
             credentialStorage = UITestCredentialStorage()
             // The generation service is already stubbed here; the verifier is stubbed for the same
             // reason. A GUI test pressing save would otherwise reach `api.fal.ai` for real, which
             // makes the suite depend on a network and on somebody else's uptime.
             credentialVerifier = FalCredentialVerifier(transport: UITestVerificationTransport())
+            // The directories come from `storageRoots`, which already resolved from this same root.
+            // Recomputing them here is how the workspace and the coordinator came to disagree.
             coordinator = GenerationCoordinator(
                 service: UITestGenerationService(
                     imageURL: generatedImage,
                     fails: failingSubsystem == "provider"),
-                outputStore: GeneratedImageStore(
-                    directory: root.appendingPathComponent("Generated", isDirectory: true)
-                )
+                outputStore: GeneratedImageStore(directory: storageRoots.generated)
             )
-            store = GenerationSessionStore(
-                rootDirectory: root.appendingPathComponent("History", isDirectory: true)
-            )
+            store = GenerationSessionStore(rootDirectory: storageRoots.history)
             do {
-                try resetUITestRoot(root)
+                try resetUITestRoot(configuredRoot)
                 try seedUITestHistory(store: store, imageURL: generatedImage)
             } catch {
                 startupError = "Could not prepare UI test fixtures: \(error.localizedDescription)"
@@ -101,6 +119,7 @@ struct SuperscaleApp: App {
             MainView(
                 viewModel: viewModel,
                 settingsState: settingsState,
+                storageRoots: storageRoots,
                 generationCoordinator: generationCoordinator,
                 sessionStore: sessionStore
             )

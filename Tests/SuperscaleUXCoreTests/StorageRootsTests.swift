@@ -30,13 +30,18 @@ final class StorageRootsTests: XCTestCase {
         return directory
     }
 
-    /// Whether `url` lies beneath `ancestor`, compared on standardized paths so that a symlinked
-    /// temporary directory does not read as a different tree from its own children.
+    /// Whether `url` lies beneath `ancestor`, compared by path components on standardized URLs.
+    ///
+    /// Symlinks are deliberately **not** resolved. `resolvingSymlinksInPath()` resolves the APFS
+    /// firmlink on `/Users` only for a path that exists, so an ancestor that is on disk and a child
+    /// that is not yet canonicalise to different volumes — `/System/Volumes/Data/Users/…` against
+    /// `/Users/…` — and the comparison fails on two paths that plainly nest. Every pair compared
+    /// here is built by appending to the same root, so component comparison is exact without it.
     private func isBeneath(_ url: URL, _ ancestor: URL) -> Bool {
-        let child = url.standardizedFileURL.resolvingSymlinksInPath().path
-        var parent = ancestor.standardizedFileURL.resolvingSymlinksInPath().path
-        if !parent.hasSuffix("/") { parent += "/" }
-        return child.hasPrefix(parent)
+        let child = url.standardizedFileURL.pathComponents
+        let parent = ancestor.standardizedFileURL.pathComponents
+        guard child.count > parent.count else { return false }
+        return Array(child.prefix(parent.count)) == parent
     }
 
     private func writeSource(in directory: URL) throws -> URL {

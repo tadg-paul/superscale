@@ -19,24 +19,35 @@ struct MainView: View {
     @State private var didLoadDefaults = false
     /// The workspace's state. The graph decides which asset is read and which is shown; the view
     /// model renders whichever one it is handed.
-    @StateObject private var workspace = WorkspaceState(outputDirectory: V2AppPaths.generated)
+    ///
+    /// Its directory arrives through `init` rather than being resolved here. As a property
+    /// initialiser reading `V2AppPaths` it was the application's second, unrelated answer to where
+    /// storage lives, and a launch given a test root redirected the coordinator and the session
+    /// store while this one went on writing to the user's application-support directory (#116).
+    @StateObject private var workspace: WorkspaceState
 
     private let sessionStore: GenerationSessionStore
 
+    /// - Parameter storageRoots: every directory this view's components write to. Required rather
+    ///   than defaulted: a default would be a second resolution, which is the defect #116 fixes.
     init(
         viewModel: UpscaleViewModel,
         settingsState: GenerationSettingsState,
+        storageRoots: StorageRoots,
         generationCoordinator: GenerationCoordinator? = nil,
         sessionStore: GenerationSessionStore? = nil
     ) {
         self.viewModel = viewModel
         self.settingsState = settingsState
+        _workspace = StateObject(
+            wrappedValue: WorkspaceState(outputDirectory: storageRoots.generated)
+        )
         _generationCoordinator = StateObject(
             wrappedValue: generationCoordinator
-                ?? GenerationCoordinator(outputDirectory: V2AppPaths.generated)
+                ?? GenerationCoordinator(outputDirectory: storageRoots.generated)
         )
         self.sessionStore = sessionStore
-            ?? GenerationSessionStore(rootDirectory: V2AppPaths.history)
+            ?? GenerationSessionStore(rootDirectory: storageRoots.history)
     }
 
     var body: some View {
@@ -678,8 +689,17 @@ struct MainView: View {
 }
 
 #Preview("Empty") {
-    MainView(viewModel: UpscaleViewModel(), settingsState: previewSettingsState())
-        .frame(width: 900, height: 600)
+    // A preview writes nowhere near the user's own storage. The root is passed explicitly for the
+    // same reason `MainView` requires one: a default would be a second place storage is decided.
+    MainView(
+        viewModel: UpscaleViewModel(),
+        settingsState: previewSettingsState(),
+        storageRoots: StorageRoots(
+            root: FileManager.default.temporaryDirectory
+                .appendingPathComponent("SuperscalePreview", isDirectory: true)
+        )
+    )
+    .frame(width: 900, height: 600)
 }
 
 @MainActor
