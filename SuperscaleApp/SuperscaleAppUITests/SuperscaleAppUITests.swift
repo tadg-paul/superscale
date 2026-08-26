@@ -1155,7 +1155,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // deliberate act rather than the starting state. The first version of this test assumed
         // otherwise and failed on its own premise.
         leaveComparison()
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
         XCTAssertFalse(
             element(identifier: "curtainPicture").exists, "no curtain is on screen")
@@ -2306,13 +2306,21 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // MARK: - AC117.1: the canvas reports what it is displaying (#117)
 
+    /// What the canvas says it is showing.
+    ///
+    /// Read from the **label**, not the value. AC117.1 originally asked for a value and #117
+    /// records the four measurements that showed SwiftUI does not carry one on any element reachable
+    /// here; the criterion is superseded to the label channel on that evidence.
     private var canvasKind: String? {
-        element(identifier: "canvasState").value as? String
+        let label = element(identifier: "workspaceCanvas").label
+        let prefix = "Canvas showing "
+        guard label.hasPrefix(prefix) else { return label.isEmpty ? nil : label }
+        return String(label.dropFirst(prefix.count))
     }
 
     /// RT-117.1: with no image, the canvas reports that it is showing nothing.
     func test_withNoImageTheCanvasReportsNothing_RT117_1() {
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5), "the canvas is not in the accessibility tree")
         XCTAssertEqual(canvasKind, "Nothing")
     }
@@ -2377,7 +2385,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
 
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         let label = canvas.label
         let value = canvasKind
 
@@ -2580,7 +2588,7 @@ final class SuperscaleAppUITests: XCTestCase {
         back.click()
 
         XCTAssertEqual(
-            element(identifier: "canvasState").value as? String, "The base",
+            canvasKind, "The base",
             "returning did not put the live base on the canvas"
         )
         for entry in lockChainEntries {
@@ -2747,7 +2755,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // RT-87.2: the canvas and the filter panel are one surface, seen together.
     func test_theCanvasAndTheFilterPanelAreVisibleTogether_RT087_2() {
-        XCTAssertTrue(element(identifier: "canvasState").waitForExistence(timeout: 5))
+        XCTAssertTrue(element(identifier: "workspaceCanvas").waitForExistence(timeout: 5))
         XCTAssertTrue(element(identifier: "filterPanel").exists)
     }
 
@@ -2762,7 +2770,7 @@ final class SuperscaleAppUITests: XCTestCase {
     // adversarial case: any larger window makes dominance easier.
     func test_theCanvasDominatesTheWindow_RT087_4() {
         let window = app.windows.firstMatch
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
         let ratio = canvas.frame.width / window.frame.width
@@ -2775,7 +2783,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // RT-87.5: the canvas and the panel coexist rather than replacing one another.
     func test_theFilterPanelDoesNotReplaceTheCanvas_RT087_5() {
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         let panel = element(identifier: "filterPanel")
         XCTAssertTrue(canvas.waitForExistence(timeout: 5))
 
@@ -2787,7 +2795,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_settingsOpensAsASceneLeavingTheWorkspace_RT087_6() {
         openSettings()
 
-        XCTAssertTrue(element(identifier: "canvasState").exists, "the workspace remains behind it")
+        XCTAssertTrue(element(identifier: "workspaceCanvas").exists, "the workspace remains behind it")
     }
 
     // RT-87.7: the workspace itself holds no Settings surface.
@@ -2971,7 +2979,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // `workspaceCanvas` carries `.accessibilityElement(children: .contain)`, which makes it a
         // group rather than an "Other", so `app.otherElements` finds nothing and the failure
         // surfaces later as "no matches found" against whatever the test does with it next.
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         let image = app.images["workingImage"]
 
         // The suite's fixture is 240×320 deliberately, so its upscale can finish before the
@@ -3050,7 +3058,7 @@ final class SuperscaleAppUITests: XCTestCase {
             "the picture is where it was: the indicator sits over it, not in place of it")
         XCTAssertTrue(image.isHittable, "and it is not behind a scrim")
 
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         let covered = (indicator.frame.width * indicator.frame.height)
             / (canvas.frame.width * canvas.frame.height)
         XCTAssertLessThan(covered, 0.25, "a badge, not a sheet: \(covered) of the canvas")
@@ -3102,7 +3110,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // `workspaceCanvas` carries `.accessibilityElement(children: .contain)`, which makes it a
         // group rather than an "Other", so `app.otherElements` finds nothing and the failure
         // surfaces later as "no matches found" against whatever the test does with it next.
-        let canvas = element(identifier: "canvasState")
+        let canvas = element(identifier: "workspaceCanvas")
         guard divider.waitForExistence(timeout: 5) else {
             XCTFail("no curtain to drag")
             return

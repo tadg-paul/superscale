@@ -62,6 +62,14 @@ struct MainView: View {
                     // the info panel, which is the defect #88 fixed in Settings.
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("workspaceCanvas")
+                    // The canvas says what it is showing, in its **label**.
+                    //
+                    // AC117.1 first asked for this as an `accessibilityValue`, and #117 records
+                    // four measurements showing SwiftUI does not carry a value here: empty on this
+                    // container, empty on the inner one, and empty on a shape declared an element
+                    // of its own. The label is the channel this platform carries on a container
+                    // declaring `children: .contain`, which is what guide 3.18 already said.
+                    .accessibilityLabel("Canvas showing \(displayedKind.reportedValue)")
                 Divider()
                 FilterPanel(
                     selection: $selection,
@@ -144,26 +152,6 @@ struct MainView: View {
                 }
             }
             .padding(.top, 16)
-
-            // What the canvas is showing, said out loud rather than left to be inferred from which
-            // controls happen to be present.
-            //
-            // **A declared element of its own, not a value on the canvas container.** The canvas
-            // carries `accessibilityElement(children: .contain)` so that its picture, indicator and
-            // info panel stay individually reachable, and a container in that mode reports its
-            // label while dropping its value — the mechanism recorded in AC101.1's notes and guide
-            // section 3.18, measured again here: the value read back as an empty string.
-            //
-            // `Color.clear` is a shape, and shapes never enter the accessibility tree on their own
-            // (guide 3.11), so it is declared an element deliberately. It carries both a label and
-            // a value, because an element that sets only one of the two has twice shipped in this
-            // codebase reporting nothing.
-            Color.clear
-                .frame(width: 1, height: 1)
-                .accessibilityElement()
-                .accessibilityIdentifier("canvasState")
-                .accessibilityLabel("Canvas content")
-                .accessibilityValue(displayedKind.reportedValue)
         }
     }
 
