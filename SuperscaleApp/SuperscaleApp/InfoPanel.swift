@@ -2,6 +2,7 @@
 // ABOUTME: Shows dynamic summary of current model, scale, stretch, and face enhancement settings.
 
 import SuperscaleKit
+import SuperscaleUXCore
 import SwiftUI
 
 struct InfoPanel: View {
@@ -33,6 +34,17 @@ struct InfoPanel: View {
         .padding(.vertical, 8)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
         .padding(.top, 12)
+    }
+
+    /// The picture's own size, where one is loaded.
+    ///
+    /// `SizingLine` needs it to judge a request against the ceiling; with no picture there is
+    /// nothing to judge, and it says so.
+    private var sourceSize: CGSize? {
+        guard let width = viewModel.inputWidth, let height = viewModel.inputHeight else {
+            return nil
+        }
+        return CGSize(width: width, height: height)
     }
 
     private var lines: [String] {
@@ -67,29 +79,25 @@ struct InfoPanel: View {
             result.append("Input: \(w)×\(h)")
         }
 
-        // Scale
-        switch viewModel.scaleSelection {
-        case .off:
-            result.append("Upscaling off — select a scale to upscale this image")
-        case .preset(let scale):
-            if let w = viewModel.inputWidth, let h = viewModel.inputHeight {
-                result.append("Scale: \(scale)× → \(w * scale)×\(h * scale)")
-            } else {
-                result.append("Scale: \(scale)×")
-            }
-        case .custom:
-            let w = viewModel.customWidth
-            let h = viewModel.customHeight
-            if viewModel.stretchEnabled {
-                result.append("Custom: \(w)×\(h) (stretch)")
-            } else if viewModel.definingDimension == .width, !w.isEmpty {
-                result.append("Custom width: \(w)px")
-            } else if !h.isEmpty {
-                result.append("Custom height: \(h)px")
-            } else {
-                result.append("Custom resolution: enter width or height")
-            }
-        }
+        // Scale, from the one function that decides sizing rather than from arithmetic here.
+        //
+        // 🚫 The local `\(w * scale)×\(h * scale)` is removed by #108. It multiplied input by
+        // scale and never consulted `UpscaleCeiling.decide`, so it reported the request as though
+        // it were the outcome: a 3840×2160 photograph at 8x read "Scale: 4× → 15360×8640", which is
+        // 132 megapixels against a 32-megapixel ceiling and an output nothing was going to produce.
+        // The status bar, a few pixels away, reported the truth.
+        //
+        // The `.custom` branch did the same thing with the typed dimensions and went the same way.
+        result.append(
+            SizingLine.of(
+                sourceSize: sourceSize,
+                selection: viewModel.scaleSelection,
+                customWidth: viewModel.customWidth,
+                customHeight: viewModel.customHeight,
+                stretch: viewModel.stretchEnabled,
+                definesWidth: viewModel.definingDimension == .width
+            )
+        )
 
         // Stretch
         if viewModel.stretchEnabled && viewModel.scaleSelection == .custom {
