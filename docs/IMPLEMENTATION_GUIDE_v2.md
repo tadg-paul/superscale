@@ -1,4 +1,4 @@
-<!-- Version: 3.24 | Last updated: 2026-08-25 -->
+<!-- Version: 3.25 | Last updated: 2026-08-26 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -496,9 +496,21 @@ flowchart LR
 | `SuperscaleApp` | SwiftUI views and platform integration only. |
 | `Superscale` | The CLI. Local upscaling only, with no dependency on the two cloud-facing modules. Verified by test. |
 
-One correction to the current layout: `V2AppPaths` lives inside
+~~One correction to the current layout: `V2AppPaths` lives inside
 `GenerateView.swift` while the app entry point depends on it. Storage policy
-belongs in `SuperscaleUXCore`.
+belongs in `SuperscaleUXCore`.~~ **Done, 2026-08-26 (#116).** `StorageRoots` in
+`SuperscaleUXCore` is now the single resolution for every directory the
+application writes to, and `V2AppPaths` is gone.
+
+It cost a defect on the way. `V2AppPaths` moved from `GenerateView` to the app
+entry point when #87 deleted that surface, which was the right direction and
+not far enough: `MainView` went on reading it from a `@StateObject` property
+initializer while the entry point read it separately. A launch given a test
+root redirected the generation coordinator and the session store and left the
+workspace's asset graph writing into the user's own application-support
+directory. Two resolutions of one thing, with nothing able to tell them apart
+- the same shape as the measurement defect AC100.2 records, and the reason the
+criterion is *a single configured root* rather than *the right root*.
 
 ### 3.2 The asset model
 
@@ -992,6 +1004,8 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 | #112 | open | A FAL filter result offers no curtain, so it cannot be compared against the picture it was made from. Violates AC94.3; also blocks UT-96.1. |
 | #66 | open, pre-v2 | The comparison divider is hard to see over bright regions. Paint-only; the fix procedure (2026-08-25 comment) warns off the geometry UT-90.1 was just re-passed on. |
 | #113 | open | A provider error after Apply lands only in the status bar's caption: the upload path reaches the one failure surface through `report()`, but a failed generation request only sets the coordinator's phase, rendered as grey caption text and a red dot. Violates AC98.5's "one surface, whatever raised it". |
+| #115 | fixed 2026-08-26, awaiting GUI verification | **Six of the 101 GUI tests failed** because `AssetGraph` minted output paths beneath a directory it never created. It worked only while `GenerationCoordinator` created the same directory as a side effect on the ordinary launch path; the UI-test launch replaces that coordinator, so every raise allocated into a directory that was not there and the user was shown *"The folder `raised-<uuid>.png` doesn't exist."* Backfilled AC82.9 and AC82.10 onto the #82 stage family. |
+| #116 | fixed 2026-08-26, awaiting GUI verification | Surfaced by #115's diagnosis. The GUI suite redirected the coordinator's store and the session history to its test root but **not the workspace's asset graph**, which read `V2AppPaths` from a view's property initializer - so UI tests allocated into the author's real `~/Library/Application Support/Superscale`. Latent only because #115 made those writes fail. New criterion AC116.1. |
 
 ---
 
@@ -1347,6 +1361,14 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.25 (2026-08-26):** Section 3.1's outstanding correction is struck as done: `StorageRoots` in
+  `SuperscaleUXCore` is the single resolution for every directory the application writes to, and
+  `V2AppPaths` is gone (#116). Recorded what the delay cost - the entry point and a view's property
+  initializer each resolved storage separately, so a launch given a test root redirected two of the
+  three storage kinds and left the third writing into the user's own application-support directory.
+  Section 5 gains #115 and #116, both raised by the delivery-level verification this revision's work
+  discharged: six GUI tests failed because the asset graph allocated into a directory nothing
+  created, having worked only while another component created it as a side effect.
 - **3.24 (2026-08-25):** The handover revision. Section 4 rewritten from "bolted alongside" to the
   delivered state; section 5 gains the open-defect-ticket table (#105, #106, #108--#112, #66);
   section 6 gains "Built and remaining" with every slice's ticket; section 7 gains the
@@ -1468,4 +1490,3 @@ table on #79 carries every verdict with the author's words.
   contract.
 - **2.0 (2026-08-20):** Rewritten as a single solution design.
 - **1.0 (2026-08-20):** First issue.
-1 symbol replacement
