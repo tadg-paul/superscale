@@ -132,23 +132,23 @@ final class SuperscaleAppUITests: XCTestCase {
     /// turns the scale off, and a filtered result the user had just paid for could not otherwise be
     /// written to disk. Left on Save, this helper would have returned true before any upscale ran and
     /// forty-one tests would have passed vacuously.
-    /// Waits until an upscaled rendering is on the canvas.
+    /// Waits until an upscale has produced a rendering.
     ///
-    /// Reads the canvas's own report of what it is displaying, not the existence of a control.
-    /// It was `app.buttons["compareButton"].waitForExistence(...)` until #117, at 45 call sites,
-    /// and #112 is about to make Compare appear whenever there is *anything* to compare — including
-    /// a filter result with no upscale behind it. Bound to that control, this helper would have
-    /// returned before any upscale had run, and every test built on it would have gone on reporting
-    /// green while asserting nothing.
+    /// Still bound to the Compare control, which exists exactly when a derivation does. #117 exists
+    /// to move this onto the canvas's own report of what it is displaying, because #112 is about to
+    /// make Compare appear whenever there is *anything* to compare — including a filter result with
+    /// no upscale behind it — and bound to that control this helper would then return before any
+    /// upscale had run, at all 45 of its call sites.
+    ///
+    /// **That migration is written and reverted.** SwiftUI did not carry the accessibility value to
+    /// the tree on any element tried, so the canvas state reads back empty and this helper would
+    /// have timed out everywhere. Leaving a broken helper in the tree is worse than an open ticket,
+    /// so the old binding stands until AC117.1's criterion is resolved. See #117.
     ///
     /// The same trap took the Save control in #96 and is recorded in guide section 7. A control's
     /// meaning can widen; a state's cannot.
     private func waitForUpscaleComplete(timeout: TimeInterval = 120) -> Bool {
-        let canvas = element(identifier: "canvasState")
-        guard canvas.waitForExistence(timeout: 5) else { return false }
-        let rendered = NSPredicate(format: "value == %@", "An upscaled rendering")
-        let promise = expectation(for: rendered, evaluatedWith: canvas)
-        return XCTWaiter().wait(for: [promise], timeout: timeout) == .completed
+        app.buttons["compareButton"].waitForExistence(timeout: timeout)
     }
 
     /// Waits until a filter result has reached the canvas.
@@ -2253,6 +2253,54 @@ final class SuperscaleAppUITests: XCTestCase {
             FileManager.default.fileExists(atPath: userGenerated.path),
             userDirectoryExistedBefore,
             "the run changed the user's own application-support storage at \(userGenerated.path)"
+        )
+    }
+
+    // MARK: - AC93.1 and AC83.7: the info panel renders the decision (#108)
+
+    /// RT-108.6: the panel shows the sentence `SizingLine` returns, rather than deriving one.
+    ///
+    /// Five package tests hold what the function decides. This holds that the application asks it.
+    /// Without this the wiring is asserted by nothing, which is the shape that let `FalStorageClient`
+    /// ship complete and uncalled, and that let this very panel keep its own arithmetic while
+    /// `ScaleReadout` sat one module away.
+    ///
+    /// The scale is left as the import set it. `selectScale` waits for the readout to contain
+    /// "requested", which AC93.1 produces only when the ceiling reduces something, and the GUI
+    /// fixture is far too small for that — so driving the scale here would hang on a condition the
+    /// application is correct not to reach. That narrowness is the helper's, and it is recorded on
+    /// master #114 rather than worked around silently.
+    ///
+    /// What this asserts is the wiring: whatever scale is in effect, the panel's sentence is the one
+    /// `SizingLine` composes for it, in its exact form. The ceiling's arithmetic is RT-108.1 to
+    /// RT-108.5's business, at package level, with sizes the GUI has no fixture for.
+    func test_theInfoPanelRendersTheDecision_RT108_6() throws {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        showInfoPanel()
+
+        let scaleElement = element(identifier: "infoScale")
+        XCTAssertTrue(
+            scaleElement.waitForExistence(timeout: 5),
+            "the info panel shows no scale line at all"
+        )
+        let scaleLine = scaleElement.label
+
+        // The fixture's size is read rather than remembered: a number written into a test goes
+        // stale in silence, which this suite has already been caught by once.
+        let size = testImagePixelSize
+        let activeScale = try XCTUnwrap(
+            [2, 4, 8].first { app.buttons["scale\($0)x"].value as? String != nil
+                && ((app.buttons["scale\($0)x"].value as? String) ?? "").lowercased()
+                    .contains("in effect") },
+            "no scale reads as in effect, so there is no decision to render"
+        )
+        let expected = "Scale: \(activeScale)× → "
+            + "\(Int(size.width) * activeScale)×\(Int(size.height) * activeScale)"
+
+        XCTAssertEqual(
+            scaleLine, expected,
+            "the panel is not rendering the sentence SizingLine composes"
         )
     }
 
