@@ -146,9 +146,23 @@ final class SuperscaleAppUITests: XCTestCase {
     /// The migration was written once against an `accessibilityValue`, which SwiftUI did not carry,
     /// and reverted rather than left timing out at every call site. AC117.1 moved the state to the
     /// label, which is carried, and this now reads that.
+    /// **Asks for an upscale if none is due.** #131 made nothing selected on launch, so an import no
+    /// longer upscales by itself and a bare wait here would time out at every one of its call
+    /// sites. Every caller wants an upscaled picture on the canvas; with the new default, wanting
+    /// one means asking for one, and asking once here is the honest place rather than editing
+    /// sixty-three tests to say the same thing.
+    ///
+    /// A caller that means *"no upscale should happen"* must not use this — it would cause the very
+    /// thing it is checking for. RT-131.2 asserts that case directly and deliberately does not call
+    /// this helper.
     private func waitForUpscaleComplete(timeout: TimeInterval = 120) -> Bool {
         let canvas = element(identifier: "workspaceCanvas")
         guard canvas.waitForExistence(timeout: 5) else { return false }
+        if !someScaleIsInEffect {
+            let idle = [4, 2, 8].first { app.buttons["scale\($0)x"].isEnabled }
+            guard let idle else { return false }
+            app.buttons["scale\(idle)x"].click()
+        }
         let rendered = NSPredicate(format: "label == %@", "Canvas showing An upscaled rendering")
         let promise = expectation(for: rendered, evaluatedWith: canvas)
         return XCTWaiter().wait(for: [promise], timeout: timeout) == .completed
@@ -3312,6 +3326,10 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_theFilterToggleIsPresentAfterFilteringASelectedIteration_RT121_3() {
         buildLockChain(of: 2)
 
+        // Entry zero is the imported source, and that is deliberate here: it is the author's literal
+        // case — *"clicked back to my original image"* — and it exercises AC89.10's parentless
+        // selection, where the asset becomes the base with no candidate. RT-121.5 covers selecting
+        // a filtered iteration instead.
         let entries = lockChainEntries
         XCTAssertGreaterThanOrEqual(entries.count, 2, "two locks give at least two entries")
         entries[0].click()
@@ -3336,15 +3354,20 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_theCanvasReportsTheSelectedIterationNotSomethingElse_RT121_5() {
         buildLockChain(of: 2)
 
+        // Entry **one**, not zero. The chain reads from the tip and begins with the imported
+        // source, which has no parent — selecting it makes it the base with no candidate, and the
+        // canvas then correctly reports "The base". The first *filtered* iteration is at index 1,
+        // and it is the one this test is about. The first run of this test selected the source and
+        // failed against behaviour that was right.
         let entries = lockChainEntries
-        XCTAssertGreaterThanOrEqual(entries.count, 2)
-        entries[0].click()
+        XCTAssertGreaterThanOrEqual(entries.count, 3, "the source and two locked results")
+        entries[1].click()
 
         XCTAssertEqual(
             canvasKind, "A filter result",
-            "selecting an iteration puts that iteration on the canvas as the candidate")
+            "selecting a filtered iteration puts it on the canvas as the candidate")
 
-        let showing = entries[0].value as? String ?? ""
+        let showing = entries[1].value as? String ?? ""
         XCTAssertTrue(
             showing.localizedCaseInsensitiveContains("showing"),
             "and the strip agrees which entry it is — the entry reads '\(showing)'")

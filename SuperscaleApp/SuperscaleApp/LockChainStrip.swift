@@ -18,6 +18,13 @@ struct LockChainStrip: View {
     /// stops a caller outside the package inventing a reference for a file it happens to know
     /// about (AC89.4). Comparing references respects that and needs nothing widened.
     let viewing: AssetReference?
+    /// Whether the user has moved back from the newest iteration, which is what the return control
+    /// is for.
+    ///
+    /// Separate from `viewing` being non-nil, because selecting an asset with no parent leaves no
+    /// candidate: a user standing on the source is as far back as they can get, and asking "is
+    /// something being viewed" answers *no* about them.
+    let canReturnToNewest: Bool
     let onSelect: (AssetReference) -> Void
     let onReturn: () -> Void
 
@@ -32,7 +39,7 @@ struct LockChainStrip: View {
                 // the canvas there is nothing to return from. Keeping the chain present was only
                 // half of what #111 asked for: without this a user reaches every iteration and
                 // never the picture they were working on.
-                if viewing != nil {
+                if canReturnToNewest {
                     Button("Back to current", action: onReturn)
                         .font(.caption)
                         .buttonStyle(.link)

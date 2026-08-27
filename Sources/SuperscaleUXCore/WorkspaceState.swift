@@ -81,6 +81,25 @@ public final class WorkspaceState: ObservableObject {
         showsBase ? graph.base : (graph.candidate ?? graph.base)
     }
 
+    /// Which entry of the chain the user is standing on.
+    ///
+    /// The candidate when there is one, and otherwise the base — because selecting an asset with no
+    /// parent leaves no candidate, and that selection is still a place the user is standing.
+    public var selectedIteration: AssetReference? {
+        graph.candidate ?? graph.base
+    }
+
+    /// Whether the user has moved back from the newest locked iteration.
+    ///
+    /// What the return affordance is for. Derived from the chain rather than from the candidate:
+    /// selecting the source clears the candidate, and asking "is there a candidate" there answers
+    /// *no* about a user who is as far from the tip as they can get. That is how #121's first run
+    /// left a user on the source with no way forward.
+    public var isShowingAnEarlierIteration: Bool {
+        guard let newest = lockedIterations.last, let selected = selectedIteration else { return false }
+        return selected != newest.reference
+    }
+
     /// The asset the canvas shows, preferring the upscaled rendering when one exists for it.
     ///
     /// The scale selection and this choice are independent: each of base, base upscaled, candidate

@@ -185,9 +185,9 @@ struct MainView: View {
             Divider()
             LockChainStrip(
                 iterations: workspace.lockedIterations,
-                // The graph's own answer, not a copy of it. The candidate is the selected
-                // iteration; with none, the user is on the base and nothing is "being viewed".
-                viewing: workspace.graph.candidate,
+                // The graph's own answers, not copies of them.
+                viewing: workspace.selectedIteration,
+                canReturnToNewest: workspace.isShowingAnEarlierIteration,
                 onSelect: showIteration,
                 onReturn: returnToCurrent
             )
@@ -759,10 +759,12 @@ struct MainView: View {
             // about the charges. Zero-width so it changes nothing on screen, and readable because
             // its value carries the count.
             if ProcessInfo.processInfo.environment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] != nil {
-                Text("")
-                    .frame(width: 0)
-                    .accessibilityElement()
-                    .accessibilityLabel("Generation requests")
+                // Real text, made invisible — not empty text made narrow. An empty `Text` renders
+                // nothing and does not reach the accessibility tree, so the first attempt read
+                // back as "no such element" and the assertion failed for the wrong reason.
+                Text("\(UITestRequestLedger.shared.generationRequests)")
+                    .font(.caption)
+                    .opacity(0)
                     .accessibilityValue("\(UITestRequestLedger.shared.generationRequests)")
                     .accessibilityIdentifier("generationRequestCount")
             }
