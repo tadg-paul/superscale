@@ -2337,6 +2337,69 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC95.6: a credential row's controls occupy the same space in every state (#110)
+
+    /// Opens Settings and returns the generation key's field.
+    private func openSettingsAndFindTheKeyField() -> XCUIElement {
+        app.typeKey(",", modifierFlags: .command)
+        let field = element(identifier: "generationKeyField")
+        XCTAssertTrue(field.waitForExistence(timeout: 10), "Settings did not open")
+        return field
+    }
+
+    /// RT-110.1: the row's frame is unchanged between empty and filled.
+    func test_theCredentialRowDoesNotResizeWhenTyped_RT110_1() {
+        let field = openSettingsAndFindTheKeyField()
+        let before = field.frame
+
+        field.click()
+        field.typeText("fal-test-key-0123456789")
+
+        XCTAssertEqual(field.frame.width, before.width, accuracy: 1, "the field changed width")
+        XCTAssertEqual(field.frame.minX, before.minX, accuracy: 1, "the field moved")
+    }
+
+    /// RT-110.2: the row's frame is unchanged between the checking state and each settled state.
+    ///
+    /// The widest movement, and the one the author's words do not mention: the spinner appearing
+    /// and disappearing around a provider check swings the row further than any keystroke.
+    func test_theCredentialRowDoesNotResizeWhileChecking_RT110_2() {
+        let field = openSettingsAndFindTheKeyField()
+        field.click()
+        field.typeText("fal-test-key-0123456789")
+        let settled = field.frame
+
+        app.buttons["saveGenerationKeyButton"].click()
+
+        // Sampled repeatedly across the check rather than once, because the spinner is transient and
+        // a single reading can miss the state entirely and pass without seeing it.
+        for _ in 0..<20 {
+            XCTAssertEqual(
+                field.frame.width, settled.width, accuracy: 1,
+                "the field changed width during or after the check"
+            )
+        }
+    }
+
+    /// RT-110.3: the rest of the form does not move while one row changes state.
+    ///
+    /// The test closest to the complaint: *"the layout of the whole form jumps about"* is about the
+    /// other rows, not the one being typed into. It also catches the shortest wrong fix, which pins
+    /// the field's width and leaves the trailing content free to push the row around.
+    func test_theRestOfTheFormDoesNotMove_RT110_3() {
+        let field = openSettingsAndFindTheKeyField()
+        let accountField = element(identifier: "accountAdministrationKeyField")
+        XCTAssertTrue(accountField.waitForExistence(timeout: 5), "the account key row is not present")
+        let before = accountField.frame
+
+        field.click()
+        field.typeText("fal-test-key-0123456789")
+        app.buttons["saveGenerationKeyButton"].click()
+
+        XCTAssertEqual(accountField.frame.minY, before.minY, accuracy: 1, "the other row moved")
+        XCTAssertEqual(accountField.frame.width, before.width, accuracy: 1, "the other row resized")
+    }
+
     // MARK: - AC66.1 to AC66.3: the divider is visible against any background (#66)
 
     /// RT-66.1: the paint change leaves the divider's and the handle's frames alone.

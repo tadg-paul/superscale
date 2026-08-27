@@ -143,6 +143,13 @@ struct SettingsView: View {
         .padding(.vertical, 14)
     }
 
+    /// The reserved width of a credential row's status area.
+    ///
+    /// Wide enough for the small spinner and the badge symbol alike, so neither decides the row's
+    /// width. A named constant rather than a literal because two rows share it and they must agree:
+    /// if they differed, the form's label column would still renegotiate between them.
+    private static let statusSlotWidth: CGFloat = 24
+
     @ViewBuilder
     private func credentialRow(
         title: String,
@@ -186,23 +193,33 @@ struct SettingsView: View {
                         ? "removeGenerationKeyButton"
                         : "removeAccountKeyButton"
                 )
-                if isChecking {
-                    // Pressing save previously changed nothing visible: the key went to the
-                    // Keychain and the window looked exactly as it had. A check that reaches the
-                    // provider takes long enough for that silence to read as a broken button.
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityElement()
-                        .accessibilityIdentifier("generationKeyCheckingIndicator")
-                        .accessibilityLabel("Checking the generation key")
-                } else {
-                    credentialStatusBadge(for: status)
-                        .accessibilityIdentifier(
-                            fieldIdentifier == "generationKeyField"
-                                ? "generationKeyStatusBadge"
-                                : "accountKeyStatusBadge"
-                        )
+                // A fixed slot, so the row's width cannot depend on the row's state.
+                //
+                // The spinner and the badge have different intrinsic widths. Swapped directly into
+                // the `HStack` they resized it, which resized the `TextField` beside them, which
+                // made `LabeledContent` renegotiate the form's label column — and the whole form
+                // moved under the user's typing (#110). Reserving the space means a state change
+                // repaints and never re-lays.
+                ZStack {
+                    if isChecking {
+                        // Pressing save previously changed nothing visible: the key went to the
+                        // Keychain and the window looked exactly as it had. A check that reaches the
+                        // provider takes long enough for that silence to read as a broken button.
+                        ProgressView()
+                            .controlSize(.small)
+                            .accessibilityElement()
+                            .accessibilityIdentifier("generationKeyCheckingIndicator")
+                            .accessibilityLabel("Checking the generation key")
+                    } else {
+                        credentialStatusBadge(for: status)
+                            .accessibilityIdentifier(
+                                fieldIdentifier == "generationKeyField"
+                                    ? "generationKeyStatusBadge"
+                                    : "accountKeyStatusBadge"
+                            )
+                    }
                 }
+                .frame(width: Self.statusSlotWidth)
             }
         } label: {
             // The row's own name, identified so a test can assert there is exactly one of it. The
