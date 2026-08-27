@@ -1489,6 +1489,34 @@ extended AC92.1, AC92.5 and AC92.6.
   than checking each against arithmetic that could be wrong in the same direction twice. UT-90.1
   failed on exactly that --- the pointer not aligning with the curtain.
 
+### AC66.1 - The divider line is visible when positioned over a bright (near-white) image region.
+- Introduced: #66 (closed 2026-08-27)
+- Migrated: 2026-08-27
+- Tests:
+  - ⏳ UT-66.1: pending human resolution in delivery master #114
+
+### AC66.2 - The divider line is visible when positioned over a dark (near-black) image region.
+- Introduced: #66 (closed 2026-08-27)
+- Migrated: 2026-08-27
+- Tests:
+  - ⏳ UT-66.2: pending human resolution in delivery master #114
+
+### AC66.3 - The circle handle is visible against both bright and dark image regions.
+- Introduced: #66 (closed 2026-08-27)
+- Migrated: 2026-08-27
+- Tests:
+  - ⏳ UT-66.3: pending human resolution in delivery master #114
+  - ⏳ UT-66.4: pending human resolution in delivery master #114
+  - ✅ RT-66.1: the divider's and the handle's frames are unchanged by the paint
+- Note: **these three criteria carry no automated floor beyond RT-66.1, deliberately.** Whether a
+  line reads against a photograph is human judgement, which `TESTING.md`'s decision tree sends to a
+  user test. A later change dropping the outline leaves every test green, and that is accepted
+  knowingly rather than overlooked.
+- Note: **RT-66.1 caught the fix itself.** The first version used `.stroke`, which is centred on the
+  shape's edge and grows the drawn bounds by half its line width each side; the handle measured 29.5
+  points against its declared 28. AC90.14's pointer mapping and AC96.4's shared-fraction rule both
+  sit on those frames, and UT-90.1 failed on that geometry once already. `strokeBorder` draws inside.
+
 ### AC96.5 - A returned picture whose shape differs from what was sent is identifiable as such, rather than silently presented as though the provider had preserved the framing.
 - Introduced: #96 (closed 2026-08-25)
 - Migrated: 2026-08-25
