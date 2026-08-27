@@ -2311,6 +2311,37 @@ final class SuperscaleAppUITests: XCTestCase {
     /// Read from the **label**, not the value. AC117.1 originally asked for a value and #117
     /// records the four measurements that showed SwiftUI does not carry one on any element reachable
     /// here; the criterion is superseded to the label channel on that evidence.
+    /// Turns upscaling off by pressing whichever scale is in effect.
+    ///
+    /// `selectScale` deliberately refuses this: it guards against a test naming a scale without
+    /// checking and silently turning upscaling off, then waiting for a result that never comes.
+    /// Here the clearing is the point, so the guard is not what is wanted and the button is pressed
+    /// directly.
+    private func clearScale() {
+        for scale in [2, 4, 8] {
+            let button = app.buttons["scale\(scale)x"]
+            guard button.exists else { continue }
+            let value = (button.value as? String ?? "").lowercased()
+            if value.contains("in effect"), !value.contains("not in effect") {
+                button.click()
+                return
+            }
+        }
+        XCTFail("no scale reads as in effect, so there is nothing to clear")
+    }
+
+    /// Presses a scale button directly, without `selectScale`'s wait.
+    ///
+    /// That wait is for the value to contain `requested`, which AC93.1 produces only where the
+    /// ceiling reduces something. The GUI fixture is far too small for that, so the wait times out
+    /// on a state that is already correct. Recorded on master #114.
+    private func chooseScale(_ scale: Int) {
+        let button = app.buttons["scale\(scale)x"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "scale\(scale)x exists")
+        XCTAssertTrue(button.isEnabled, "scale\(scale)x is enabled")
+        button.click()
+    }
+
     private var canvasKind: String? {
         let label = element(identifier: "workspaceCanvas").label
         let prefix = "Canvas showing "
@@ -2329,7 +2360,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_withNoScaleTheCanvasReportsTheBase_RT117_2() {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
-        selectScale(4)  // clears the selection: the scale control is a toggle group
+        clearScale()
         XCTAssertEqual(canvasKind, "The base")
     }
 
@@ -2402,10 +2433,10 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_theCanvasReportFollowsThePictureNotTheRequest_RT117_7() {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
-        selectScale(4)  // clears it
+        clearScale()
         XCTAssertEqual(canvasKind, "The base")
 
-        selectScale(8)
+        chooseScale(8)
         // Read while the work is in flight. The indicator's presence is what says so.
         let indicator = element(identifier: "workingIndicator")
         if indicator.waitForExistence(timeout: 5) {
@@ -2434,7 +2465,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(waitForUpscaleComplete())
         seen.append(try XCTUnwrap(canvasKind))
 
-        selectScale(4)  // clears it
+        clearScale()
         seen.append(try XCTUnwrap(canvasKind))
 
         let field = element(identifier: "generationPromptField")
