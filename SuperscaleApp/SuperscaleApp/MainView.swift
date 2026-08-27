@@ -98,6 +98,7 @@ struct MainView: View {
         .onAppear(perform: loadDefaults)
         .onChange(of: viewModel.inputURL) { _, url in adoptImportedImage(url) }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
+        .onChange(of: coordinatorFailureMessage) { _, message in reportFilterFailure(message) }
         .onChange(of: workspace.showsBase) { _, _ in displayChosenAsset() }
         // On appearance as well as on change. Driven by the change alone, a view recreated while a
         // base already exists — a window reopened, the scene rebuilt — would start with no loaded
@@ -298,6 +299,33 @@ struct MainView: View {
 
     private var coordinatorOutputPath: String? {
         generationCoordinator.output?.localURL.path
+    }
+
+    /// The provider's own words when a generation request fails, and nil otherwise.
+    ///
+    /// Observed as the **message**, not as the phase. Observing `.failed` would re-raise the alert on
+    /// every redraw that happened while the phase stayed failed; the message changes once per
+    /// failure and returns to nil the moment anything else starts.
+    private var coordinatorFailureMessage: String? {
+        if case let .failed(message) = generationCoordinator.phase { return message }
+        return nil
+    }
+
+    /// Puts a failed generation request on the application's one failure surface.
+    ///
+    /// The upload half of an apply already threw into `submitFilter`'s catch and reached
+    /// `viewModel.report`. The request half did not: it set `phase = .failed`, and nothing in the
+    /// view observed that at all — only `coordinatorOutputPath`, which is the success. `statusText`
+    /// rendered the diagnostic because it reads the phase on every redraw, which is incidental
+    /// rather than a presentation: an API error in caption type at the foot of the window, in the
+    /// place reserved for ambient state (#113).
+    ///
+    /// AC98.5 asks that a failure reach the user through one surface whatever raised it, and the two
+    /// halves of a single apply were reaching two. The status bar keeps ambient state — "Filter
+    /// failed" — and the diagnostic goes where the upscale's does.
+    private func reportFilterFailure(_ message: String?) {
+        guard let message else { return }
+        viewModel.report(message)
     }
 
     /// Adopts an image the user brought in as the graph's source, starting a new chain.
@@ -688,8 +716,12 @@ struct MainView: View {
         switch generationCoordinator.phase {
         case .generating:
             return "Applying filter"
-        case .failed(let message):
-            return message
+        case .failed:
+            // Ambient state, not the diagnostic. The provider's own words go to the alert, which is
+            // AC98.5's one surface; a caption at the foot of the window is where a user watching the
+            // canvas for their result does not look, and it used to be the only place they appeared
+            // (#113).
+            return "Filter failed"
         case .cancelled:
             return "Filter cancelled"
         case .succeeded:

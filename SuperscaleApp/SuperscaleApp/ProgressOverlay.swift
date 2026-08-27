@@ -28,6 +28,18 @@ struct ProgressOverlay: View {
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().stroke(Color.primary.opacity(0.12)))
         .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
+        // One element, whose frame is the badge's.
+        //
+        // Left as a plain container, the identifier the call site applies reaches the spinner and
+        // the message alike, so `workingIndicator` matched several elements and a test reading
+        // `.frame` got whichever came first in the tree — the spinner, which sits at the badge's
+        // left edge rather than its centre. That is what #119 measured as an indicator 68 points
+        // left of the picture: the badge was centred and the measurement was not of the badge.
+        //
+        // Combined rather than declared bare, so the message stays readable: `.combine` keeps the
+        // children's text as this element's label, where `.ignore` would leave a badge that says
+        // nothing to VoiceOver.
+        .accessibilityElement(children: .combine)
     }
 }
 

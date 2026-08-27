@@ -2645,7 +2645,10 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(
             indicator.frame.midX, canvasPicture.frame.midX,
             accuracy: Self.centringTolerance,
-            "the indicator is not horizontally centred on the canvas"
+            """
+            the indicator is not horizontally centred on the canvas — \
+            indicator \(indicator.frame) against picture \(canvasPicture.frame)
+            """
         )
     }
 
@@ -3274,6 +3277,162 @@ final class SuperscaleAppUITests: XCTestCase {
             "and not the same surface because both failures say the same thing")
     }
 
+    // MARK: - AC98.5: a declined generation request reaches the one failure surface (#113)
+
+    /// Drives an apply to the point where the generation request itself fails.
+    ///
+    /// `SUPERSCALE_UI_TEST_FAIL=generation` rather than `provider`. The two are not the same route
+    /// and `provider` cannot reach this one: `submitFilter` uploads before it generates, so a stub
+    /// failing both throws at the upload and execution never arrives at `generate`. That is why
+    /// RT-98.14 has only ever exercised the upload half, and why a generation failure that reached
+    /// no alert survived #98.
+    private func failAGenerationRequest(
+        file: StaticString = #filePath, line: UInt = #line
+    ) {
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "generation"
+        app.launch()
+        XCTAssertTrue(loadTestImage(), "the working image should load", file: file, line: line)
+        XCTAssertTrue(waitForUpscaleComplete(), "and its upscale succeeds", file: file, line: line)
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5), file: file, line: line)
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+    }
+
+    /// Presses the alert's button, whatever it is called.
+    private func dismissFailureAlert(file: StaticString = #filePath, line: UInt = #line) {
+        let alert = failureAlert
+        XCTAssertTrue(alert.waitForExistence(timeout: 120),
+                      "no failure alert to dismiss", file: file, line: line)
+        let button = alert.buttons.firstMatch
+        XCTAssertTrue(button.exists, "the alert offers no way out", file: file, line: line)
+        button.click()
+        XCTAssertTrue(
+            alert.waitForNonExistence(timeout: 10),
+            "the alert did not go away when dismissed", file: file, line: line)
+    }
+
+    // RT-113.1
+    //
+    // The reported defect. A provider declining a generation request is a failure, and AC98.5 gives
+    // the application one surface for those. This one landed in the status bar's caption instead —
+    // an API error in the place reserved for ambient state, in caption type at the foot of the
+    // window, where a user watching the canvas for their result does not look.
+    func test_aDeclinedGenerationRequestReachesTheFailureSurface_RT113_1() {
+        failAGenerationRequest()
+
+        XCTAssertTrue(
+            failureAlert.waitForExistence(timeout: 120),
+            "a declined generation request reached no alert")
+        let words = spokenText(of: failureAlert)
+        XCTAssertTrue(
+            words.localizedCaseInsensitiveContains("rejected")
+                || words.localizedCaseInsensitiveContains("provider"),
+            "the alert does not carry the provider's own words: \"\(words)\"")
+    }
+
+    // RT-113.2
+    //
+    // The asymmetry is the defect: two halves of one apply presented two different ways. Asserted as
+    // the same *kind* of surface carrying **different** sentences, because the first half alone is a
+    // tautology once both call `report` — every alert is an alert. The second half is what catches
+    // the fix that routes both through one hard-coded string and loses the provider's own words.
+    func test_theUploadAndGenerationFailuresPresentThroughTheSameSurface_RT113_2() {
+        // The upload half, which is the route RT-98.14 has always taken.
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "provider"
+        app.launch()
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete(), "and its upscale succeeds")
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+
+        XCTAssertTrue(failureAlert.waitForExistence(timeout: 120), "the upload failure reaches a surface")
+        let uploadWords = spokenText(of: failureAlert)
+        let uploadSurface = failureAlert.elementType
+
+        // The generation half, which reached no surface at all before #113.
+        failAGenerationRequest()
+
+        XCTAssertTrue(
+            failureAlert.waitForExistence(timeout: 120),
+            "the generation failure reaches the same surface")
+        let generationWords = spokenText(of: failureAlert)
+
+        XCTAssertEqual(
+            failureAlert.elementType, uploadSurface,
+            "the same kind of surface, not two that merely look alike")
+        XCTAssertNotEqual(
+            generationWords, uploadWords,
+            "both failures say the same thing, so one of them has lost the provider's own words")
+    }
+
+    // RT-113.3
+    //
+    // "Coherent" is a judgement, so this asserts the two halves of it a machine can decide: nothing
+    // still claims work is in progress. Whether the whole scene reads sensibly after a failure is
+    // the re-offered UT, not smuggled in here behind a vague predicate.
+    func test_theStatusBarDoesNotStillClaimWorkAfterAFailure_RT113_3() {
+        failAGenerationRequest()
+        dismissFailureAlert()
+
+        let status = statusBarText(of: "statusText")
+        XCTAssertFalse(
+            status.localizedCaseInsensitiveContains("Applying filter"),
+            "the status bar is still applying a filter that failed: \"\(status)\"")
+        XCTAssertFalse(
+            status.localizedCaseInsensitiveContains("Preparing"),
+            "the status bar is still preparing: \"\(status)\"")
+    }
+
+    // RT-113.4
+    //
+    // Blocks the narrowest wrong fix, which is to route the failure to `report` and *also* leave the
+    // diagnostic in the caption, so it appears twice. The status bar keeps ambient state; the
+    // provider's words belong on the alert and nowhere else.
+    func test_theStatusBarSaysFilterFailedAndNotTheDiagnostic_RT113_4() {
+        failAGenerationRequest()
+        dismissFailureAlert()
+
+        let status = statusBarText(of: "statusText")
+        XCTAssertTrue(
+            status.localizedCaseInsensitiveContains("Filter failed"),
+            "the status bar does not report the failure as ambient state: \"\(status)\"")
+        XCTAssertFalse(
+            status.localizedCaseInsensitiveContains("rejected"),
+            "the diagnostic is in the caption as well as the alert: \"\(status)\"")
+    }
+
+    // RT-113.5
+    //
+    // Written as a bounded positive check, not as "an alert never appears twice". Proving a negative
+    // against an unbounded wait passes whenever the code is merely slow. The bug this guards —
+    // observing the *phase* rather than the failure *message*, so every redraw re-raises — produces
+    // a visible second alert immediately, which a bounded check catches.
+    func test_aDismissedFailureDoesNotComeBack_RT113_5() {
+        failAGenerationRequest()
+        dismissFailureAlert()
+
+        // Something that causes a redraw while the phase is still failed. Typing into the prompt is
+        // the cheapest one to hand and is exactly what a user does next.
+        let prompt = element(identifier: "generationPromptField")
+        if prompt.exists {
+            prompt.click()
+            prompt.typeText(" again")
+        }
+
+        XCTAssertFalse(
+            failureAlert.waitForExistence(timeout: 5),
+            "the failure alert came back on a redraw, so it is raised per redraw rather than per failure")
+    }
+
     // RT-87.15: no reference wells exist. The working image is the reference.
     func test_theWorkspacePresentsNoReferenceWell_RT087_15() {
         let referenceWells = app.buttons.matching(NSPredicate(format: "label == 'Add image'"))
@@ -3590,9 +3749,12 @@ final class SuperscaleAppUITests: XCTestCase {
             indicatorArea, canvasArea * 0.25,
             "the indicator is a badge, not a sheet over the picture")
 
-        // RT-90.49: at the top, not across the middle of the subject's face.
-        let relativeMidY = (indicator.frame.midY - canvas.frame.minY) / canvas.frame.height
-        XCTAssertLessThan(relativeMidY, 1.0 / 3.0, "the indicator sits in the upper third")
+        // 🚫 RT-90.49's upper-third assertion is removed by #119. AC90.13's placement clause is
+        // superseded by AC119.1: the indicator is centred over the picture, so an assertion that it
+        // sits in the upper third now asserts the defect. It survived the #119 implementation
+        // because the suite's fixture is small enough that the upscale usually outruns the poll and
+        // this test takes its early return — a passing test that was passing by not running.
+        // RT-119.2 covers the placement in its new form.
 
         // RT-90.45: the picture is still a real element, not something drawn behind a scrim.
         XCTAssertTrue(image.isHittable, "the picture is reachable beneath the indicator")

@@ -88,7 +88,13 @@ struct SuperscaleApp: App {
             coordinator = GenerationCoordinator(
                 service: UITestGenerationService(
                     imageURL: generatedImage,
-                    fails: failingSubsystem == "provider"),
+                    // `provider` keeps failing both, so RT-98.14 is unchanged by #113 — it reaches
+                    // the upload, which throws first. `generation` lets the upload succeed so the
+                    // request itself can fail, which is the only route to the defect #113 reports
+                    // and a route nothing could reach before.
+                    failsUpload: failingSubsystem == "provider",
+                    failsGeneration: failingSubsystem == "provider"
+                        || failingSubsystem == "generation"),
                 outputStore: GeneratedImageStore(directory: storageRoots.generated)
             )
             store = GenerationSessionStore(rootDirectory: storageRoots.history)
@@ -224,7 +230,15 @@ private struct UITestVerificationTransport: FalHTTPTransport {
 @MainActor
 private struct UITestGenerationService: GenerationServing {
     let imageURL: URL
-    var fails = false
+    /// Fails the upload, which `submitFilter` performs first.
+    var failsUpload = false
+    /// Fails the generation request, which is only reached when the upload succeeds.
+    ///
+    /// Separate flags because one flag could only ever exercise the *upload*: `submitFilter` uploads
+    /// before it generates, so a single `fails` threw at the first call and execution never reached
+    /// `generate`. RT-98.14 had been standing over the upload route alone and reading "Storage is
+    /// unavailable", which is how a generation failure that never reached an alert survived #98.
+    var failsGeneration = false
 
     /// Answers with a plausible provider URL and reaches no network.
     ///
@@ -232,7 +246,7 @@ private struct UITestGenerationService: GenerationServing {
     /// and nowhere to upload it to. What matters is that a reference URL comes back, because that
     /// is what the request carries.
     func uploadReference(fileURL: URL, fileName: String, apiKey: String) async throws -> URL {
-        if fails {
+        if failsUpload {
             throw FalFailure(kind: .provider, diagnostic: "Storage is unavailable. (ui-test)")
         }
         return URL(string: "https://v3.fal.media/files/ui-test/\(fileName)")
@@ -240,7 +254,7 @@ private struct UITestGenerationService: GenerationServing {
     }
 
     func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
-        if fails {
+        if failsGeneration {
             // A classified failure carrying the provider's own words, which is what a real one is.
             // Presented the same way as an upscale failure is the whole point of AC98.5.
             throw FalFailure(
