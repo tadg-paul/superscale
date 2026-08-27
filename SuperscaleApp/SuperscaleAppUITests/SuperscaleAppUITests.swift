@@ -3330,17 +3330,48 @@ final class SuperscaleAppUITests: XCTestCase {
         let message = indicator.label
         XCTAssertFalse(message.isEmpty, "the indicator says nothing, so there is no content to track")
 
-        // A rough width for the message at callout size. Deliberately generous: the assertion is
-        // about a badge four times its text, not about typography.
-        let approximateTextWidth = CGFloat(message.count) * 7.0
+        // **Measured against the canvas, and the numbers are always reported.**
+        //
+        // The first version of this test compared the badge against a character-count estimate and
+        // passed against a badge that was still visibly too wide — the author saw it and the test
+        // did not. An estimate of typography is not a measurement, and the estimate was generous
+        // enough to accept the defect.
+        //
+        // `XCTContext` records the figures whether the test passes or fails, so the actual width is
+        // in the log rather than only in a failure message nobody sees on a green run.
+        let canvas = element(identifier: "workspaceCanvas")
         let badgeWidth = indicator.frame.width
-
-        XCTAssertLessThan(
-            badgeWidth, approximateTextWidth * 2.5,
-            """
-            the badge is \(badgeWidth) points wide for a \(message.count)-character message \
-            (\"\(message)\"), which is far wider than its content
+        let canvasWidth = canvas.frame.width
+        // Printed rather than attached: an `XCTAttachment` goes into the result bundle, where a
+        // green run's figures are invisible to anyone reading the build log. The whole point of
+        // recording them is that the *passing* case can be checked against what the author sees.
+        print("""
+            MEASURED indicator: message="\(message)" (\(message.count) chars) \
+            badge=\(badgeWidth) canvas=\(canvasWidth) \
+            fraction=\(canvasWidth > 0 ? badgeWidth / canvasWidth : 0)
             """)
+
+        XCTAssertGreaterThan(canvasWidth, 0, "the canvas has a width to compare against")
+
+        // A quarter of the canvas. The measured defect was 301 of 1080 — 0.279 — and the author
+        // reported that as still far too wide, so the threshold sits below what he rejected rather
+        // than above it. The previous version of this test allowed half the canvas and passed on
+        // exactly the badge he was complaining about.
+        XCTAssertLessThan(
+            badgeWidth, canvasWidth * 0.25,
+            """
+            the badge is \(badgeWidth) of \(canvasWidth) points for a \(message.count)-character \
+            message ("\(message)") — it obscures picture for no reason
+            """)
+
+        // And it must track the message rather than sitting at any fixed figure. Roughly nine
+        // points per character at callout size, plus the spinner, the spacing and the padding —
+        // deliberately generous, because the claim is about a badge pinned to a constant, not about
+        // typography.
+        let contentBound = CGFloat(message.count) * 9.0 + 70.0
+        XCTAssertLessThan(
+            badgeWidth, contentBound,
+            "the badge is not tracking its content: \(badgeWidth) points for \(message.count) characters")
     }
 
     // RT-128.4

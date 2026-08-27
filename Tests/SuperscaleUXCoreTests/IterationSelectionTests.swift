@@ -357,3 +357,166 @@ final class HeldFilterResultTests: XCTestCase {
             "a reference to a file that is no longer there was offered as a held result")
     }
 }
+
+/// Locking after selecting an earlier iteration adds to the chain rather than truncating it (#132).
+///
+/// The chain was derived from one pointer twice — the base, then the tip — and both times a
+/// backwards move lost work the user had paid for. It is now held explicitly: the record of what has
+/// been made, in the order it was made. The lineage still exists on each asset's `parentID` and
+/// still records what descends from what; it is simply not what the strip is read from.
+final class ChainRetentionTests: XCTestCase {
+    @MainActor
+    private func makeWorkspace() throws -> (WorkspaceState, URL) {
+        let root = try FileManager.default.url(
+            for: .itemReplacementDirectory,
+            in: .userDomainMask,
+            appropriateFor: FileManager.default.temporaryDirectory,
+            create: true)
+        return (WorkspaceState(outputDirectory: root), root)
+    }
+
+    private func writeFixture(named name: String, in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        try Data([0x00]).write(to: url)
+        return url
+    }
+
+    @MainActor
+    private func lockOne(
+        _ name: String, in workspace: WorkspaceState, root: URL
+    ) throws -> AssetReference {
+        let url = try writeFixture(named: "\(name).png", in: root)
+        _ = try workspace.recordFilter(
+            named: name, fileURL: url, pixelSize: CGSize(width: 2048, height: 2048),
+            modelID: "test-model", prompt: name, sessionID: UUID(),
+            sentSize: CGSize(width: 2048, height: 2048))
+        return try workspace.lock()
+    }
+
+    @MainActor
+    private func importedWorkspace() throws -> (WorkspaceState, URL, AssetReference) {
+        let (workspace, root) = try makeWorkspace()
+        let sourceURL = try writeFixture(named: "source.png", in: root)
+        workspace.importImage(fileURL: sourceURL, pixelSize: CGSize(width: 2048, height: 2048))
+        return (workspace, root, try XCTUnwrap(workspace.graph.base))
+    }
+
+    // RT-132.1
+    //
+    // The reported regression: *"go back to a previous lock image, generate something new, click
+    // lock, all locks to the right disappear."*
+    //
+    // Asserted by **identifier**, not by count. A count assertion passes if one iteration is
+    // dropped and another added, which is exactly what the defect does.
+    @MainActor
+    func test_lockingAfterASelectionKeepsEveryEarlierLock_RT132_1() throws {
+        let (workspace, root, source) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let first = try lockOne("first", in: workspace, root: root)
+        let second = try lockOne("second", in: workspace, root: root)
+        let third = try lockOne("third", in: workspace, root: root)
+
+        try workspace.selectIteration(first)
+        let branched = try lockOne("branched", in: workspace, root: root)
+
+        let chain = workspace.lockedIterations.map(\.id)
+        for expected in [source, first, second, third, branched] {
+            XCTAssertTrue(
+                chain.contains(try workspace.graph.asset(for: expected).id),
+                "an iteration left the chain when a later one was locked from an earlier point")
+        }
+    }
+
+    // RT-132.2
+    @MainActor
+    func test_theNewlyLockedResultJoinsTheChain_RT132_2() throws {
+        let (workspace, root, _) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let first = try lockOne("first", in: workspace, root: root)
+        _ = try lockOne("second", in: workspace, root: root)
+        try workspace.selectIteration(first)
+        let branched = try lockOne("branched", in: workspace, root: root)
+
+        XCTAssertEqual(
+            workspace.lockedIterations.last?.id,
+            try workspace.graph.asset(for: branched).id,
+            "the newly locked result is the newest entry")
+        XCTAssertEqual(workspace.graph.base, branched, "and it is the base")
+    }
+
+    // RT-132.3
+    //
+    // The strip stops being a lineage walk, and the temptation is then to stop maintaining
+    // `parentID` — but I2, I3, AC89.9 and the session filter cache all depend on it.
+    //
+    // **The branch descends from the selected iteration's *parent*, not from the iteration.** That
+    // is AC89.9 and the author's own rule: selecting an iteration restores the working context it
+    // was made in, so the base becomes its parent, and a filter reads the base. Filtering after
+    // selecting the first lock therefore transforms the source — the picture that lock was made
+    // from. The first version of this test asserted the iteration itself and failed against
+    // behaviour that is correct.
+    @MainActor
+    func test_theLineageStillRecordsTheWorkingBaseAsTheParent_RT132_3() throws {
+        let (workspace, root, source) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let first = try lockOne("first", in: workspace, root: root)
+        let second = try lockOne("second", in: workspace, root: root)
+        try workspace.selectIteration(first)
+        let branched = try lockOne("branched", in: workspace, root: root)
+
+        let parent = try workspace.graph.asset(for: branched).parentID
+        XCTAssertEqual(
+            parent, try workspace.graph.asset(for: source).id,
+            "the branch descends from the base restored by the selection")
+        XCTAssertNotEqual(
+            parent, try workspace.graph.asset(for: second).id,
+            "not from whatever happened to be newest, which is the defect #121 closed")
+    }
+
+    // RT-132.4
+    //
+    // The guard on the other side. Held explicitly, the chain must be **cleared** explicitly —
+    // derived from a pointer that came free, and it is how #121's tip broke RT-89.25 on its first
+    // run. AC89.8 is unchanged and this holds it.
+    @MainActor
+    func test_importingADifferentPictureStillEmptiesTheChain_RT132_4() throws {
+        let (workspace, root, _) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        _ = try lockOne("first", in: workspace, root: root)
+        _ = try lockOne("second", in: workspace, root: root)
+        XCTAssertFalse(workspace.lockedIterations.isEmpty, "there is a chain to discard")
+
+        let other = try writeFixture(named: "other.png", in: root)
+        workspace.importImage(fileURL: other, pixelSize: CGSize(width: 2048, height: 2048))
+
+        XCTAssertTrue(
+            workspace.lockedIterations.isEmpty,
+            "a new picture kept the previous picture's chain")
+    }
+
+    // RT-132.5
+    //
+    // Blocks the narrowest wrong fix, which is to stop advancing the newest entry on lock: that
+    // passes RT-132.1 and leaves the newest iteration unreachable by the return control.
+    @MainActor
+    func test_returningToTheNewestReachesTheMostRecentlyLocked_RT132_5() throws {
+        let (workspace, root, _) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let first = try lockOne("first", in: workspace, root: root)
+        _ = try lockOne("second", in: workspace, root: root)
+        try workspace.selectIteration(first)
+        let branched = try lockOne("branched", in: workspace, root: root)
+
+        let newest = try XCTUnwrap(workspace.lockedIterations.last)
+        try workspace.selectIteration(newest.reference)
+
+        XCTAssertEqual(
+            newest.id, try workspace.graph.asset(for: branched).id,
+            "the newest entry is the most recently locked result")
+    }
+}
