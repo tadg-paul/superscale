@@ -3082,6 +3082,76 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC82.11: nothing is upscaling until the user asks (#131)
+
+    /// Whether any scale control reports itself as in effect.
+    private var someScaleIsInEffect: Bool {
+        [2, 4, 8].contains { scale in
+            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+            return value.contains("in effect") && !value.contains("not in effect")
+        }
+    }
+
+    // RT-131.1
+    //
+    // The author's first observation of the round: *"On launch, it appears like both 2x and 4x are
+    // pressed in."* The default was `.preset(4)`, so a session began with a scale already in
+    // effect and the first action was always an upscale.
+    func test_noScaleIsSelectedOnLaunch_RT131_1() {
+        XCTAssertTrue(
+            app.buttons["scale2x"].waitForExistence(timeout: 10),
+            "the scale controls are present")
+        XCTAssertFalse(
+            someScaleIsInEffect,
+            "a scale was in effect before the user asked for one")
+    }
+
+    // RT-131.2
+    //
+    // The half that makes RT-131.1 mean something. Clearing the selection on launch and
+    // re-selecting it on import would pass RT-131.1 and leave the behaviour unchanged, which is
+    // the narrowest wrong fix.
+    func test_importingWithNothingSelectedRunsNoUpscale_RT131_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        XCTAssertFalse(someScaleIsInEffect, "importing selected a scale by itself")
+        XCTAssertEqual(
+            canvasKind, "The base",
+            "the canvas holds the imported picture, not an upscaled rendering of it")
+    }
+
+    // RT-131.3
+    //
+    // Reactivity is unchanged: guide 2.5 keeps the upscale running whenever a scale is selected
+    // and there is something to run on. Only the starting value moved.
+    func test_selectingAScaleAfterImportRunsTheUpscale_RT131_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        chooseScale(4)
+
+        XCTAssertTrue(
+            waitForUpscaleComplete(),
+            "selecting a scale did not run the upscale, so reactivity was lost with the default")
+    }
+
+    // RT-131.7
+    //
+    // Guide 2.8 promises local upscaling works fully with no generation key. With nothing selected
+    // on launch, a user must still be able to see that upscaling is *available* — the promise is
+    // about availability, not activity, and an idle interface must not read as an unavailable one.
+    func test_upscalingReadsAsAvailableWithNothingSelected_RT131_7() {
+        XCTAssertTrue(app.buttons["scale2x"].waitForExistence(timeout: 10))
+
+        for scale in [2, 4, 8] {
+            XCTAssertTrue(
+                app.buttons["scale\(scale)x"].isEnabled,
+                "scale\(scale)x is not selectable, so upscaling reads as unavailable")
+        }
+        let status = statusBarText(of: "statusText")
+        XCTAssertTrue(
+            status.localizedCaseInsensitiveContains("local upscale available"),
+            "the status bar no longer reports local upscaling as available — \"\(status)\"")
+    }
+
     // MARK: - AC94.4: one intent to apply issues one provider request (#122)
 
     /// How many generation requests the stubbed provider has been asked to make.

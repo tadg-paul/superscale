@@ -1,4 +1,4 @@
-<!-- Version: 3.32 | Last updated: 2026-08-27 -->
+<!-- Version: 3.33 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -329,8 +329,21 @@ working image has changed.
 #### Automatic upscaling, and turning it off
 
 In v1, dropping an image **upscales it immediately** at whatever scale is
-selected, and changing the scale or model re-runs it. That immediacy is the v1
-experience and is kept.
+selected, and changing the scale or model re-runs it. That reactivity is kept:
+an upscale still runs whenever there is a scale selected and something to run
+on, and the user never invokes it directly.
+
+**What changed is the launch default: nothing is selected.** The v1 experience
+put a scale in effect from the start, so a session's first action was always an
+upscale. The argument for the off switch below --- that a filter-first user does
+not want that upscale at all --- applies with equal force to the default, and in
+use the cost was being paid on the first action of every session before the user
+had chosen anything. A user who wants the v1 behaviour selects a scale once and
+it is reactive from then on, exactly as before.
+
+The selection is not persisted between sessions. It could be, and deliberately
+is not: a scale carried over from yesterday's picture is a decision made about a
+different image, and it would reintroduce the surprise this default removes.
 
 It needs an off switch in v2. In a filter-first session the user usually wants
 to filter before upscaling, and auto-upscaling on import spends processing --- and
@@ -1453,6 +1466,14 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.33 (2026-08-27):** Section 2.5's launch default is reversed: nothing is selected when the
+  application starts. Reactivity is unchanged --- an upscale still runs whenever a scale is selected
+  and there is something to run on --- but a session no longer begins with one already in effect.
+  The argument this section already made for the off switch, that a filter-first user does not want
+  that upscale at all, applies with equal force to the default, and in use the cost was paid on the
+  first action of every session before the user had chosen anything. Also records that the selection
+  is deliberately not persisted: a scale carried over from a previous session is a decision made
+  about a different picture (#131).
 - **3.32 (2026-08-27):** Completes 3.31, which was incomplete in a way that would have reinstated a
   closed defect. It said what selecting an iteration does to the base and the candidate and nothing
   about what the lock strip then shows --- and the strip was derived by walking back from the base,

@@ -25,7 +25,16 @@ final class UpscaleViewModel: ObservableObject {
     @Published var selectedModelName: String = "auto"
     /// What the scale control holds. Private to the setter, so a view cannot assign around
     /// `choose(_:)` and lose the toggle-group behaviour it encodes.
-    @Published private(set) var scaleSelection: ScaleSelection = .preset(4)
+    /// Nothing is selected on launch, so the first upscale of a session is one the user asked for.
+    ///
+    /// Guide 2.5. Upscaling stays reactive — it runs whenever a scale is selected and there is
+    /// something to run on — but it no longer starts a session already in effect. The cost was
+    /// otherwise paid on the first action every time, on an output a filter-first user is about to
+    /// set aside, before they had chosen anything.
+    ///
+    /// Not persisted between sessions, deliberately: a scale carried over is a decision made about
+    /// a different picture.
+    @Published private(set) var scaleSelection: ScaleSelection = .off
     @Published var showCustomFields: Bool = false
     @Published var customWidth: String = ""
     @Published var customHeight: String = ""
