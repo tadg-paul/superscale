@@ -1624,6 +1624,33 @@ extended AC92.1, AC92.5 and AC92.6.
   from outside and tells the user a provider call is still running while their Neural Engine grinds
   through tiles.
 
+### AC124.1 - A filter result already produced in this session from the same base, model and prompt is shown again rather than requested a second time, and the user is told it was.
+- Introduced: #124 (closed 2026-08-27)
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-124.1: an identical request against the same base finds the result already held
+  - ✅ RT-124.2: an edited prompt is a different request
+  - ✅ RT-124.3: a different model is a different request
+  - ✅ RT-124.4: a held result is never served against a different base
+  - ✅ RT-124.5: a result whose file has gone is not offered
+  - ⏳ UT-124.1: pending human resolution in delivery master #120
+- Note: **a read of the graph, not a cache beside it.** Every filtered asset already records its
+  parent and its `Provenance` --- the model and the prompt as sent --- so *"have we paid for exactly
+  this before"* is answerable from what is held. A parallel store keyed on a hash would be a second
+  place the truth about a result lives, and the two would drift. This is the shape #100 and #103
+  each found and removed: a private second derivation of something the graph already knows.
+- Note: **session-scoped by construction**, because the graph is. The author asked for *"within a
+  session at least"*, which is a floor rather than a ceiling. Persisting it would raise disk growth
+  and a stale result outliving a provider-side model change, and a held result is only useful while
+  the picture it descends from is still the one being worked on.
+- Note: matched on the prompt **as sent**, so an invisible whitespace difference is a different
+  request. That is the honest comparison, because it is what the provider would be given.
+- Note: **RT-124.4 is the one that matters most.** Serving a held result against a different base
+  would be the wrong-image defect #121 closed, arriving through a cache --- the same failure by a new
+  route, which is the shape that also nearly reinstated #111 in this delivery.
+- Note: the hit is reported on the status bar's unobtrusive channel, beside the raise and reduction
+  notices. A paid action completing instantly is a good surprise only if the application says why.
+
 ### AC94.3 - The curtain compares what is on the canvas against the base it descends from, so a filter result is compared against the picture it was made from rather than against its own upscale.
 - Introduced: #94 (closed 2026-08-25)
 - Migrated: 2026-08-25
