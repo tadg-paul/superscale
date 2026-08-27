@@ -625,6 +625,25 @@ extended AC92.1, AC92.5 and AC92.6.
   is correct on a machine where Downloads has been moved. RT-95.10 and RT-95.11 use a run-unique
   `UserDefaults(suiteName:)`, removed in teardown, so no test rewrites the author's own preference.
 
+### AC95.6 - A credential row's controls occupy the same space whatever the row's state, so entering text, saving, checking and the result of a check change what the row says and never what it measures.
+- Introduced: #110 (closed 2026-08-27), backfilled onto the #95 family
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-110.1: the row's frame is unchanged between empty and filled
+  - ✅ RT-110.2: the row's frame is unchanged between the checking state and each settled state
+  - ✅ RT-110.3: the form's other rows do not move while one row changes state
+- Note: **backfilled, not cited.** The originating ticket quoted AC95.1 as *"the whole scene reads
+  cleanly"*; AC95.1 says *"each credential row names its field once, and that name is identifiable
+  rather than merely visible"*, which is about naming. Nothing in the #95 family covered layout
+  stability, so this is path 2 of `ISSUES.md` §"Bug-fix issues reference existing ACs".
+- Note: the mechanism was a `ProgressView` and a status badge swapped directly into the row's
+  `HStack`. Their intrinsic widths differ, so each state change resized the stack, then the
+  `TextField` beside it, then the form's label column through `LabeledContent`. A fixed-width slot
+  holds both.
+- Note: **RT-110.3 is the one closest to the complaint.** *"The layout of the whole form jumps
+  about"* is about the rows the user is not typing into. It also catches the shortest wrong fix,
+  which pins the field's width and leaves the trailing content free to push the row around.
+
 ### AC95.5 - Settings offers no control that operates a feature the MVP excludes. Storing a credential for later is not operating anything, so the account key row remains.
 - Introduced: #95 (closed 2026-08-25)
 - Migrated: 2026-08-25
