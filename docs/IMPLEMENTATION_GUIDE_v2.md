@@ -1,4 +1,4 @@
-<!-- Version: 3.29 | Last updated: 2026-08-27 -->
+<!-- Version: 3.30 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -995,7 +995,7 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 
 | Ticket | Severity | Defect |
 |---|---|---|
-| #105 | closed 2026-08-25 under MODE DELIVER, full-suite verification still outstanding | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `264ce6e` (cited as `ed25cb7` in ticket comments written before the 2026-08-25 history rewrite), spot-verified on 14 of 17 regressed GUI tests. The delivery closed #105 alongside #100, #101 and #103 at 21:23 on 2026-08-25 **before the full-suite run had happened** --- premature against its own gate, and the run is still owed: the next full `make test-gui` (baseline: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures) is the delivery-level verification for master #99's exit gate. |
+| #105 | closed 2026-08-25; the owed full-suite verification was discharged under master #114 on 2026-08-27 | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `264ce6e` (cited as `ed25cb7` in ticket comments written before the 2026-08-25 history rewrite), spot-verified on 14 of 17 regressed GUI tests. The delivery closed #105 alongside #100, #101 and #103 at 21:23 on 2026-08-25 **before the full-suite run had happened** --- premature against its own gate. **The run was made under master #114 on 2026-08-27** and is the delivery-level verification for master #99's exit gate; the figures are recorded on both masters. |
 | #106 | open, deliberately unfixed | Choosing a scale after a completed run can serve the previous scale's cached rendering under the new scale's label --- `renderingKey` reads `scaleSelection` inside the `willSet` sink. The three-line fix exists and was reverted: it changes run-versus-cache timing that three closed issues' GUI tests encode (RT-156, RT-158, RT-090.52). The ticket holds the reachability analysis and a five-step procedure beginning with the failing test. |
 | #108 | closed 2026-08-27 | The info panel did its own scale arithmetic (`InfoPanel.swift:76`, `input × scale`), reporting an output four times the ceiling while no scale was in effect. Failed UT-93.1. A third private derivation of sizing truth --- the disease #100 and #103 treated. Now derived through `SizingLine` from `ScaleReadout` and `UpscaleCeiling.decide`. |
 | #109 | closed 2026-08-27 | The account/admin key row answered a press with nothing. The cause was not the absence of verification, which was deliberate and stays: the badge read from whether the *text field* held anything, so it flipped to "stored" on the first keystroke and the press had no state change left to make. The badge now reports the Keychain, and the row says in the scene that its key is held unchecked. AC95.3 cited; AC95.7 backfilled. Part of the UT-95.1 fail, which stays open on #79. |
@@ -1115,16 +1115,20 @@ entries, per-test status marks).
 
 **Remaining, in dependency order:**
 
-1. **#105's verification procedure** (on the ticket): targeted GUI run, then
-   full `make test-gui` and `make test`. Green closes #105 and unblocks the
-   closure of #100--#103 and master #99's exit gate.
-2. **The open defect tickets** in section 5: #106, #108, #109, #110, #111,
-   #112, #113, #66. Each carries its own staged procedure; none blocks
-   another, though #112 unblocks UT-96.1 and #111+#112 together re-offer
-   UT-89.1.
-3. **Human sign-offs on #79**: UT-94.1 (unblocked, verdict pending), UT-93.1
-   (waits on #108), UT-95.1 (waits on #109+#110), UT-89.1 (waits on
-   #111+#112), UT-96.1 (waits on #112). Then `APPROVED 79`.
+1. **Human sign-offs on #79.** Every automated blocker is cleared. The delivery
+   under master #114 closed #66, #108, #109, #110, #111, #112, #113, #115,
+   #116, #117, #118 and #119, and discharged the verification #99 was owed.
+   Pending: UT-94.1 (Apply responds immediately), UT-93.1 (the controls report
+   the state, unblocked by #108), UT-95.1 (Settings reads cleanly, unblocked by
+   #109 and #110), UT-89.1 (working the lock chain, unblocked by #111 and
+   #112), UT-96.1 (the differently-shaped comparison, unblocked by #112), and
+   UT-119.1 (the centred progress indicator). Then `APPROVED 79`.
+2. **#106**, the only defect ticket still open, and deliberately so: choosing a
+   scale after a completed run can serve the previous scale's cached rendering
+   under the new scale's label. The three-line fix changes run-versus-cache
+   timing that three closed issues' GUI tests encode. #119 added a second
+   consequence to that ticket --- the GUI suite cannot start real work by
+   changing presets, which made RT-119.4 unwritable and retired it.
 4. **After the MVP**: the section 6 exclusions, in whatever order the author
    rules. Pricing's return path is documented in this section and on #76.
 
@@ -1344,23 +1348,26 @@ all closed with ACs migrated to `docs/ACs.md` (the canonical criteria
 document, 118 entries with per-test status). The child-to-slice table with
 per-ticket closure notes is on #79. Baselines: `make test` 533 executed, 6
 skipped, 0 failures; `make test-gui` 101 executed, 0 failures at its last
-clean run (see #105 for the verification now pending).
+clean run before master #114.
 
-**In flight --- master #99** (defect closure): all four children are
-implemented with all four audits PASS each, and all four are now closed ---
-#100, #101, #103 and #105 by the delivery on 2026-08-25 at 21:23, and #102
-on 2026-08-26 once a fresh-clone review caught that it had been missed from
-that batch. The closures ran ahead of the delivery's own gate: the
-delivery-level verification is **still owed** and is the next executable
-action for a new session --- full `make test-gui` (baseline 101 executed,
-0 failures) and `make test` (533 executed, 6 skipped, 0 failures), the
-result recorded on #99. Then #99's exit gate, then the open defect tickets
-below.
+**Master #99** (defect closure): all four children --- #100, #101, #102, #103
+--- implemented with all four audits PASS each, and all closed. The closures
+ran ahead of the delivery's own gate, so the delivery-level verification was
+owed. **That debt is discharged under master #114**, whose run is the
+verification for both: see #99 and #114 for the recorded figures. #105, whose
+verification the debt was named after, is closed.
 
-**Open defect tickets:** #106, #108, #109, #110, #111, #112, #113 from this
-delivery's verification and the author's user-test rounds, and pre-v2 #66.
-The table with one-line mechanisms is in section 5; the procedures are on the
-tickets. Legacy feature tickets #55 (signing and notarisation) and #57 (XCUITest
+**Master #114** (post-MVP verification and defect closure): closed #66, #108,
+#109, #110, #111, #112, #113, #115, #116, #117, #118 and #119. #106 is
+recorded as deliberately not done, with its reason on the ticket. The
+remaining work is human judgement: the user tests rolled up on #79.
+
+**Open defect tickets: one, deliberately.** #106 (a completed run's cached
+rendering served under a new scale's label). Everything else raised by this
+delivery's verification and by the author's user-test rounds is closed ---
+#108, #109, #110, #111, #112, #113, #115, #116, #117, #118, #119, and pre-v2
+#66. The table with one-line mechanisms and what each defect turned out to be
+is in section 5; the procedures are on the tickets. Legacy feature tickets #55 (signing and notarisation) and #57 (XCUITest
 infrastructure --- largely delivered by the roll-up, needs reconciling before
 work) remain open and untouched. #69 (Apache-2.0 conversion) is **done in
 substance** --- all four regression tests pass and the tree, CLI, formula and
@@ -1383,6 +1390,12 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.30 (2026-08-27):** Sections 5 and 8 stop naming #105's verification as the next executable
+  action. It was named that in three places while #105 itself was closed, which made the guide's
+  own "what to do next" the most misleading text in it --- a reader following section 8 would have
+  set out to verify a fix that had been verified. The next action is now what it actually is: the
+  human sign-offs rolled up on #79. #106 is named as the one deliberately-open defect rather than
+  buried in a list of eight.
 - **3.29 (2026-08-27):** The defect table is brought level with the repository: #66, #108, #111,
   #112, #117, #118 and #119 were closed and the table still called them open, which made it a worse
   guide to the state of the work than `gh issue list`. Each row now records what the defect turned
