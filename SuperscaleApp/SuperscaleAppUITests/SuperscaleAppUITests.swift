@@ -3096,6 +3096,83 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC90.6, AC94.3, AC90.13: the curtain can always be left (#126)
+
+    // RT-126.2
+    //
+    // The trap, reproduced. The author: *"the button to switch off the comparison curtain is
+    // missing"*, and later *"NOW the compare button is visible and allows me to turn off the curtain
+    // comparator."*
+    //
+    // The control was rendered under `derivedImage != nil`, and `derivedImage` returns nil once the
+    // filtered/original toggle shows the base. So pressing one control removed the other, and the
+    // reappearance the author noticed was toggling back.
+    func test_theCompareControlSurvivesTheFilteredOriginalToggle_RT126_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        applyFilterOnly("UI fixture generation for comparison")
+
+        let compare = app.buttons["compareButton"]
+        XCTAssertTrue(compare.waitForExistence(timeout: 10), "no comparison is offered")
+
+        let toggle = element(identifier: "filterToggle")
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5), "no filtered/original toggle")
+        toggle.click()
+
+        XCTAssertTrue(
+            compare.exists,
+            "showing the original removed the control that leaves the comparison")
+        XCTAssertTrue(compare.isEnabled, "and it is still usable")
+    }
+
+    // RT-126.6
+    //
+    // The other half of not being trapped: the control actually leaves, and the picture is still
+    // there afterwards.
+    func test_dismissingTheCurtainLeavesThePictureOnTheCanvas_RT126_6() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        applyFilterOnly("UI fixture generation for comparison")
+
+        enterComparison()
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
+            "the comparison did not open")
+
+        app.buttons["compareButton"].click()
+
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
+            "the curtain did not close")
+        XCTAssertTrue(app.images["workingImage"].exists, "and the picture is still on the canvas")
+    }
+
+    // RT-126.1
+    //
+    // *"the comparator appears, but the info panel with the resolution is NOT VISIBLE"* — and the
+    // resolution readout is exactly what someone comparing two pictures wants.
+    func test_theInformationPanelIsReadableWhileComparing_RT126_1() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        applyFilterOnly("UI fixture generation for comparison")
+
+        // The panel's own dismiss control, not one of its lines. Which lines it shows depends on
+        // what is in effect, and after a raise the scale is off — so `infoScale` is absent for a
+        // legitimate reason and the first version of this test failed on its own precondition. The
+        // dismiss control is present whenever the panel is, whatever it happens to be saying.
+        let panel = element(identifier: "infoPanelDismiss")
+        XCTAssertTrue(panel.waitForExistence(timeout: 10), "the info panel is not shown to begin with")
+
+        enterComparison()
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
+            "the comparison did not open")
+
+        XCTAssertTrue(
+            panel.exists,
+            "the information panel was suppressed by the comparison")
+    }
+
     // MARK: - Guide 2.2: a second picture can be brought in without restarting (#130)
 
     /// The File menu's Open Image command.

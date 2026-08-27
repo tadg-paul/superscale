@@ -142,7 +142,12 @@ struct MainView: View {
             // The info panel keeps the top. It is anchored by a `Spacer` beneath it rather than by
             // the stack's alignment, because the indicator below no longer shares that alignment.
             VStack(spacing: 8) {
-                if !infoPanelDismissed && !viewModel.showComparison {
+                // Shown while comparing too, by #126. The panel was suppressed outright during a
+                // comparison, and the resolution readout is precisely what someone comparing two
+                // pictures wants — the author reported it missing at the moment it mattered most.
+                // The panel and the curtain are siblings in this stack, as #119 established for the
+                // progress indicator; neither suppresses the other.
+                if !infoPanelDismissed {
                     InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
                 }
                 Spacer(minLength: 0)
@@ -281,6 +286,16 @@ struct MainView: View {
         } else {
             DropTargetView(onDrop: viewModel.handleDrop)
         }
+    }
+
+    /// Whether a comparison exists to be offered at all.
+    ///
+    /// Deliberately independent of which side the filtered/original toggle is showing. `showsBase`
+    /// changes what the canvas draws, not whether there is a derivation — and conditioning the
+    /// Compare control on the former is what left a user inside the curtain with no control to
+    /// leave it (#126).
+    private var canOfferComparison: Bool {
+        workspace.canCompare || viewModel.result != nil
     }
 
     /// The output of the last operation, when there is one.
@@ -676,7 +691,14 @@ struct MainView: View {
             // no upscale behind it. Bound to `viewModel.result` it was offered only after an
             // upscale, so a user who filtered an undersized picture — the state the raise to the
             // filterable minimum puts them in — was never offered the comparison at all.
-            if derivedImage != nil {
+            //
+            // **Not `derivedImage`, by #126.** That answers "is there a derivation to show *right
+            // now*", which is the right question for the curtain's content and the wrong one for
+            // whether a dismissal control exists: it goes nil the moment the filtered/original
+            // toggle shows the base, so pressing one control removed the other. The author was left
+            // in the curtain with no way out. A control that dismisses something must not be
+            // conditioned on that thing's own state.
+            if canOfferComparison {
                 Button(viewModel.showComparison ? "Full View" : "Compare") {
                     viewModel.showComparison.toggle()
                 }
