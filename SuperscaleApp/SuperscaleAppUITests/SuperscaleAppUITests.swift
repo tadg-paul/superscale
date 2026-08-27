@@ -3182,17 +3182,22 @@ final class SuperscaleAppUITests: XCTestCase {
         return Int(element.value as? String ?? "") ?? -1
     }
 
-    /// The suite's fixture, asserted to be below the filterable minimum.
+    /// Confirms a raise to the filterable minimum actually happened during the apply.
     ///
-    /// RT-122.7 depends on the raise happening, and the raise is the bulk of the window this issue
-    /// closes. Asserted rather than assumed so the test fails loudly if the fixture is ever
-    /// replaced, instead of quietly exercising a window of milliseconds.
-    private func assertFixtureNeedsARaise() {
-        let info = statusBarText(of: "noticeMessage")
+    /// RT-122.7 depends on the raise, because the raise is the bulk of the window this issue
+    /// closes; a picture already above the minimum exercises milliseconds and passes against the
+    /// unfixed code. Checked **after** the apply, not before: the raise is performed at Apply, not
+    /// at import, so before the press there is nothing to observe and the first version of this
+    /// helper read an empty notice and failed for the wrong reason.
+    private func assertARaiseHappened() {
+        let notice = statusBarText(of: "noticeMessage")
         XCTAssertTrue(
-            info.localizedCaseInsensitiveContains("minimum")
-                || info.localizedCaseInsensitiveContains("raised"),
-            "the fixture no longer needs a raise, so this test exercises the wrong window — \"\(info)\"")
+            notice.localizedCaseInsensitiveContains("minimum")
+                || notice.localizedCaseInsensitiveContains("raised"),
+            """
+            no raise was reported, so the fixture is no longer undersized and this test \
+            exercises a window of milliseconds — the notice reads "\(notice)"
+            """)
     }
 
     // RT-122.1 and RT-122.2
@@ -3255,7 +3260,6 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_theWindowCoversTheRaiseOnAnUndersizedPicture_RT122_7() {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
-        assertFixtureNeedsARaise()
 
         let prompt = element(identifier: "generationPromptField")
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
@@ -3269,6 +3273,7 @@ final class SuperscaleAppUITests: XCTestCase {
             "Apply stayed live into the raise, which is where the second click landed")
 
         XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+        assertARaiseHappened()
         XCTAssertEqual(generationRequestCount, 1)
     }
 
@@ -3464,10 +3469,17 @@ final class SuperscaleAppUITests: XCTestCase {
     /// through the application, and that is what the sandbox denies rather than something a
     /// different assertion could reach.
 
-    /// RT-111.6: one action returns to the live image, and it is that image.
+    /// RT-111.6: one action returns to the newest iteration, and it is that iteration.
     ///
     /// Asserting only that the viewing state ended would pass against a control that returns to
     /// some other picture.
+    ///
+    /// **The expected report moved from "The base" to "A filter result" by #121, and that is the
+    /// model changing rather than the test weakening.** Returning used to leave the viewing state
+    /// and redraw whatever the workspace's toggle chose, which was the base. Under guide 3.32 every
+    /// entry in the chain is selectable, returning is selecting the newest, and the newest is a
+    /// locked filter result held as the candidate. A canvas reporting "The base" after this action
+    /// would now mean the return had landed somewhere other than the newest iteration.
     func test_oneActionReturnsToTheLiveImage_RT111_6() {
         buildLockChain(of: 2)
         lockChainEntries[0].click()
@@ -3477,13 +3489,23 @@ final class SuperscaleAppUITests: XCTestCase {
         back.click()
 
         XCTAssertEqual(
-            canvasKind, "The base",
-            "returning did not put the live base on the canvas"
+            canvasKind, "A filter result",
+            "returning did not put the newest locked iteration on the canvas"
         )
-        for entry in lockChainEntries {
+        // Exactly one entry is marked, and it is the newest. Previously no entry was marked after
+        // returning, because returning left the chain rather than moving within it. Under guide
+        // 3.32 the user is always standing somewhere in the chain, so "none marked" would now mean
+        // the strip had lost track of where they are.
+        let marked = lockChainEntries.filter { ($0.value as? String) == "Showing" }
+        XCTAssertEqual(marked.count, 1, "exactly one iteration is the one on the canvas")
+        XCTAssertEqual(
+            marked.first?.identifier, lockChainEntries.last?.identifier,
+            "and it is the newest, which is what returning means"
+        )
+        for entry in lockChainEntries.dropLast() {
             XCTAssertNotEqual(
                 entry.value as? String, "Showing",
-                "an iteration is still marked as the one on the canvas"
+                "an earlier iteration is still marked as the one on the canvas"
             )
         }
     }

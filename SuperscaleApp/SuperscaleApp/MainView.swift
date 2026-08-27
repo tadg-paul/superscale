@@ -762,9 +762,12 @@ struct MainView: View {
                 // Real text, made invisible — not empty text made narrow. An empty `Text` renders
                 // nothing and does not reach the accessibility tree, so the first attempt read
                 // back as "no such element" and the assertion failed for the wrong reason.
+                // `.foregroundStyle(.clear)` rather than `.opacity(0)`: a zero-opacity view is
+                // dropped from the accessibility tree, so the first attempt read back as no such
+                // element. Clear text is still laid out and still reported.
                 Text("\(UITestRequestLedger.shared.generationRequests)")
                     .font(.caption)
-                    .opacity(0)
+                    .foregroundStyle(.clear)
                     .accessibilityValue("\(UITestRequestLedger.shared.generationRequests)")
                     .accessibilityIdentifier("generationRequestCount")
             }
