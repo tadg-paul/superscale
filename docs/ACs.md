@@ -1519,6 +1519,40 @@ extended AC92.1, AC92.5 and AC92.6.
 
 ## What the canvas reports, and what the curtain compares
 
+### AC94.4 - A single intent to apply a filter issues at most one provider request, whatever the interface does between the intent and the request being sent.
+- Introduced: #122 (closed 2026-08-27), backfilled onto the #94 family
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-122.1: the Apply control is unavailable from the click, before any asynchronous work
+  - ✅ RT-122.2: two clicks in rapid succession issue exactly one provider request
+  - ✅ RT-122.4: after a declined request, the control is available again
+  - ✅ RT-122.6: after a failed upload, the control is available again
+  - ✅ RT-122.7: the window covers the raise on an undersized picture
+  - ~~🚫 RT-122.5: a cancelled apply leaves the control available~~
+- Note: **backfilled, not cited.** AC94.1 covers the *reporting* half --- work reports immediately ---
+  and says nothing about how many requests one intent produces. Stretching it to mean that would
+  have been manufacturing coverage, so this is path 2 of `ISSUES.md` §"Bug-fix issues reference
+  existing ACs". RT-122.3 belongs to AC94.1 and is listed there.
+- Note: the control's availability followed the coordinator's `.generating` phase, which is set only
+  once the request is in flight. Before it come the raise to the filterable minimum --- a real Neural
+  Engine run of several seconds on an undersized picture --- and the upload. Both sat inside a window
+  where the control stayed live, so a second click sent a second **paid** request.
+- Note: **a flag, not a debounce.** A time-based guard would swallow the second click while leaving
+  the window equally silent, so the press would still look reasonable to the user, and a correctness
+  property would become a tuning constant.
+- Note: **RT-122.2 needs to count requests, and a GUI test sees results.** A second request returning
+  an identical picture is one visible change and two charges, so counting arrivals would pass against
+  the defect. `UITestRequestLedger` is a `#if DEBUG` counter surfaced through the accessibility tree,
+  counted *before* the stub's failure branch, because a declined request was still issued and against
+  a real provider still charged for.
+- Note: **RT-122.7 is the one that reproduces the reported conditions.** The raise is the bulk of the
+  window; a picture already above the minimum exercises milliseconds and passes against the unfixed
+  code. It confirms the raise happened *after* the apply, because the raise is performed at Apply
+  rather than at import and there is nothing to observe beforehand.
+- Note: RT-122.5 is retired, identifier not reused. Cancellation of the provider call is unreachable
+  from the suite --- the stub returns immediately --- and the raise, which is genuinely cancellable,
+  is covered by RT-94.15 under AC94.1. The same wall retired RT-113.6 and RT-119.4.
+
 ### AC94.1 - Work of any kind on the working image shows progress on the canvas, whether it is a local upscale or a provider call, and stops showing it when that work stops for any reason including cancellation.
 - Introduced: #94 (closed 2026-08-25)
 - Migrated: 2026-08-25
@@ -1528,6 +1562,12 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-94.3: with both in sequence, progress is continuous rather than lapsing between them
   - ✅ RT-94.4: with nothing running, no progress is shown
   - ✅ RT-94.15: a cancelled filter stops the progress and leaves the display as it was
+  - ✅ RT-122.3: pressing Apply reports within the same interaction as the click
+- Note: **#122 found this criterion half-delivered on the path that mattered most.** Progress was
+  bound to the coordinator's `.generating` phase, so the canvas stayed silent through the raise and
+  the upload --- the longest part of an apply on an undersized picture, and the very silence that
+  made a second click look reasonable. The indicator now follows the intent, yielding to the upscale
+  while one runs so the raise keeps its more specific *"Preparing for filtering..."* wording.
 - Note: pressing Apply started a provider call that ran for tens of seconds while the canvas showed
   nothing. The application knew --- the status dot and the filter panel both consulted the
   coordinator --- and the one surface the user was looking at did not ask.
