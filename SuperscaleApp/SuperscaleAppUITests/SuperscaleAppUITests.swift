@@ -2337,6 +2337,41 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC66.1 to AC66.3: the divider is visible against any background (#66)
+
+    /// RT-66.1: the paint change leaves the divider's and the handle's frames alone.
+    ///
+    /// The visibility itself is judged by the author, in UT-66.1 to UT-66.4, because whether a line
+    /// reads against a photograph is not something a machine decides. What a machine can hold is
+    /// the geometry the paint sits on: AC90.14 maps the divider to the pointer within the displayed
+    /// image frame, and AC96.4 requires it to address the same fraction of width in both pictures.
+    /// UT-90.1 failed on that geometry once already.
+    ///
+    /// The shortest wrong fix for #66 is a heavier stroke that also widens the line. That improves
+    /// visibility and moves the hit area, and this is what fails when it does.
+    func test_theDividerGeometryIsUnchangedByThePaint_RT66_1() {
+        // Entered over a filter result, which is the path RT-112.2 demonstrates opens the
+        // comparison reliably. The divider's geometry is the same whichever derivation is being
+        // compared, and this test is about the geometry.
+        applyFilterLeavingScaleOff()
+
+        let compare = app.buttons["compareButton"]
+        XCTAssertTrue(compare.waitForExistence(timeout: 10))
+        compare.click()
+
+        let line = app.descendants(matching: .any)
+            .matching(identifier: "curtainDividerLine").firstMatch
+        let handle = app.descendants(matching: .any)
+            .matching(identifier: "curtainDivider").firstMatch
+        XCTAssertTrue(handle.waitForExistence(timeout: 10), "the divider handle is not present")
+
+        // The declared sizes, not measured guesses: the line is 2 points wide and the handle is a
+        // 28-point circle. Both are the values the drag gesture and the pointer mapping assume.
+        XCTAssertEqual(line.frame.width, 2, accuracy: 1, "the divider line changed width")
+        XCTAssertEqual(handle.frame.width, 28, accuracy: 1, "the handle changed width")
+        XCTAssertEqual(handle.frame.height, 28, accuracy: 1, "the handle changed height")
+    }
+
     // MARK: - AC119.1: the progress indicator is centred over the picture (#119)
 
     /// How far two midpoints may differ and still count as centred.

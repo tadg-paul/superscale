@@ -181,9 +181,21 @@ struct ComparisonView: View {
 
     private func dividerOverlay(at x: CGFloat, height: CGFloat, imageFrame: CGRect) -> some View {
         ZStack {
+            // White fill for dark regions, a dark outline for bright ones. The drop shadow alone
+            // gave contrast in one direction only, so the line disappeared over a near-white part
+            // of a photograph (#66).
+            //
+            // **Paint only.** The 2-point width is unchanged: it is the hit area AC90.14's pointer
+            // mapping and AC96.4's shared-fraction rule both sit on, and UT-90.1 failed on that
+            // geometry once already. The outline is drawn inside the same frame by an overlay
+            // rather than by widening the rectangle.
             Rectangle()
                 .fill(Color.white)
                 .frame(width: 2, height: height)
+                // `strokeBorder`, not `stroke`. A stroke is centred on the edge and grows the drawn
+                // bounds by half its width on each side; RT-66.1 measured the handle at 29.5 points
+                // against its declared 28 for exactly that reason. `strokeBorder` draws inside.
+                .overlay(Rectangle().strokeBorder(Color.black.opacity(0.45), lineWidth: 0.5))
                 .shadow(color: .black.opacity(0.5), radius: 2)
                 .position(x: x, y: height / 2)
                 .accessibilityIdentifier("curtainDividerLine")
@@ -191,6 +203,11 @@ struct ComparisonView: View {
             Circle()
                 .fill(Color.white)
                 .frame(width: 28, height: 28)
+                // The same reasoning as the line above: the outline gives the handle an edge
+                // against a bright photograph, where the shadow only helped against a dark one.
+                // Drawn as an overlay inside the existing 28-point frame, so the hit area the drag
+                // gesture uses is unchanged.
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.35), lineWidth: 1.5))
                 .shadow(color: .black.opacity(0.3), radius: 3)
                 .overlay(
                     Image(systemName: "arrow.left.and.right")
