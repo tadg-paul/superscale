@@ -3096,6 +3096,69 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC119.1: the indicator is sized to its content and translucent (#128)
+
+    // RT-128.1
+    //
+    // The author's measurement: *"the surrounding box should not be 4x wider than the text like it
+    // currently is."*
+    //
+    // Asserted as a ratio against the message's own width rather than against any particular number
+    // of points, so shrinking the fixed width from 420 to something smaller does not satisfy it.
+    // The badge must track what is being said.
+    func test_theIndicatorsBackgroundTracksItsContent_RT128_1() {
+        let indicator = startUpscaleAndCatchTheIndicator()
+
+        // The message is the indicator's own accessibility label — `ProgressOverlay` combines its
+        // children, so the label is the text and the frame is the badge.
+        let message = indicator.label
+        XCTAssertFalse(message.isEmpty, "the indicator says nothing, so there is no content to track")
+
+        // A rough width for the message at callout size. Deliberately generous: the assertion is
+        // about a badge four times its text, not about typography.
+        let approximateTextWidth = CGFloat(message.count) * 7.0
+        let badgeWidth = indicator.frame.width
+
+        XCTAssertLessThan(
+            badgeWidth, approximateTextWidth * 2.5,
+            """
+            the badge is \(badgeWidth) points wide for a \(message.count)-character message \
+            (\"\(message)\"), which is far wider than its content
+            """)
+    }
+
+    // RT-128.4
+    //
+    // AC90.13's area bound, re-asserted at whatever size this issue settles on. The author permits
+    // a larger indicator; the quarter-of-canvas ceiling is what stops "larger" becoming "a sheet".
+    func test_theIndicatorStaysUnderAQuarterOfTheCanvas_RT128_4() {
+        let indicator = startUpscaleAndCatchTheIndicator()
+        let canvas = element(identifier: "workspaceCanvas")
+
+        let canvasArea = canvas.frame.width * canvas.frame.height
+        let indicatorArea = indicator.frame.width * indicator.frame.height
+        XCTAssertGreaterThan(canvasArea, 0)
+        XCTAssertLessThan(
+            indicatorArea, canvasArea * 0.25,
+            "the indicator is a badge, not a sheet over the picture")
+    }
+
+    // RT-128.5
+    //
+    // Guards the measurement itself. `ProgressOverlay` publishes one combined element; without it
+    // `workingIndicator` matches several and a frame read returns the spinner, which is the fault
+    // that cost #119 four remediation cycles. A re-layout can lose it silently.
+    func test_theIndicatorRemainsOneAddressableElement_RT128_5() {
+        _ = startUpscaleAndCatchTheIndicator()
+
+        let matches = app.descendants(matching: .any)
+            .matching(identifier: "workingIndicator")
+            .allElementsBoundByIndex
+        XCTAssertEqual(
+            matches.count, 1,
+            "the indicator publishes \(matches.count) elements, so a frame read is ambiguous")
+    }
+
     // MARK: - AC82.11: nothing is upscaling until the user asks (#131)
 
     /// Whether any scale control reports itself as in effect.
