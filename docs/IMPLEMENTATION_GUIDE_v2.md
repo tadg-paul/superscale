@@ -1,4 +1,4 @@
-<!-- Version: 3.31 | Last updated: 2026-08-27 -->
+<!-- Version: 3.32 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -244,6 +244,20 @@ Selection moves the base **backwards**; lock moves it **forwards**. A base that
 moved only forwards made an earlier iteration something a user could look at but
 not work from, which is the state the author reported as filters landing on the
 wrong picture.
+
+**The chain shown is the lineage of the furthest-forward lock, not of the base.**
+This is the part a naive reading of the rule above gets wrong, and getting it
+wrong is not a cosmetic error: the chain was derived by walking back from the
+base, so a base that moves backwards takes every later iteration off the strip
+with it. That is precisely the unreachability #111 was raised to fix, arriving
+again by a new route --- and it passes every test #111 left behind, because none
+of them moves the base.
+
+So the graph holds a **tip**: the furthest-forward locked asset. Lock advances
+it. Selection does not move it. The chain is the tip's lineage, and the base and
+candidate say where in that chain the user is standing. AC89.3's requirement that
+every locked iteration stay reachable then holds in both directions, and
+returning to the newest iteration is the same operation as selecting any other.
 
 Saving an earlier iteration upscales it on demand at the current settings,
 because the upscale is deterministic and need not have been kept. This is what
@@ -577,7 +591,7 @@ pointer, and is the only place these rules live:
 | **I4** | Lock captures the working image at model resolution, never its upscale. Lock moves the base forward; selecting an earlier locked iteration moves it back to that iteration's own parent, making the iteration the candidate. No other action moves the base. |
 | **I5** | Upscaling derives from the working asset and writes a new file. It never consumes or overwrites a previous upscaled output. |
 | **I6** | An upscaled asset is attributed to a session only if it descends from that session's lineage. Never by timing. |
-| **I7** | The lineage of a locked asset is retained and reachable, so any prior iteration can be viewed and saved. |
+| **I7** | The lineage of a locked asset is retained and reachable, so any prior iteration can be viewed, selected and saved. Reachability is from the tip, not from the base, so it survives the base moving backwards. |
 
 Each is pure logic over the graph, testable with no network and no Core ML.
 
@@ -618,6 +632,23 @@ locked. Because the lineage is retained under I7, this needs no stored snapshot:
 the state is recoverable from the graph at any time. It is why I4 can admit a
 backwards move without weakening I2 or I3 --- a filter still reads the base, and
 still replaces the candidate; only which asset the base points at has changed.
+
+**Selecting an asset with no parent makes it the base, with no candidate.** The
+source has no parent, and neither does a raise to the minimum performed on it, so
+the general rule does not reach them. That state is the one a fresh import is
+already in, so nothing new is introduced by saying so --- but it has to be said,
+because "the base becomes the selected asset's parent" has no answer otherwise.
+
+**A third pointer, the tip**, is the furthest-forward locked asset. Lock advances
+it; selection does not move it; `lockedIterations` derives from it. Without it
+the chain is the base's ancestry, and a base that moves backwards makes every
+later iteration unreachable --- AC89.3's failure, and #111's defect returning by a
+different route.
+
+An unlocked candidate displaced by a selection is not recoverable, and that is
+consistent rather than a gap: 2.3 already establishes that applying again
+replaces the candidate, so a candidate's impermanence is existing behaviour.
+Selection is one more thing that replaces it.
 
 ### 3.3 Stages
 
@@ -1422,6 +1453,16 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.32 (2026-08-27):** Completes 3.31, which was incomplete in a way that would have reinstated a
+  closed defect. It said what selecting an iteration does to the base and the candidate and nothing
+  about what the lock strip then shows --- and the strip was derived by walking back from the base,
+  so a base that moves backwards takes every later iteration off it. That is AC89.3 failing and
+  #111's unreachability returning by a new route, and it would have passed every test #111 left
+  behind, because none of them moves the base. The graph therefore holds a **tip**: the
+  furthest-forward locked asset, advanced by lock, unmoved by selection, and the lineage the strip
+  derives from. I7 is amended to say reachability is from the tip. Sections 2.4 and 3.2 also settle
+  two cases 3.31 left open: selecting an asset with no parent makes it the base with no candidate,
+  and an unlocked candidate displaced by a selection is not recoverable, consistent with 2.3.
 - **3.31 (2026-08-27):** Section 2.4 and invariant I4 gain the rule that **selecting an earlier
   locked iteration moves the base backwards** to that iteration's own parent, making the iteration
   the candidate. Until now the base moved only forwards, on lock, so an earlier iteration was
