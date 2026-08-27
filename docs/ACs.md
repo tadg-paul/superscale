@@ -1078,6 +1078,10 @@ extended AC92.1, AC92.5 and AC92.6.
 - Tests:
   - ✅ RT-89.25: importing a new image empties the lock chain
   - ✅ RT-89.26: the files of a released chain no longer occupy the output directory
+  - ✅ RT-130.2: an Open command is available with a picture already loaded
+  - ✅ RT-130.3: the open route is available with nothing loaded
+  - ✅ RT-130.4: displaying a locked iteration is still not treated as an import
+  - ✅ RT-130.5: a filter result arriving is still not treated as an import
   - ~~🚫 RT-111.4: a genuine import from the viewing state still empties the chain~~
 - Note: RT-111.4 is retired, identifier not reused. It could not be performed: with a picture loaded
   the application offers no route to open another. `fileChooser` lives on the empty-canvas drop
@@ -1086,6 +1090,14 @@ extended AC92.1, AC92.5 and AC92.6.
   change widens `adoptImportedImage`'s guard until no import registers at all. That guide section 2.2
   promises the open panel as one of three import routes, and the application withdraws it once an
   image is loaded, is recorded as a separate product question on master #114.
+- Note: **that product question is answered by #130 (closed 2026-08-27), and it was a defect rather
+  than a question.** With a picture loaded there was no route in at all: the open-panel button lives
+  on the empty-canvas drop target, and the File menu carried Save As and Open Recent but no Open.
+  The author reported having to quit and relaunch to test anything twice. A **File > Open Image**
+  command on Cmd+O restores the route. RT-130.4 and RT-130.5 also re-assert this criterion's own
+  guards --- selecting an iteration and receiving a filter result are still not imports --- which is
+  the property RT-111.4's retirement left thin. The open panel itself remains undrivable from
+  XCUITest, so RT-130.2 asserts the command exists and is enabled rather than driving it to a file.
 - Note: the chain belongs to the image it was built from. Carrying it across would offer iterations
   of a picture no longer on screen, and keeping the files would grow the output directory for the
   life of the session.
