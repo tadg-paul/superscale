@@ -918,7 +918,20 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-111.1: with two locked iterations and one open, the chain remains present and whole and the others remain reachable
   - ✅ RT-111.2: navigating from one open iteration directly to another shows the second
   - ✅ RT-111.3: a chain of exactly one survives being opened
-  - ✅ RT-111.6: from an open iteration, one action restores the live base, and it is that asset
+  - ✅ RT-111.6: from an open iteration, one action returns to the newest, and it is that asset
+  - ✅ RT-121.7: selecting an earlier iteration leaves the later ones reachable
+  - ✅ RT-121.9: returning to the newest iteration restores it as the working point
+- Note: **reachability is from the tip, not from the base, as of #121.** `lockedIterations` walked
+  back from the base, which was correct while the base was the front of the chain. Guide 3.32 lets
+  the base move backwards, and against the old derivation that took every later iteration off the
+  strip --- this criterion failing, and #111's unreachability returning by a new route. It would have
+  passed RT-111.1 to RT-111.6 unchanged, because not one of them moves the base. Found by
+  `audit-acs` before implementation and fixed in the design first.
+- Note: **RT-89.8's expected count moved from two to three, and RT-111.6's expected report from "The
+  base" to "A filter result".** Both are this criterion changing rather than tests weakening. The
+  newest lock was previously excluded from the chain because it was where the user stood; it is now
+  somewhere they can go, so it is listed, it is selectable, and returning to it is the same
+  operation as selecting any other entry.
   - ✅ RT-111.7: the chain reports which entry is open as a value, asserted across two entries
   - ✅ RT-111.8: the chain persists with the scale both cleared and selected
   - ~~🚫 RT-111.5: an entry whose file has gone stays in the chain and reports itself unavailable~~
@@ -990,6 +1003,45 @@ extended AC92.1, AC92.5 and AC92.6.
   half, by identifier *and* by the visible words so a renamed control does not pass.
 - Note: the clients remain in `FalGenerationKit` for the version that needs them. What went is the
   application's plumbing, including the UI-test stubs for coordinators nobody builds.
+
+### AC89.9 - Selecting a locked iteration makes that iteration the candidate and the asset it was produced from the base, so the working context is the one that existed when it was locked.
+- Introduced: #121 (closed 2026-08-27), backfilled onto the #89 family
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-121.1: a filter after selecting an iteration reads that iteration's parent
+  - ✅ RT-121.2: the comparison pair is the selected iteration and its parent
+  - ✅ RT-121.3: the filtered/original control is present after filtering a selected iteration
+  - ✅ RT-121.4: locking after a selection extends the chain from the selected point
+  - ✅ RT-121.5: the canvas reports the selected iteration, not something else
+  - ✅ RT-121.8: selecting an iteration discards the outgoing asset's rendering
+  - ⏳ UT-121.1: pending human resolution in delivery master #120
+- Note: **the specification was incomplete, not the build.** Until guide 3.31 the base moved only
+  forwards, on lock, and a filter reads the base (I2) --- so applying one after scrolling back sent
+  the newest lock, which is what the design said to do. The author reported it as filters landing on
+  the wrong picture, and the rule they supplied is now in guide 2.4 and I4.
+- Note: **I2 and I3 are untouched.** A filter still reads the base and still replaces the candidate.
+  Only which asset the base points at has changed.
+- Note: RT-121.1 builds a chain of **three** locks and selects the first. With two, the selected
+  iteration's parent can coincide with the current base and the test passes against the unfixed
+  behaviour.
+- Note: the outgoing asset's rendering is discarded on selection. Guide 2.5 already required that
+  whenever the working image changes; selection is the one route to that which did not previously
+  exist, and it is the seam where it would have been dropped.
+
+### AC89.10 - Selecting an asset with no parent makes it the base, with no candidate.
+- Introduced: #121 (closed 2026-08-27), backfilled onto the #89 family
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-121.6: selecting the source makes it the base and leaves no candidate
+- Note: the source has no parent, and neither does a raise to the minimum performed on it, so
+  AC89.9's rule has no answer for either. The state is the one a fresh import is already in, so
+  nothing new is introduced --- but it has to be said, because *"the base becomes the selected
+  asset's parent"* is otherwise undefined. **This is the case the author actually described**:
+  *"clicked back to my original image"*.
+- Note: this criterion is what exposed the return affordance's own defect. "Back to current" was
+  conditioned on a candidate existing, and a user standing on the source has none --- so scrolling
+  all the way back left no way forward, which is #111's complaint arriving through the door #121
+  opened. The affordance now derives from the chain.
 
 ### AC89.8 - The lock chain belongs to the working image: importing another image starts a new chain, and the previous chain's files are released.
 - Introduced: #89 (closed 2026-08-25)
