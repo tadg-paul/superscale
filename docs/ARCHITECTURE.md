@@ -165,8 +165,13 @@ SDK source.*
 `FalPricingClient` and `FalAccountClient` are **present, unreferenced, and
 paused for the MVP** (guide section 6): grok is a documented flat 2c, so
 nothing calls them, no account endpoint is ever contacted (AC89.7), and the
-account/admin key is stored for the future without verification --- see #109
-for the control-feedback defect that stance produced. They return when a
+account/admin key is stored for the future without verification. That stance
+produced a control-feedback defect, closed by #109: the row's badge read from
+whether its text field held anything, so it flipped to "stored" on the first
+keystroke and the save press had no change left to make. The badge now reports
+the Keychain --- typed is not stored --- and the row states in the scene that
+its key is held unchecked. The absence of verification is unchanged. They
+return when a
 second model makes a flat rate untenable; the cost-confirmation policy that
 consumed their output is gone entirely (#95, #103, AC76.3 superseded by
 AC103.2).

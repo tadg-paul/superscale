@@ -1,4 +1,4 @@
-<!-- Version: 3.26 | Last updated: 2026-08-26 -->
+<!-- Version: 3.27 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -998,7 +998,7 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 | #105 | closed 2026-08-25 under MODE DELIVER, full-suite verification still outstanding | Removing #104's `!isProcessing` guard re-entered `processImage` through its own published state; the corrected fix (`isConfiguringRun`) is at `264ce6e` (cited as `ed25cb7` in ticket comments written before the 2026-08-25 history rewrite), spot-verified on 14 of 17 regressed GUI tests. The delivery closed #105 alongside #100, #101 and #103 at 21:23 on 2026-08-25 **before the full-suite run had happened** --- premature against its own gate, and the run is still owed: the next full `make test-gui` (baseline: 101 executed, 0 failures) and `make test` (533 executed, 6 skipped, 0 failures) is the delivery-level verification for master #99's exit gate. |
 | #106 | open, deliberately unfixed | Choosing a scale after a completed run can serve the previous scale's cached rendering under the new scale's label --- `renderingKey` reads `scaleSelection` inside the `willSet` sink. The three-line fix exists and was reverted: it changes run-versus-cache timing that three closed issues' GUI tests encode (RT-156, RT-158, RT-090.52). The ticket holds the reachability analysis and a five-step procedure beginning with the failing test. |
 | #108 | open | The info panel does its own scale arithmetic (`InfoPanel.swift:76`, `input × scale`), reporting an output four times the ceiling while no scale is in effect. Failed UT-93.1. A third private derivation of sizing truth --- the disease #100 and #103 treated. Also: something populated the custom fields with the impossible dimensions; separately diagnosed per the ticket. |
-| #109 | open | The account/admin key row presents the same affordance as the verifying FAL-key row and answers a press with nothing. The *absence of verification* is deliberate (`SettingsView.swift:44-46`) and stays; the defect is a control that accepts a click and communicates nothing. Part of the UT-95.1 fail. |
+| #109 | closed 2026-08-27 | The account/admin key row answered a press with nothing. The cause was not the absence of verification, which was deliberate and stays: the badge read from whether the *text field* held anything, so it flipped to "stored" on the first keystroke and the press had no state change left to make. The badge now reports the Keychain, and the row says in the scene that its key is held unchecked. AC95.3 cited; AC95.7 backfilled. Part of the UT-95.1 fail, which stays open on #79. |
 | #110 | open | Entering a credential makes the Settings text boxes change size and the form layout jump. Part of the UT-95.1 fail. Likely conditional status content not reserving space; diagnose before fixing, per the ticket. |
 | #111 | open | Opening a locked iteration hides the lock chain strip, so every other iteration becomes unreachable. Failed UT-89.1. Violates AC89.3's "remains reachable". |
 | #112 | open | A FAL filter result offers no curtain, so it cannot be compared against the picture it was made from. Violates AC94.3; also blocks UT-96.1. |
@@ -1380,6 +1380,13 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.27 (2026-08-27):** The defect table marks #110 and #109 closed and records what each turned
+  out to be, because in both cases the ticket's own hypothesis was wrong and the wrong hypothesis is
+  the reusable part. #110 was not a text field sizing itself: a `ProgressView` and a status badge
+  swapped directly into a row's `HStack` resized the stack, the field beside it, and then the form's
+  label column through `LabeledContent`. #109 was not the absence of verification, which stays: the
+  account row's badge read from whether its *text field* held anything, so it flipped to "stored" on
+  the first keystroke and the save press had no state change left to make.
 - **3.26 (2026-08-26):** Section 7's GUI-run rules gain the condition that cost this delivery an
   hour: no other process may be able to take the screen, and the display never has to sleep for
   that to ruin a run. A managed installer prompt, an update dialogue or a remote-assistance capture

@@ -604,6 +604,38 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-95.14: the account key row shows no verification state
   - ✅ RT-95.16: verification issues no generation request
   - ✅ RT-95.17: editing a verified key returns it to unverified until it is saved and checked again
+  - ✅ RT-109.1: a key typed into the account row and not saved reads as not configured
+  - ✅ RT-109.2: pressing the account row's save changes what the row reports, in the same interaction
+  - ✅ RT-109.3: editing a saved account key returns the row to not configured until it is saved again
+  - ✅ RT-109.4: a store that throws leaves the account row saying not configured
+  - ✅ RT-109.5: an account key already in the Keychain reads as stored on launch, with no press
+  - ✅ RT-109.6: removing the account key returns the row to not configured
+  - ✅ RT-109.7: saving whitespace over a stored account key removes it and reads as not configured
+  - ✅ RT-109.9: a saved account key can still be removed while it is being edited
+- Note: #109 found the account half of this criterion violated. *"The account key reads as stored or
+  absent"* was implemented as `!accountAdministrationKey.isEmpty` --- the **text field**, not the
+  Keychain --- so the badge flipped to "stored" on the first keystroke and the save press had no
+  state change left to make. Beside a generation key that answers a press with a green tick, a row
+  that answers with nothing reads as a broken button, and it was reported as one. The state now
+  holds the account key as it was last stored and compares the field against it.
+- Note: **the word "stored" means something slightly different in the two rows, and deliberately
+  so.** For the generation key it means "typed but unverified", which RT-95.17 requires. For the
+  account key it means "matches the Keychain". The generation row's press has its own answer to
+  deliver, the provider's verdict, so its badge need not report the store; the account row's press
+  has no other answer, so its badge must report the only thing the press changes. Recorded so nobody
+  later tidies the two into agreement and breaks RT-95.17.
+- Note: **the remove control reads a different question from the badge.** The badge asks whether the
+  field matches the Keychain; remove asks whether anything is in the Keychain. Left on the badge, it
+  would have disabled itself the moment a saved key was edited, so a user correcting a typo could no
+  longer delete the key they were correcting. RT-109.9 is the guard.
+- Note: RT-109.4, RT-109.5 and RT-109.7 are unit tests rather than GUI ones, and that is a cost paid
+  deliberately. There is no honest way to make the Keychain refuse from XCUITest --- adding a
+  `keychain` mode to `SUPERSCALE_UI_TEST_FAIL` would have the shipping app carry a failure injector
+  to reach one assertion reachable in-process --- and seeding a key "already stored at launch" would
+  mean a GUI test writing the author's own login Keychain, the wall that also retired RT-111.5.
+- Note: **RT-109.3 and RT-109.5 are the two that matter.** Flipping a flag in the save button's
+  action satisfies RT-109.2 and fails both: returning to not-configured on an *edit* needs the field
+  compared against what was stored, and a flag resets on launch where a Keychain read does not.
 - Note: the badge read from whether a key was *stored*, so a typo saved and showed a green tick.
   RT-95.8 is the one that matters most: reporting an unreachable provider as a rejection has the
   user delete a working key. RT-95.16 checks the request's own properties --- a GET, no body, one
@@ -643,6 +675,23 @@ extended AC92.1, AC92.5 and AC92.6.
 - Note: **RT-110.3 is the one closest to the complaint.** *"The layout of the whole form jumps
   about"* is about the rows the user is not typing into. It also catches the shortest wrong fix,
   which pins the field's width and leaves the trailing content free to push the row around.
+
+### AC95.7 - The account key row states in the scene that its key is held for later use and is not checked with the provider, so a row that never turns green is explained rather than merely quiet.
+- Introduced: #109 (closed 2026-08-27), backfilled onto the #95 family
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-109.8: the account row says, in readable text, that its key is not verified
+- Note: **backfilled.** The state half of #109 is a straight AC95.3 violation and is recorded there.
+  Nothing in the family covered a control explaining its own limits, so this is path 2 of
+  `ISSUES.md` §"Bug-fix issues reference existing ACs".
+- Note: **"in the scene", not "on hover", is the whole content of the criterion.** The ticket offered
+  the sentence as *"one short help string"*, and `.help()` in this file renders as a tooltip:
+  invisible until hovered, invisible to anyone who does not know to hover, and unreadable from
+  XCUITest, so RT-109.8 could not have asserted it. The author's wording is kept exactly; only the
+  placement is changed, and that change was flagged on the ticket rather than assumed.
+- Note: the sentence sits in the section rather than as a parameter on `credentialRow`. A note
+  belonging to one row is not a property of the shared component that draws both, and threading it
+  through as an optional would have put a second concern into a builder #110 had just narrowed.
 
 ### AC95.5 - Settings offers no control that operates a feature the MVP excludes. Storing a credential for later is not operating anything, so the account key row remains.
 - Introduced: #95 (closed 2026-08-25)
