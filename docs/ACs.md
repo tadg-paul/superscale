@@ -211,6 +211,35 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-82.30: dimensions typed into the custom fields survive the selection being cleared and restored
   - ✅ RT-82.32: choosing custom makes it the active choice before any dimension is typed
 
+### AC82.11 - No upscale is selected when the application launches, so the first upscale of a session is one the user asked for.
+- Introduced: #131 (closed 2026-08-27), backfilled onto the #82 family
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-131.1: no scale is in effect on launch
+  - ✅ RT-131.2: importing with nothing selected runs no upscale
+  - ✅ RT-131.3: selecting a scale after import runs the upscale
+  - ✅ RT-131.7: with nothing selected, upscaling still reads as available
+  - ⏳ UT-93.1: re-offered on master #120
+- Note: **this reverses a documented decision rather than fixing an accident.** Guide 2.5 held that
+  v1's immediacy --- drop a picture and it upscales at whatever scale is selected --- was the v1
+  experience and was kept. In use the cost was paid on the first action of every session, on an
+  output a filter-first user is about to set aside, before they had chosen anything. Guide 2.5
+  amended at 3.33 **before** the code, since the behaviour being replaced was specified.
+- Note: **reactivity is untouched.** An upscale still runs whenever a scale is selected and there is
+  something to run on. Only the starting value moved. RT-131.3 is what holds that line.
+- Note: **RT-131.2 is what makes RT-131.1 mean anything.** Clearing the selection on launch and
+  re-selecting it on import passes RT-131.1 and changes nothing.
+- Note: the selection is deliberately not persisted, verified rather than assumed:
+  `GenerationPreferences` carries the output folder, the two default models and the default prompt
+  pack, and `loadDefaults` does not touch the scale. A persisted scale would make RT-131.1 pass or
+  fail by machine, which is the shape that made RT-73.8 environment-dependent.
+- Note: **this change failed four other tests on its first run, all at one helper.** With nothing
+  selected an import no longer upscales, so `waitForUpscaleComplete()` --- sixty-three call sites ---
+  waited for something that would never happen. That is the change being real: sixty-three tests
+  were relying on the application starting work nobody had asked for. The helper now asks for a
+  scale when none is in effect, and carries a warning that a test meaning *"no upscale should
+  happen"* must not call it, because it would cause the very thing being checked.
+
 ### AC82.8 - A cleared scale selection persists until a scale is chosen: importing an image, changing the upscale model and changing the custom dimension text all leave it cleared.
 - Introduced: #82 (closed 2026-08-23)
 - Migrated: 2026-08-23
