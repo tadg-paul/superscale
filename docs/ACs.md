@@ -1038,6 +1038,10 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-90.15: with an upscale present, the curtain compares base against upscale
   - ✅ RT-90.16: with a filter result present, the curtain compares base against that result
   - ✅ RT-90.17: with no derivation present, no curtain is shown
+  - ✅ RT-112.4: with nothing derived, no comparison is offered at all
+- Note: RT-112.4 holds the absence half through the affordance rather than the drawing. #112's fix
+  widens what counts as a derivation, and the shortest wrong version of it offers Compare whenever
+  there is any picture at all, which passes RT-112.1 and breaks this.
   - ✅ RT-90.24: while an earlier iteration is being viewed, the curtain compares that iteration against its own derivation, or is absent
 - Note: "the image it derives from" is the *base*, not the immediate parent. Read as the parent it
   paired a filter result with its own upscale --- a comparison of resolution and nothing else.
@@ -1370,6 +1374,22 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-94.9: after a filter and an upscale of it, the two sides are the base and the upscaled filter result
   - ✅ RT-94.10: the two sides are never the same asset
   - ✅ RT-94.16: while an earlier locked iteration is being viewed, the curtain compares that iteration against what descends from it, or is absent
+  - ✅ RT-112.1: with the scale off, a filter result offers the comparison, enabled
+  - ✅ RT-112.2: entering the comparison over a filter result shows the curtain, with a picture and a divider
+  - ✅ RT-112.3: with a scale selected, the comparison is still offered after a filter
+  - ✅ RT-112.5: the canvas reports a filter result rather than an upscaled rendering
+- Note: **#112 found the criterion pinned what the curtain compares and not that it was offered.**
+  The compare control was gated on `viewModel.result`, the upscale output, so after a filter with the
+  scale off it never appeared. That is the ordinary state for an undersized picture, because the
+  raise to the filterable minimum turns the scale off (AC96.1). RT-90.15 and RT-90.16 stayed green
+  throughout: they live in `CanvasContentTests` and decide what the curtain draws, never reaching the
+  toolbar condition that decides whether the control exists.
+- Note: RT-112.2 asserts the curtain is present and usable rather than which two images it holds.
+  That identity is RT-94.7's, asserted against `baseFileURL`; XCUITest observes the accessibility
+  tree and cannot make that claim.
+- Note: RT-112.5 is the vacuity guard for #117's helper migration, expressed as a product state. If
+  anything reports a filter result as a finished upscale, it fails here rather than at the 45 call
+  sites of `waitForUpscaleComplete`.
 - Note: the far side came from `viewModel.originalImage`, which `processImage` replaces with whatever
   it was last asked to upscale. After a filter that is the filter's own output, so the curtain showed
   the filtered picture against the upscale of the same filtered picture --- two images differing in

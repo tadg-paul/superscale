@@ -254,8 +254,19 @@ struct MainView: View {
     }
 
     /// The output of the last operation, when there is one.
+    ///
+    /// An upscale rendering when one exists, and otherwise the filter result itself. A filter result
+    /// **is** a derivation of the base, which is what AC94.3 says the curtain exists to compare, and
+    /// binding this to `viewModel.result` alone meant the curtain was offered only after an upscale.
+    /// The raise to the filterable minimum turns the scale off (AC96.1), so a user who filters an
+    /// undersized picture is in exactly the state where no upscale ever runs and the comparison was
+    /// never offered at all (#112).
+    ///
+    /// AC90.6's other half still holds: with nothing derived, this is `nil` and no curtain appears.
     private var derivedImage: NSImage? {
-        viewModel.result
+        if let upscaled = viewModel.result { return upscaled }
+        guard workspace.canCompare, !workspace.showsBase else { return nil }
+        return viewModel.originalImage
     }
 
     /// The image on the canvas: the derivation unless the user has asked for the base.
@@ -576,7 +587,11 @@ struct MainView: View {
                 .accessibilityIdentifier("filterToggle")
             }
 
-            if viewModel.result != nil {
+            // Offered whenever there is a derivation, which after #112 includes a filter result with
+            // no upscale behind it. Bound to `viewModel.result` it was offered only after an
+            // upscale, so a user who filtered an undersized picture — the state the raise to the
+            // filterable minimum puts them in — was never offered the comparison at all.
+            if derivedImage != nil {
                 Button(viewModel.showComparison ? "Full View" : "Compare") {
                     viewModel.showComparison.toggle()
                 }

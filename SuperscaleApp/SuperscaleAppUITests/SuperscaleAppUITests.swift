@@ -140,15 +140,18 @@ final class SuperscaleAppUITests: XCTestCase {
     /// no upscale behind it — and bound to that control this helper would then return before any
     /// upscale had run, at all 45 of its call sites.
     ///
-    /// **That migration is written and reverted.** SwiftUI did not carry the accessibility value to
-    /// the tree on any element tried, so the canvas state reads back empty and this helper would
-    /// have timed out everywhere. Leaving a broken helper in the tree is worse than an open ticket,
-    /// so the old binding stands until AC117.1's criterion is resolved. See #117.
-    ///
     /// The same trap took the Save control in #96 and is recorded in guide section 7. A control's
     /// meaning can widen; a state's cannot.
+    ///
+    /// The migration was written once against an `accessibilityValue`, which SwiftUI did not carry,
+    /// and reverted rather than left timing out at every call site. AC117.1 moved the state to the
+    /// label, which is carried, and this now reads that.
     private func waitForUpscaleComplete(timeout: TimeInterval = 120) -> Bool {
-        app.buttons["compareButton"].waitForExistence(timeout: timeout)
+        let canvas = element(identifier: "workspaceCanvas")
+        guard canvas.waitForExistence(timeout: 5) else { return false }
+        let rendered = NSPredicate(format: "label == %@", "Canvas showing An upscaled rendering")
+        let promise = expectation(for: rendered, evaluatedWith: canvas)
+        return XCTWaiter().wait(for: [promise], timeout: timeout) == .completed
     }
 
     /// Waits until a filter result has reached the canvas.
@@ -2331,6 +2334,96 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(
             scaleLine, expected,
             "the panel is not rendering the sentence SizingLine composes"
+        )
+    }
+
+    // MARK: - AC94.3 and AC90.6: the curtain is offered for a filter result (#112)
+
+    /// Imports the fixture and applies a filter, leaving the scale as the raise set it.
+    ///
+    /// The raise to the filterable minimum turns the scale off, so this reaches the state the
+    /// author reported: a filter result with no upscale behind it.
+    private func applyFilterLeavingScaleOff() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        let field = element(identifier: "generationPromptField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+    }
+
+    /// RT-112.1: with the scale off, a filter result offers the comparison.
+    func test_aFilterResultOffersTheComparison_RT112_1() {
+        applyFilterLeavingScaleOff()
+
+        let compare = app.buttons["compareButton"]
+        XCTAssertTrue(
+            compare.waitForExistence(timeout: 10),
+            "no comparison is offered for a filter result"
+        )
+        XCTAssertTrue(compare.isEnabled, "the comparison is offered but cannot be entered")
+    }
+
+    /// RT-112.2: entering the comparison over a filter result shows a usable curtain.
+    ///
+    /// Which two images the curtain holds is AC94.3's, already pinned by RT-94.7 against
+    /// `baseFileURL`. XCUITest observes the accessibility tree, not which file backs each side, so
+    /// this asserts what this layer can establish: the curtain is there and its divider moves.
+    func test_enteringComparisonOverAFilterResultShowsTheCurtain_RT112_2() {
+        applyFilterLeavingScaleOff()
+
+        app.buttons["compareButton"].click()
+        XCTAssertTrue(
+            element(identifier: "curtainDivider").waitForExistence(timeout: 5),
+            "the curtain has no divider"
+        )
+        XCTAssertTrue(
+            element(identifier: "curtainPicture").exists,
+            "the curtain draws no picture"
+        )
+    }
+
+    /// RT-112.3: with a scale selected, the comparison is still offered after a filter.
+    ///
+    /// The existing behaviour is shown unchanged rather than traded away for the new one.
+    func test_withAScaleSelectedTheComparisonIsStillOffered_RT112_3() {
+        applyFilterLeavingScaleOff()
+        chooseScale(2)
+
+        XCTAssertTrue(
+            app.buttons["compareButton"].waitForExistence(timeout: 30),
+            "selecting a scale after a filter withdrew the comparison"
+        )
+    }
+
+    /// RT-112.4: with nothing derived, no comparison is offered.
+    ///
+    /// AC90.6's absence half. A fix that offered Compare whenever there is any picture at all would
+    /// pass RT-112.1 and break this.
+    func test_withNothingDerivedNoComparisonIsOffered_RT112_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        clearScale()
+
+        XCTAssertFalse(
+            app.buttons["compareButton"].exists,
+            "a comparison is offered with nothing derived to compare against"
+        )
+    }
+
+    /// RT-112.5: the canvas reports a filter result rather than an upscaled rendering.
+    ///
+    /// The vacuity guard for #117's helper migration, expressed as a product state. If anything ever
+    /// reports a filter result as a finished upscale, this fails here rather than 45 tests quietly
+    /// asserting nothing and reporting green.
+    func test_aFilterResultIsNotReportedAsAnUpscale_RT112_5() {
+        applyFilterLeavingScaleOff()
+
+        XCTAssertEqual(
+            canvasKind, "A filter result",
+            "a filter result is being reported as something else"
         )
     }
 
