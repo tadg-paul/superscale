@@ -950,12 +950,25 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-111.6: from an open iteration, one action returns to the newest, and it is that asset
   - ✅ RT-121.7: selecting an earlier iteration leaves the later ones reachable
   - ✅ RT-121.9: returning to the newest iteration restores it as the working point
-- Note: **reachability is from the tip, not from the base, as of #121.** `lockedIterations` walked
-  back from the base, which was correct while the base was the front of the chain. Guide 3.32 lets
-  the base move backwards, and against the old derivation that took every later iteration off the
-  strip --- this criterion failing, and #111's unreachability returning by a new route. It would have
-  passed RT-111.1 to RT-111.6 unchanged, because not one of them moves the base. Found by
-  `audit-acs` before implementation and fixed in the design first.
+- Note: ~~🚫 **reachability is from the tip, not from the base, as of #121**~~ --- superseded by
+  #132. That note was right about the diagnosis and wrong about the remedy: a chain derived from the
+  *tip* lost everything forward of a selection the moment the user locked, because lock advanced the
+  tip. **The chain was derived from a single pointer twice, and both times a backwards move
+  destroyed work the user had paid the provider for.**
+- Note: **reachability is from the whole chain, held explicitly, as of #132.** It is the record of
+  what has been made, in the order it was made, and branching from an earlier point *adds* to it.
+  The lineage still exists on each asset's `parentID` and still governs I2, I3, AC89.9 and the
+  session filter cache; it is simply not what the strip is read from.
+- Note: **the #121 version was a decision taken without asking, and that was the error under the
+  error.** The commit called truncating the chain *"the honest outcome"*. It destroys paid work, and
+  `MAIN.md` §1 reserves that judgement to the author, who reported it as *"completely unreliable"*.
+  Recorded here because the process failure is the more useful lesson than the pointer.
+  - ✅ RT-132.1: locking after a selection keeps every earlier lock, asserted by identifier
+  - ✅ RT-132.2: the newly locked result joins the chain and is the base
+  - ✅ RT-132.3: the lineage still records the restored base as the new iteration's parent
+  - ✅ RT-132.4: importing a different picture still empties the chain
+  - ✅ RT-132.5: returning to the newest reaches the most recently locked result
+  - ⏳ UT-132.1: pending human resolution in delivery master #120
 - Note: **RT-89.8's expected count moved from two to three, and RT-111.6's expected report from "The
   base" to "A filter result".** Both are this criterion changing rather than tests weakening. The
   newest lock was previously excluded from the chain because it was where the user stood; it is now
@@ -1313,7 +1326,29 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-119.2: the indicator's vertical midpoint agrees with the picture's within two points
   - ✅ RT-119.3: with the indicator centred and the info panel shown, both are present and neither overlaps the other
   - 🚫 RT-119.4, centred over the curtain: retired, blocked by **#106**. See the note below.
+  - ✅ RT-128.1: the indicator's background width tracks its content rather than a fixed maximum
+  - ✅ RT-128.4: the indicator's area stays under a quarter of the canvas at its larger size
+  - ✅ RT-128.5: the indicator remains one addressable element carrying its message
   - ⏳ UT-119.1: with an operation running, the indicator's position is judged
+- Note: **RT-128.x were migrated late.** #128 was closed without them, which is an omission in that
+  closure rather than in the tests; recorded rather than quietly corrected.
+- Note: **#128's first fix did nothing, and its test was too weak to notice.** The bound was moved
+  from the stack to the text, on the reasoning that a `maxWidth` frame bounds rather than sets.
+  Measured: the badge came out at **301 points of a 1080-point canvas** for a 30-character message
+  --- the cap exactly. A finite `.frame(maxWidth:)` takes the proposal clamped to the maximum; it
+  does not shrink to its child, in either position. `.fixedSize(horizontal: true)` does, and the same
+  message now measures **227.5**.
+- Note: **RT-128.1 allowed half the canvas and passed on the badge the author was rejecting.** It
+  now allows a quarter --- below the 0.279 he called far too wide --- asserts the width tracks the
+  message length, and **prints its measurements**, so a green run records what it measured rather
+  than hiding it. An estimate of typography is not a measurement, and the first version's estimate
+  was generous enough to accept the defect. This is the third time in this delivery that reasoning
+  about layout stood in for measuring it.
+- Note: **RT-119.4 is now unblocked.** #106 closed with #123, so a preset change against an
+  unrendered scale starts real work again and the sequence this test needs is reachable. Its code
+  and reasoning are preserved in place in `SuperscaleAppUITests.swift`. Reinstating it is follow-on
+  work recorded on master #120, not done here, because it belongs to this criterion's verification
+  rather than to #123's.
 - Note: **the last failure was a measurement, not a placement, and four cycles went into the wrong
   half of that sentence.** RT-119.1 reported the indicator's midpoint 68 points left of the
   picture's, consistently, and the earlier attempts treated it as a layout problem. It was not.
