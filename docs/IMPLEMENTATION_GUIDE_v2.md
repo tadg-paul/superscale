@@ -1,4 +1,4 @@
-<!-- Version: 3.30 | Last updated: 2026-08-27 -->
+<!-- Version: 3.31 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -219,7 +219,31 @@ the invariants in 3.2 hold without special cases.
 
 Locking does not discard what came before. Each lock extends a chain, and the
 user can **scroll back through previously locked iterations**, view any of them,
-and **save any of them**.
+**select** any of them, and **save any of them**.
+
+**Selecting an earlier iteration restores the working context it was made in.**
+The selected iteration becomes the candidate, and the asset it was filtered from
+becomes the base. Nothing is copied and no history is discarded: the pair is read
+back off the lineage the graph already holds.
+
+That single rule settles three things that otherwise need separate answers:
+
+- **What a filter reads.** The base, exactly as everywhere else. Selecting an
+  iteration moves the base to that iteration's own parent, so filtering after
+  selection transforms the picture the user is looking back at rather than the
+  most recent lock. The rule in 2.3 is unchanged; only the base has moved.
+- **What the comparison shows.** The candidate against the base it descends
+  from, which for a selected iteration is the picture it was made from. The
+  filtered/original toggle therefore works on an earlier iteration exactly as it
+  does on a fresh one.
+- **What an upscale derives from.** The working image, which is the candidate
+  when one exists. Selecting an iteration makes it the candidate, so the upscale
+  runs on the selected picture.
+
+Selection moves the base **backwards**; lock moves it **forwards**. A base that
+moved only forwards made an earlier iteration something a user could look at but
+not work from, which is the state the author reported as filters landing on the
+wrong picture.
 
 Saving an earlier iteration upscales it on demand at the current settings,
 because the upscale is deterministic and need not have been kept. This is what
@@ -550,7 +574,7 @@ pointer, and is the only place these rules live:
 | **I1** | An `upscaled` asset is never input to any stage. |
 | **I2** | Filters read the base --- never the candidate, never an upscaled asset. |
 | **I3** | Every filter application reads the base and replaces the candidate. Results never chain implicitly. |
-| **I4** | Lock captures the working image at model resolution, never its upscale. Only lock moves the base. |
+| **I4** | Lock captures the working image at model resolution, never its upscale. Lock moves the base forward; selecting an earlier locked iteration moves it back to that iteration's own parent, making the iteration the candidate. No other action moves the base. |
 | **I5** | Upscaling derives from the working asset and writes a new file. It never consumes or overwrites a previous upscaled output. |
 | **I6** | An upscaled asset is attributed to a session only if it descends from that session's lineage. Never by timing. |
 | **I7** | The lineage of a locked asset is retained and reachable, so any prior iteration can be viewed and saved. |
@@ -586,6 +610,14 @@ as such.
 `parentID` is the previous base, so walking that chain gives the locked
 iterations in order. Scrolling back (2.4) is a read of the graph, not a separate
 history store; saving an earlier iteration re-derives its upscale on demand.
+
+**Selecting an earlier iteration is also a read, and moves both pointers.** The
+graph sets the candidate to the selected asset and the base to that asset's
+`parentID`, which is precisely the pair that existed when the iteration was
+locked. Because the lineage is retained under I7, this needs no stored snapshot:
+the state is recoverable from the graph at any time. It is why I4 can admit a
+backwards move without weakening I2 or I3 --- a filter still reads the base, and
+still replaces the candidate; only which asset the base points at has changed.
 
 ### 3.3 Stages
 
@@ -1390,6 +1422,15 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.31 (2026-08-27):** Section 2.4 and invariant I4 gain the rule that **selecting an earlier
+  locked iteration moves the base backwards** to that iteration's own parent, making the iteration
+  the candidate. Until now the base moved only forwards, on lock, so an earlier iteration was
+  something a user could look at but not work from --- a filter applied after scrolling back read
+  the most recent lock instead, which the author reported as filters landing on the wrong picture.
+  The rule was absent from the design rather than wrongly implemented, so the build was conforming
+  and the specification was incomplete. I2 and I3 are untouched: a filter still reads the base and
+  still replaces the candidate; only which asset the base points at has changed. Recorded in 3.2 as
+  a read of the retained lineage under I7, needing no stored snapshot.
 - **3.30 (2026-08-27):** Sections 5 and 8 stop naming #105's verification as the next executable
   action. It was named that in three places while #105 itself was closed, which made the guide's
   own "what to do next" the most misleading text in it --- a reader following section 8 would have
