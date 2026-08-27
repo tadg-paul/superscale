@@ -141,6 +141,24 @@ struct SuperscaleApp: App {
                 .keyboardShortcut("s", modifiers: [.command])
                 .disabled(viewModel.result == nil)
             }
+            // The open panel, reachable whether or not a picture is already loaded.
+            //
+            // Guide 2.2 promises three import routes — drag and drop, the open panel, and paste —
+            // and two of them disappeared the moment a picture arrived: `fileChooser` lives on the
+            // empty-canvas drop target, and there was no Open command at all. That left dragging
+            // from Finder as the only way to bring in a second picture, which is why the author
+            // reported having to quit and relaunch between every test (#130).
+            //
+            // In the File menu rather than back on the canvas, because a canvas showing a
+            // photograph is the wrong place for a button about a different photograph, and Cmd+O is
+            // where a Mac user looks first.
+            CommandGroup(after: .newItem) {
+                Button("Open Image…") {
+                    openImage()
+                }
+                .keyboardShortcut("o", modifiers: [.command])
+                .accessibilityIdentifier("openImageCommand")
+            }
             // Prior sessions reach the user here rather than through a History surface. What a
             // user wants mid-session is the iteration in front of them; reaching older work is
             // what the File menu is for, and it is the native answer.
@@ -169,6 +187,26 @@ struct SuperscaleApp: App {
     private var recentSessions: [GenerationSessionRecord] {
         let sessions = (try? sessionStore.sessions()) ?? []
         return WorkspaceModel.recentSessions(from: sessions)
+    }
+
+    /// Brings in a picture through the open panel, whatever is already on the canvas.
+    ///
+    /// The same panel `DropTargetView` presents, with the same accepted types, so the two routes
+    /// cannot drift apart in what they will take. It goes through `viewModel.handleDrop` for the
+    /// same reason: one path in, whichever way the user reached it.
+    ///
+    /// Bringing in a picture starts a new chain and releases the previous one's files (AC89.8).
+    /// That is deliberate and unchanged — but it was previously unreachable without relaunching,
+    /// which discarded the work anyway. It is reachable now, and the exposure is recorded on #130.
+    private func openImage() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Choose an image to upscale"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        viewModel.handleDrop(urls: [url])
     }
 
     private func recentTitle(_ session: GenerationSessionRecord) -> String {

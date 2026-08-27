@@ -3096,6 +3096,83 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - Guide 2.2: a second picture can be brought in without restarting (#130)
+
+    /// The File menu's Open Image command.
+    private var openImageCommand: XCUIElement {
+        app.menuBars.menuItems["Open Image…"]
+    }
+
+    // RT-130.2
+    //
+    // The reported defect: *"There is no way to load a new image except by quitting the app and
+    // re-launching it."*
+    //
+    // The cause was not a guard rejecting the picture. There was no route in: `fileChooser` lives
+    // on the empty-canvas drop target and vanishes once a picture is loaded, and the File menu had
+    // Save As and Open Recent but no Open. Only a Finder drag remained, which is the one route
+    // XCUITest cannot drive.
+    func test_anOpenCommandIsAvailableWithAPictureLoaded_RT130_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        XCTAssertTrue(
+            openImageCommand.waitForExistence(timeout: 5),
+            "with a picture on the canvas there is no way to bring in another")
+        XCTAssertTrue(openImageCommand.isEnabled, "and the command is usable")
+    }
+
+    // RT-130.3
+    //
+    // The same route before anything is loaded, so restoring it for the loaded case does not
+    // quietly replace the empty-canvas one.
+    func test_theOpenCommandIsAvailableWithNothingLoaded_RT130_3() {
+        XCTAssertTrue(
+            openImageCommand.waitForExistence(timeout: 10),
+            "the open panel is unreachable on an empty canvas")
+        XCTAssertTrue(element(identifier: "fileChooser").exists,
+                      "and the drop target still offers its own way in")
+    }
+
+    // RT-130.4
+    //
+    // #111's regression guard. Displaying a locked iteration sets `viewModel.inputURL`, which fires
+    // the import observer; treated as an import it starts a new chain and strands the user on the
+    // iteration they opened. This ticket touches the same area, so the guard is re-asserted here.
+    func test_displayingALockedIterationIsStillNotAnImport_RT130_4() {
+        buildLockChain(of: 2)
+        let before = lockChainEntries.count
+
+        lockChainEntries[1].click()
+
+        XCTAssertEqual(
+            lockChainEntries.count, before,
+            "selecting an iteration was treated as an import and restarted the chain")
+    }
+
+    // RT-130.5
+    //
+    // The other half of the same guard: a filter result arriving from the provider also sets the
+    // input URL, and must not restart the chain either.
+    /// Asserted as the chain not being **restarted**, not as its length being unchanged.
+    ///
+    /// Applying a filter to a picture below the filterable minimum raises it first, and a promoted
+    /// raise advances the tip — so the chain legitimately gains an entry. The first version of this
+    /// test asserted an unchanged count and failed on that, against behaviour guide 2.5 requires.
+    /// What an import does is *empty* the chain (AC89.8), so that is what to look for.
+    func test_aFilterResultIsStillNotAnImport_RT130_5() {
+        buildLockChain(of: 1)
+        let before = lockChainEntries.count
+        XCTAssertGreaterThan(before, 0, "there is a chain to protect")
+
+        applyFilterOnly("UI fixture generation not an import")
+
+        let after = lockChainEntries.count
+        XCTAssertGreaterThanOrEqual(
+            after, before,
+            "the chain shrank, so the filter result was treated as an import and restarted it")
+    }
+
     // MARK: - AC119.1: the indicator is sized to its content and translucent (#128)
 
     // RT-128.1
