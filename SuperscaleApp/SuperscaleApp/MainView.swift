@@ -21,8 +21,10 @@ struct MainView: View {
     /// Distinguishes the view's own display request from a picture the user brought in, which
     /// `adoptImportedImage` could not otherwise tell apart. #111.
     @State private var lastDisplayedURL: URL?
-    /// The locked iteration on the canvas, when one is being viewed rather than the live image.
-    @State private var viewedIteration: AssetReference?
+    // 🚫 `viewedIteration` is removed by #121. It was a second opinion about which iteration the
+    // user was on, held in the view beside the graph's own answer, and keeping the two agreeing was
+    // manual. The graph's candidate *is* the selected iteration as of guide 3.32, so the strip
+    // reads that and there is nothing left to synchronise.
     @State private var didLoadDefaults = false
     /// The workspace's state. The graph decides which asset is read and which is shown; the view
     /// model renders whichever one it is handed.
@@ -175,7 +177,9 @@ struct MainView: View {
             Divider()
             LockChainStrip(
                 iterations: workspace.lockedIterations,
-                viewing: viewedIteration,
+                // The graph's own answer, not a copy of it. The candidate is the selected
+                // iteration; with none, the user is on the base and nothing is "being viewed".
+                viewing: workspace.graph.candidate,
                 onSelect: showIteration,
                 onReturn: returnToCurrent
             )
@@ -342,9 +346,10 @@ struct MainView: View {
               // AC89.8 starts a new chain. The strip's own condition then removed it, and the user
               // was stranded on the iteration they had opened.
               url != lastDisplayedURL else { return }
+        // A new picture starts a new chain (AC89.8). The graph clears its own candidate and tip,
+        // so nothing here needs resetting — which is the point of #121: there is no second copy of
+        // that state left in the view to forget.
         workspace.importImage(fileURL: url, pixelSize: ImageDimensions.pixelSize(of: url))
-        // A new picture starts a new chain (AC89.8), so there is no iteration left to be viewing.
-        viewedIteration = nil
     }
 
     /// Applies the selected filter, raising the base to the filterable minimum first if it falls
@@ -506,27 +511,39 @@ struct MainView: View {
         }
     }
 
-    /// Shows a locked iteration, so an earlier step can be returned to and saved.
+    /// Selects a locked iteration, restoring the working context it was made in.
     ///
-    /// Viewing does not move the base: the chain is a record of what was made, and looking at an
-    /// earlier entry is not the same as deciding to work from it again.
+    /// **Selecting moves the base**, as of guide 3.32. It previously only changed what was drawn,
+    /// on the reasoning that looking at an earlier entry is not the same as deciding to work from
+    /// it. In use that turned out to be the wrong division: a user who scrolls back is deciding to
+    /// work from there, and a filter applied next transformed the newest lock instead, because a
+    /// filter reads the base and the base had not moved.
+    ///
+    /// The graph decides what that means. The view asks and then draws whatever the graph says is
+    /// displayed, which is the point of this issue — there is no second opinion held here.
     private func showIteration(_ reference: AssetReference) {
         do {
-            try display(reference)
-            viewedIteration = reference
+            try workspace.selectIteration(reference)
+            displayChosenAsset()
         } catch {
             viewModel.report(error)
         }
     }
 
-    /// Leaves the viewing state and puts the live working image back on the canvas.
+    /// Returns to the newest locked iteration.
     ///
-    /// Keeping the chain present is only half of what the author asked for. Without a way back, a
-    /// user who opens an iteration can reach the other iterations and never the picture they were
+    /// The newest is the last of `lockedIterations`, which reads from the tip. Asking for it that
+    /// way rather than exposing the tip keeps the pointer private: what a caller needs is the
+    /// iteration, and the chain already names it. Through `Asset.reference`, because
+    /// `AssetReference`'s initialiser is internal — AC89.4's encapsulation, which stops a caller
+    /// outside the package inventing a reference for a file it happens to know about.
+    ///
+    /// Keeping the chain present was only half of what #111 asked for. Without a way back, a user
+    /// who opens an iteration reaches every other iteration and never the picture they were
     /// working on, which is the same complaint relocated.
     private func returnToCurrent() {
-        viewedIteration = nil
-        displayChosenAsset()
+        guard let newest = workspace.lockedIterations.last else { return }
+        showIteration(newest.reference)
     }
 
     /// Shows whichever asset the workspace's toggle has chosen.

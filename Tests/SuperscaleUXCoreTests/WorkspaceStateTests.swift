@@ -124,6 +124,14 @@ final class WorkspaceStateTests: XCTestCase {
     // MARK: - The chain
 
     // RT-89.8
+    //
+    // **The expected count moved from two to three by #121, and that is the criterion changing
+    // rather than the test weakening.** The chain was the base's ancestry, so the newest lock was
+    // excluded: it was where the user stood, not somewhere they could go. Guide 3.32 makes the
+    // chain the tip's lineage, because selecting an iteration now moves the base backwards and a
+    // chain read from the base would lose everything forward of the selection. The newest lock is
+    // therefore an iteration like any other, and must be selectable — which is what lets a user who
+    // scrolled back get forward again.
     func test_afterTwoLocksBothIterationsAreReachableInOrder_RT089_8() throws {
         let workspace = try importedWorkspace()
         try workspace.recordFilter(named: "noir", fileURL: file("noir"), pixelSize: modelSize)
@@ -133,9 +141,10 @@ final class WorkspaceStateTests: XCTestCase {
 
         let chain = workspace.lockedIterations
 
-        XCTAssertEqual(chain.count, 2, "the imported image and the first locked result")
+        XCTAssertEqual(chain.count, 3, "the imported image and both locked results")
         XCTAssertEqual(chain.first?.role, .source)
-        XCTAssertEqual(chain.last?.provenance?.filterID, "noir")
+        XCTAssertEqual(chain[1].provenance?.filterID, "noir")
+        XCTAssertEqual(chain.last?.provenance?.filterID, "woodblock", "the newest lock is reachable")
     }
 
     // RT-89.9

@@ -200,6 +200,14 @@ public struct AssetGraph: Sendable {
     private var assets: [UUID: Asset] = [:]
     private var baseID: UUID?
     private var candidateID: UUID?
+    /// The furthest-forward locked asset, which is what the chain is read from.
+    ///
+    /// Held rather than derived, because the base is no longer the front of the chain. Guide 3.32
+    /// admits a backwards move: selecting an earlier iteration puts the base at that iteration's
+    /// parent. Deriving the chain from the base — as it was — then takes every later iteration off
+    /// the strip, which is AC89.3 failing and the unreachability #111 was raised to fix returning
+    /// by a new route. Lock advances the tip; selection never moves it.
+    private var tipID: UUID?
     /// Which upscaled asset is the current output. Held explicitly rather than derived, because a
     /// run in progress is allocated before it is promoted: between those two moments two upscaled
     /// assets can share a parent, and deriving would have to pick between them arbitrarily.
@@ -248,16 +256,59 @@ public struct AssetGraph: Sendable {
         candidate ?? base
     }
 
-    /// The locked iterations behind the current base, oldest first.
+    /// The locked iterations, oldest first.
+    ///
+    /// Read from the **tip**, not from the base. The two differ exactly when the user has selected
+    /// an earlier iteration, and reading from the base there would hide everything forward of the
+    /// selection — the whole chain a user scrolled back through, gone the moment they arrived.
+    ///
+    /// The tip itself is included, because it is a locked iteration like any other and a user must
+    /// be able to select their way back to it. Walking from the base's parent excluded the base for
+    /// the same reason it was correct then: the base *was* the front. It no longer is.
     public var lockedIterations: [Asset] {
-        guard let baseID, let baseAsset = assets[baseID] else { return [] }
-        var chain: [Asset] = []
-        var cursor = baseAsset.parentID
+        guard let tipID, let tipAsset = assets[tipID] else { return [] }
+        // A tip with no parent is a bare import: nothing has been locked, so there is no chain to
+        // show. Without this an imported picture appears in its own strip as a locked iteration,
+        // which is untrue and is what AC89.8 means by a new image emptying the chain.
+        guard tipAsset.parentID != nil else { return [] }
+        var chain: [Asset] = [tipAsset]
+        var cursor = tipAsset.parentID
         while let id = cursor, let asset = assets[id] {
             chain.append(asset)
             cursor = asset.parentID
         }
         return chain.reversed()
+    }
+
+    /// Restores the working context a locked iteration was made in.
+    ///
+    /// Guide 2.4 and 3.32. The iteration becomes the candidate and the asset it was produced from
+    /// becomes the base, which is exactly the pair that existed when it was locked. Nothing is
+    /// copied: the lineage retained under I7 already holds it.
+    ///
+    /// **An asset with no parent becomes the base itself, with no candidate.** The source has no
+    /// parent, and neither does a raise to the minimum performed on it, so the general rule has no
+    /// answer for either. That state is the one a fresh import is already in.
+    ///
+    /// The tip does not move, so every iteration stays reachable in both directions and returning
+    /// to the newest is the same operation as selecting any other.
+    public mutating func selectIteration(_ reference: AssetReference) throws {
+        let asset = try asset(for: reference)
+        try validateStageInput(reference)
+
+        guard let parentID = asset.parentID, assets[parentID] != nil else {
+            baseID = asset.id
+            candidateID = nil
+            currentUpscaleID = nil
+            return
+        }
+
+        baseID = parentID
+        candidateID = asset.id
+        // The outgoing asset's rendering describes a picture the user is no longer looking at.
+        // Guide 2.5 already discards it when the working image changes; this is that rule reaching
+        // the one route that did not previously exist.
+        currentUpscaleID = nil
     }
 
     @discardableResult
@@ -272,7 +323,11 @@ public struct AssetGraph: Sendable {
         )
         assets[asset.id] = asset
         baseID = asset.id
+        // An import starts a new chain, so it is the tip as well as the base. Leaving the previous
+        // chain's tip in place would offer iterations of a picture no longer on screen.
+        tipID = asset.id
         candidateID = nil
+        currentUpscaleID = nil
         return AssetReference(id: asset.id)
     }
 
@@ -345,6 +400,10 @@ public struct AssetGraph: Sendable {
             throw AssetGraphError.notAnUpscaledOutput(asset.id)
         }
         baseID = asset.id
+        // The raise replaces the picture the chain was standing on, so it advances the tip too.
+        // Left behind, the tip would point at the unraised source and the strip would offer a
+        // picture the floor has already ruled too small to filter.
+        tipID = asset.id
         candidateID = nil
     }
 
@@ -489,6 +548,10 @@ public struct AssetGraph: Sendable {
     public mutating func lock() throws -> AssetReference {
         guard let candidateID else { throw AssetGraphError.noCandidateToLock }
         baseID = candidateID
+        // Lock is the only thing that advances the tip. Locking after a selection therefore
+        // abandons whatever was forward of it, which is the honest outcome: the user has chosen to
+        // build from an earlier point, and the chain now records what they built.
+        tipID = candidateID
         self.candidateID = nil
         return AssetReference(id: candidateID)
     }

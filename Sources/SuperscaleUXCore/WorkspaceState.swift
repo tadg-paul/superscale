@@ -192,6 +192,20 @@ public final class WorkspaceState: ObservableObject {
         return locked
     }
 
+    /// Restores the working context a locked iteration was made in.
+    ///
+    /// Guide 2.4: the iteration becomes the candidate and the asset it was produced from becomes
+    /// the base, so a filter applied next transforms the picture the user is looking at rather than
+    /// the newest lock. Before this existed, scrolling back changed only what was displayed, and
+    /// the author reported filters landing on the wrong picture.
+    ///
+    /// `showsBase` is cleared for the same reason `lock` clears it: the user has just chosen what
+    /// to look at, and leaving the toggle where it was would show them something else.
+    public func selectIteration(_ reference: AssetReference) throws {
+        try graph.selectIteration(reference)
+        showsBase = false
+    }
+
     // MARK: - The filterable minimum
 
     /// What raising the base to the filterable minimum would come to, or nothing where it already
