@@ -1,4 +1,4 @@
-# Handover --- Superscale v2, 2026-08-26
+# Handover --- Superscale v2, updated 2026-08-27
 
 Written by the outgoing session for the incoming one. **This file is a
 snapshot and goes stale; the tickets do not.** Where this file and a ticket
@@ -28,12 +28,27 @@ SHA changed. Consequences:
 The v2 MVP is delivered and running: one workspace, 86 filters through
 `xai/grok-imagine-image/edit`, asset graph with base/candidate/lock chain,
 native local upscaling under a 32-megapixel area ceiling. Master #79 carries
-the delivery; master #99 carried the post-delivery defect closure. All of
-#99's children (#100--#103, #105) are closed.
+the delivery; master #99 carried the post-delivery defect closure; master
+#114 carried the post-MVP verification and defect clearance. All of #99's
+children (#100--#103, #105) are closed, and so are all twelve of #114's.
 
-**One debt outstanding, and it is your first action** (next section): the
-#99 children were closed ahead of the delivery's own gate, so the full-suite
-verification is owed but not run.
+**The verification debt is discharged.** The 2026-08-26 note below said the
+owed full-suite run was the incoming session's first action. It was run on
+2026-08-27 and recorded on #99 and #114:
+
+| Command | Baseline | 2026-08-27 |
+|---|---|---|
+| `make test` | 533 / 6 skipped / 0 failures | **556 / 6 skipped / 0 failures** |
+| `make test-gui` | 101 / 0 failures | **141 / 0 failures** |
+
+An earlier attempt on 2026-08-26 gave 101 executed with **6 failures**. That
+was recorded as a failure rather than banked, diagnosed to #115 and #116, and
+both were ticketed and closed. The run above is the same command against the
+repaired tree.
+
+**Both masters have DELIVERY EXIT records posted and are awaiting their gate
+keywords.** Those are the human's, as is every user-test verdict. Nothing
+automatable is outstanding.
 
 The cloud path is **live-proven**, not just stubbed: OT-107.1--107.4 ran the
 real wire protocol (storage initiate, CDN round trip, grok generation,
@@ -41,38 +56,50 @@ decodable image) on 2026-08-25. Evidence on #107.
 
 ## Next actions, in order
 
-1. **Run the owed delivery-level verification and record it on #99.**
-   - `make test` --- baseline to match: **533 executed, 6 skipped, 0 failures**
-   - `make test-gui` --- baseline: **101 executed, 0 failures**; read the GUI
-     run rules below first, they are load-bearing
-   - Post both results on #99. Green satisfies the "full regression suite"
-     line of #99's completion matrix; anything else is a defect to ticket
-     **before** touching it (see process rules).
-2. **#99's exit gate** --- after the verification is recorded. The gate
-   decision and wording are governed by the SDLC; the human decides delivery
-   acceptance.
-3. **The open defect tickets.** Every one carries its reproduction, violated
-   AC, and a staged debugging/fix procedure written to be executed cold ---
-   start from the ticket, not from this summary:
+**There is no executable engineering work queued.** Every automated blocker
+is cleared. What remains is human judgement, and an agent must not act on it.
 
-   | Ticket | One line |
+1. **Author-pending items** (these are the human's, not yours):
+   - Gate keywords for masters **#99** and **#114**, both of which have
+     DELIVERY EXIT records posted.
+   - User tests transferred to #114: **UT-66.1** to **UT-66.4** (the divider
+     line and circle handle against bright and dark regions) and **UT-119.1**
+     (the centred progress indicator, worded without a preferred answer).
+   - UT re-offers on #79, all now unblocked: UT-94.1, UT-93.1 (was #108),
+     UT-95.1 (was #109 and #110), UT-89.1 (was #111 and #112), UT-96.1
+     (was #112). Empty arrows in `ut-human-tests-2026-08-25.md` at the repo
+     root.
+   - UT-69.1 (README logo/trademark wording) --- #69 is otherwise done.
+   - `APPROVED 79` once every rolled-up UT has a human result.
+
+2. **#106 is the only open defect ticket, and deliberately so.** Choosing a
+   scale after a completed run can serve the previous scale's cached rendering
+   under the new scale's label (the `willSet` trap). The three-line fix is
+   reverted: it changes run-versus-cache timing that three closed tickets' GUI
+   tests encode. Five-step procedure on the ticket, starting with the failing
+   test. **#119 added a second consequence**: the GUI suite cannot start real
+   work by changing presets, which makes a class of test unwritable. RT-119.4
+   is the first casualty; its sequence and reasoning are preserved in place in
+   `SuperscaleAppUITests.swift` for reinstatement with #106.
+
+3. **The 2026-08-26 defect queue, for the record.** Every ticket below is
+   **closed**; the column says what each turned out to be, because in three
+   cases the ticket's own hypothesis was wrong and that is the reusable part.
+
+   | Ticket | Closed as |
    |---|---|
-   | #106 | Choosing a scale after a completed run can serve the previous scale's cached rendering under the new scale's label (`willSet` trap). Deliberately unfixed; the three-line fix breaks three closed tickets' GUI tests that encode the defect's timing. Five-step procedure on the ticket, starting with the failing test. |
-   | #108 | Info panel does its own scale arithmetic (`InfoPanel.swift:76`), contradicting the status bar and the ceiling. Failed UT-93.1. |
-   | #109 | Account/admin key row accepts a click and shows nothing. The *no-verification* stance is deliberate and stays; the silent control is the defect. |
-   | #110 | Settings fields resize and the form jumps while typing a credential. Diagnose before fixing; likely unreserved status-slot space. |
-   | #111 | Opening a locked iteration hides the lock chain, making other iterations unreachable. Failed UT-89.1. |
-   | #112 | A filter result offers no comparison curtain. Blocks UT-96.1; with #111 re-offers UT-89.1. |
-   | #113 | A failed generation request lands only in the status-bar caption, never on the one failure surface (AC98.5). Repro stub exists: `SUPERSCALE_UI_TEST_FAIL=provider`. |
-   | #66 | Pre-v2: comparison divider invisible over bright regions. Paint only --- do not touch geometry; UT-90.1 was just re-passed on it. |
-
-4. **Author-pending items** (do not act on these; they are the human's):
-   - UT-94.1 and UT-96.1 verdicts (empty arrows in
-     `ut-human-tests-2026-08-25.md` at the repo root)
-   - UT re-offers gated on fixes: UT-93.1 (#108), UT-95.1 (#109+#110),
-     UT-89.1 (#111+#112), UT-96.1 (#112)
-   - UT-69.1 (README logo/trademark wording) --- #69 is otherwise done
-   - `APPROVED 79` once every rolled-up UT has a human result
+   | #108 | Info panel did its own scale arithmetic (`InfoPanel.swift:76`). Now derived through `SizingLine` from `ScaleReadout` and `UpscaleCeiling.decide`. |
+   | #109 | **Not** the absence of verification, which was deliberate and stays. The badge read the *text field*, so it flipped to "stored" on the first keystroke and the press had no state change left to make. |
+   | #110 | A `ProgressView` and a status badge swapped straight into the row's `HStack`; differing intrinsic widths resized the stack, the field, then the form's label column. Fixed-width slot. |
+   | #111 | The view treated a locked iteration being *viewed* as a new import. |
+   | #112 | `derivedImage` was bound to `viewModel.result` alone, so the curtain was offered only after an upscale --- and the raise to the filterable minimum turns the scale off. |
+   | #113 | **Reached no surface at all**, not merely the wrong one: nothing observed `.failed`; the caption showed it only because `statusText` reads the phase on every redraw. Also exposed that RT-98.14 had only ever exercised the *upload* route. |
+   | #66 | Dark outlines via `strokeBorder`, not `stroke` --- `stroke` centres on the path and grew the handle from 28pt to 29.5pt. |
+   | #115 | `AssetGraph` allocated beneath a directory nothing created; it worked only while `GenerationCoordinator` made it as a side effect. |
+   | #116 | The GUI suite redirected the coordinator and history to its test root but not the workspace's asset graph, so UI tests wrote into the author's real Application Support. |
+   | #117 | The suite's completion signal was a control #112 changed. The canvas now reports what it displays, in its **label** --- four measurements showed SwiftUI carries no *value* on a `children: .contain` container. |
+   | #118 | **Not a defect in this project.** An external managed installer was taking first responder. |
+   | #119 | A change of intent, not a regression. The horizontal centring **never failed**: `workingIndicator` matched several elements and `firstMatch` was measuring the spinner at the badge's left edge. |
 
 ## GUI test run rules (violating these produces fake failures)
 
@@ -136,8 +163,25 @@ decodable image) on 2026-08-25. Evidence on #107.
   reads the header; `NSImage.size` reports DPI-adjusted points and caused a
   months-long defect. One measuring function exists; do not add a second.
 - **Failure has one owner**: `UpscaleViewModel.errorMessage` is
-  `private(set)`; `report`/`dismissError` are the only ways in. #113 is the
-  one known path that bypasses the surface.
+  `private(set)`; `report`/`dismissError` are the only ways in. **Read that
+  guarantee narrowly.** It stops a path writing the message *somewhere else*.
+  It does nothing about a path that never reports at all, which is exactly what
+  #113 was: no code wrote `errorMessage`, the guarantee held perfectly, and the
+  provider's error reached the user as caption text at the foot of the window.
+  `ARCHITECTURE.md` now spells out the distinction beside the claim.
+- **A test can pass by not running.** RT-90.49 asserted a clause #119 had
+  superseded, against an indicator that had been moved, and stayed green: it
+  sits behind a `guard indicator.waitForExistence(timeout: 3) else { return }`
+  and the suite's fixture is small enough that the work usually outruns the
+  poll. Several assertions in this suite sit behind such guards. A green result
+  from one of them is weaker evidence than it looks.
+- **When a measurement disagrees with the code, measure what is being
+  measured.** #119 spent four remediation cycles moving a layout that was
+  already correct, because `workingIndicator` matched several elements and
+  `firstMatch` was returning the spinner at the badge's left edge. Putting the
+  frames into the assertion message produced the answer in one run. An
+  identifier applied to a plain container reaches its children; if a test reads
+  `.frame` from such a query it is measuring something it did not name.
 - **Stubs rehearse belief.** The storage `storage_type` was wrong for the
   entire delivery and no stubbed test could know (#107). Any protocol change
   re-proves through a live OT before the stubs are trusted again.
