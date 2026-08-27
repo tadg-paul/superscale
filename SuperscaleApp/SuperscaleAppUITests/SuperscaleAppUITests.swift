@@ -2407,22 +2407,49 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(canvasKind, "A filter result")
     }
 
-    /// RT-117.6: the label names the element, the value carries state, and they differ.
+    /// ~~🚫 RT-117.6: the label names the element, the value carries state, and they differ.~~
     ///
-    /// A value that echoes the label reports nothing. This codebase has twice shipped an element
-    /// whose label read fine while its value read empty, on #95's credential badge and #101's
-    /// comparison pan, so each half is asserted separately.
-    func test_theCanvasCarriesBothALabelAndAValue_RT117_6() {
+    /// **Superseded by RT-117.10, identifier retired and not reused.** It was written against
+    /// AC117.1's original "as a value" clause. That clause is itself superseded, because SwiftUI
+    /// carried no value on any element reachable here, so the state moved into the label. Left as
+    /// written, this test compared the label against a substring of itself and passed while proving
+    /// nothing, which is the vacuity this delivery has been auditing other tickets for.
+    ///
+    /// RT-117.10: the canvas's label both names the element and carries the state.
+    ///
+    /// Both halves are asserted, because the state going in must not push the name out. An element
+    /// that reports only its state is as unhelpful to a screen reader as one that reports only its
+    /// name.
+    func test_theCanvasLabelNamesTheElementAndCarriesTheState_RT117_10() throws {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
 
-        let canvas = element(identifier: "workspaceCanvas")
-        let label = canvas.label
-        let value = canvasKind
-
+        let label = element(identifier: "workspaceCanvas").label
         XCTAssertFalse(label.isEmpty, "the canvas has no accessibility label")
-        XCTAssertFalse((value ?? "").isEmpty, "the canvas has no accessibility value")
-        XCTAssertNotEqual(value, label, "the value merely repeats the label and reports no state")
+        XCTAssertTrue(label.contains("Canvas"), "the label no longer names the element: \(label)")
+
+        let state = try XCTUnwrap(canvasKind, "the label carries no state")
+        XCTAssertFalse(state.isEmpty)
+        XCTAssertNotEqual(state, label, "the label is nothing but the state, so the name is gone")
+    }
+
+    /// RT-117.8: while an earlier locked iteration is being viewed, the canvas reports the base.
+    ///
+    /// An iteration is the base of its own position in the chain: the user is looking at their own
+    /// picture rather than at something derived from it. A fifth kind would make every caller
+    /// handle a case that means the same thing.
+    ///
+    /// This test could not be written until #111 landed. Before it, opening an iteration was
+    /// processed as an import and the viewing state collapsed immediately, so the test would have
+    /// passed because the state was gone rather than because the report was right.
+    func test_theCanvasReportsTheBaseWhileViewingAnIteration_RT117_8() {
+        buildLockChain(of: 1)
+        lockChainEntries[0].click()
+
+        XCTAssertEqual(
+            canvasKind, "The base",
+            "the canvas does not report an opened iteration as the base"
+        )
     }
 
     /// RT-117.7: the value follows the picture, not the request.
