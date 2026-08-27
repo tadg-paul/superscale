@@ -1183,13 +1183,16 @@ extended AC92.1, AC92.5 and AC92.6.
 - Note: four entries is exactly the base and candidate faces pairs, so in ordinary use the store is
   full and the next admission would otherwise evict the picture the user is looking at.
 
-### AC90.13 - While an operation is under way the picture is drawn unaltered outside the progress indicator's own bounds, with no blur, dimming or material across it. The indicator sits at the top of the canvas and may carry a background within its own bounds.
+### AC90.13 - While an operation is under way the picture is drawn unaltered outside the progress indicator's own bounds, with no blur, dimming or material across it. ~~The indicator sits at the top of the canvas~~ and may carry a background within its own bounds.
 - Introduced: #90 (closed 2026-08-25)
 - Migrated: 2026-08-25
+- **Partly superseded by AC119.1 (#119, closed 2026-08-27).** The placement clause only. The
+  unaltered-picture and area clauses stand unchanged and are the part that matters most.
 - Tests:
   - ✅ RT-90.44: while an upscale is under way, the indicator's area is under a quarter of the canvas area
   - ✅ RT-90.45: the image remains present and hit-testable while the indicator is shown
-  - ✅ RT-90.49: the indicator's vertical midpoint lies in the upper third of the canvas
+  - 🚫 RT-90.49, the indicator's vertical midpoint lies in the upper third: removed by #119 with the
+    clause it asserted. Centred, the midpoint is at one half, so this now asserts the defect.
   - ✅ RT-90.52: the canvas outside the indicator's frame is identical before work begins and while it runs
   - ⏳ UT-90.2: the picture is unaltered while the ticker sits on top
 - Note: **this criterion exists because its predecessor was reported as satisfied and failed.** The
@@ -1197,6 +1200,62 @@ extended AC92.1, AC92.5 and AC92.6.
   `ProgressOverlay` filled the canvas with a `.thinMaterial` background, which is a blur. The
   requirement is exact: the picture is not merely *present*, it is *unaltered*. A blur moves no
   element's frame, so RT-90.52 is the observable half and the visual half stays a user test.
+- Note: **RT-90.49 was passing at the time #119 superseded its clause, and it was still passing
+  afterwards --- by not running.** It lives inside a test that takes an early return when the
+  indicator is not caught within three seconds, and the suite's fixture is small enough that the
+  upscale usually outruns the poll. #119 centred the indicator and left the assertion in place;
+  nothing failed. Worth knowing when reading any assertion that sits behind a `guard ... else
+  { return }` in this suite: a green result may mean the code was never reached.
+- Note: centring asks **more** of RT-90.52 than the top placement did. The badge now sits over the
+  middle of the picture rather than over its edge, so "the canvas outside the indicator's frame is
+  identical" is a harder property to hold. The test is unchanged; what it holds has got harder.
+
+### AC119.1 - While an operation is under way, the progress indicator is centred over the picture, horizontally and vertically, and the picture is drawn unaltered outside the indicator's own bounds.
+- Introduced: #119 (closed 2026-08-27)
+- Migrated: 2026-08-27
+- Supersedes: AC90.13's placement clause only. AC90.13's area and unaltered-picture clauses are
+  unchanged, and RT-90.44 and RT-90.52 stay where they are rather than being restated here.
+- Tests:
+  - ✅ RT-119.1: the indicator's horizontal midpoint agrees with the picture's within two points
+  - ✅ RT-119.2: the indicator's vertical midpoint agrees with the picture's within two points
+  - ✅ RT-119.3: with the indicator centred and the info panel shown, both are present and neither overlaps the other
+  - 🚫 RT-119.4, centred over the curtain: retired, blocked by **#106**. See the note below.
+  - ⏳ UT-119.1: with an operation running, the indicator's position is judged
+- Note: **the last failure was a measurement, not a placement, and four cycles went into the wrong
+  half of that sentence.** RT-119.1 reported the indicator's midpoint 68 points left of the
+  picture's, consistently, and the earlier attempts treated it as a layout problem. It was not.
+  `workingIndicator` matched **several** elements: the identifier is applied at the call site and
+  reaches the spinner and the message alike, so `firstMatch` returned whichever came first in the
+  tree --- the spinner, which sits at the badge's left edge rather than its centre. The badge was
+  centred the whole time. `ProgressOverlay` now ends in `.accessibilityElement(children: .combine)`,
+  publishing one element whose frame is the badge's, and the test passes with no change to the
+  layout at all.
+- Note: the diagnosis came from putting the frames into the assertion message rather than from
+  another attempt at a fix. That is the lesson worth keeping from this ticket: **when a measurement
+  disagrees with the code, measure what is being measured.**
+- Note: **RT-119.4 is retired against #106, not abandoned.** It needs real work running while the
+  comparison is open, and both routes to that state are closed. Clearing the scale sets the
+  selection to `.off`, which calls `releaseUpscaledResult` --- that drops the result and sets
+  `showComparison = false`, so the comparison is opened and shut again before the indicator appears.
+  Going straight from one preset to another avoids `.off` but meets #106: `heldRendering` is
+  consulted inside the `$scaleSelection` sink and `@Published` publishes in `willSet`, so the lookup
+  is keyed by the scale being *replaced* and any previous rendering is served instantly. Measured
+  rather than inferred --- after settling on 4x and choosing 8x, the diagnostic read `scale8x=in
+  effect; curtain present: true; status: Ready`: the picture arrived and no work ever started.
+- Note: **what RT-119.4's retirement leaves uncovered, stated rather than glossed.** No automated
+  test asserts the indicator's placement while the curtain is showing. The exposure is small and the
+  reason is structural: the indicator is a **sibling of `canvasContent` in the canvas `ZStack`**, not
+  a child of it, so its placement is decided by the stack and cannot depend on whether the stack's
+  other child is the plain picture or the curtain. RT-119.1 and RT-119.2 exercise that same placement
+  code. What is lost is confidence that nothing inside `ComparisonView` displaces it. Reinstate with
+  #106.
+- Note: two points is the tolerance because the criterion means centred, not identical to the last
+  decimal. Comparing laid-out `CGFloat` midpoints exactly fails on rounding and retina scaling rather
+  than on placement.
+- Note: the indicator was taken **out** of the `VStack` it shared with the info panel, which #90 had
+  put it in because as separate top-anchored children the panel drew over it and hid it. Centring
+  separates them by position instead of by stacking, and RT-119.3 holds that the overlap does not
+  come back.
 
 ### AC90.14 - The curtain divider sits where the pointer is: its position within the displayed image frame matches the pointer's position within that frame, between 5% and 95% of its width, where it stops. The mapping holds at any window width, with any side-panel width, and at any zoom or pan.
 - Introduced: #90 (closed 2026-08-25)
