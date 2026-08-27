@@ -1,4 +1,4 @@
-<!-- Version: 3.27 | Last updated: 2026-08-27 -->
+<!-- Version: 3.28 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -1003,7 +1003,7 @@ to be executed cold** --- start from the ticket, not from memory of a conversati
 | #111 | open | Opening a locked iteration hides the lock chain strip, so every other iteration becomes unreachable. Failed UT-89.1. Violates AC89.3's "remains reachable". |
 | #112 | open | A FAL filter result offers no curtain, so it cannot be compared against the picture it was made from. Violates AC94.3; also blocks UT-96.1. |
 | #66 | open, pre-v2 | The comparison divider is hard to see over bright regions. Paint-only; the fix procedure (2026-08-25 comment) warns off the geometry UT-90.1 was just re-passed on. |
-| #113 | open | A provider error after Apply lands only in the status bar's caption: the upload path reaches the one failure surface through `report()`, but a failed generation request only sets the coordinator's phase, rendered as grey caption text and a red dot. Violates AC98.5's "one surface, whatever raised it". |
+| #113 | closed 2026-08-27 | A failed generation request reached **no** surface, not merely the wrong one: the view observed the coordinator for success only, and `statusText` rendered the diagnostic because it reads the phase on every redraw. Now observed and routed to `report()`; the status bar keeps "Filter failed". Also found that RT-98.14 had only ever exercised the *upload* route, because one stub flag failed both and the upload throws first - the flag is now split, with `provider` unchanged. AC98.5 cited. |
 | #115 | fixed 2026-08-26, awaiting GUI verification | **Six of the 101 GUI tests failed** because `AssetGraph` minted output paths beneath a directory it never created. It worked only while `GenerationCoordinator` created the same directory as a side effect on the ordinary launch path; the UI-test launch replaces that coordinator, so every raise allocated into a directory that was not there and the user was shown *"The folder `raised-<uuid>.png` doesn't exist."* Backfilled AC82.9 and AC82.10 onto the #82 stage family. |
 | #116 | fixed 2026-08-26, awaiting GUI verification | Surfaced by #115's diagnosis. The GUI suite redirected the coordinator's store and the session history to its test root but **not the workspace's asset graph**, which read `V2AppPaths` from a view's property initializer - so UI tests allocated into the author's real `~/Library/Application Support/Superscale`. Latent only because #115 made those writes fail. New criterion AC116.1. |
 
@@ -1380,6 +1380,12 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.28 (2026-08-27):** #113 closed, and with it a correction to how the one-failure-surface
+  guarantee should be read. `errorMessage` being `private(set)` stops a path writing the message
+  somewhere else; it does nothing about a path that never reports at all, which is exactly what a
+  failed generation request did. A criterion whose test asserts a *structural* property needs a
+  behavioural test beside it, and AC98.5's single test turned out to cover only one of the two
+  routes it claimed. Recorded in `ARCHITECTURE.md` beside the guarantee itself.
 - **3.27 (2026-08-27):** The defect table marks #110 and #109 closed and records what each turned
   out to be, because in both cases the ticket's own hypothesis was wrong and the wrong hypothesis is
   the reusable part. #110 was not a text field sizing itself: a `ProgressView` and a status badge

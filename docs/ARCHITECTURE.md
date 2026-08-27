@@ -337,6 +337,17 @@ reaches the user through one presentation surface;
 and fails to compile. The one deliberate exception is the face-model download
 sheet, which is modal and shows its own failure inside its own flow (AC98.5).
 
+**That compile-error guarantee is narrower than it reads, and #113 found the
+gap.** It stops a path writing the message somewhere else. It does nothing about
+a path that never reports at all. A failed generation request set the
+coordinator's phase to `.failed` and stopped there; nothing in the view observed
+that, and the status bar's caption rendered the diagnostic only because it reads
+the phase on every redraw. So a provider error arrived in caption type at the
+foot of the window, in the place reserved for ambient state, without any code
+having written `errorMessage` at all. The view now observes the failure message
+and routes it to `report`. When reading the guarantee above, read it as *no path
+writes this field except through `report`*, not as *no failure escapes*.
+
 Failure semantics worth knowing cold:
 
 - an upload that fails is reported against the **filter stage**, and the base

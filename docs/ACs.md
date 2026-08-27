@@ -1767,6 +1767,39 @@ extended AC92.1, AC92.5 and AC92.6.
 - Migrated: 2026-08-25
 - Tests:
   - ✅ RT-98.14: a filter failure and an upscale failure are presented the same way
+  - ✅ RT-113.1: a declined generation request reaches the failure surface
+  - ✅ RT-113.2: the upload failure and the generation failure present through the same surface, saying different things
+  - ✅ RT-113.3: after a failure is dismissed, nothing still claims work is in progress
+  - ✅ RT-113.4: the status bar says "Filter failed" and does not repeat the diagnostic
+  - ✅ RT-113.5: a dismissed failure does not come back on the next redraw
+  - 🚫 RT-113.6, a cancellation raises no alert: retired before implementation. The generation stub
+    returns immediately and the suite has no gate on it, so there is no window in which to press
+    cancel. Covered structurally instead: the observation is on the failure *message*, and
+    `.cancelled` carries none, so there is nothing for it to report.
+- Note: **#113 found that RT-98.14 had only ever exercised half of this criterion.** The two failure
+  routes out of one apply are the upload and the generation request. `SUPERSCALE_UI_TEST_FAIL=provider`
+  set a single `fails` flag on a stub whose `uploadReference` and `generate` both read it, and
+  `submitFilter` uploads first --- so the upload threw and execution never reached `generate`.
+  RT-98.14's assertion allows "provider" *or* "storage" and had been reading `"Storage is
+  unavailable"`. The flag is now `failsUpload` and `failsGeneration`, with a `generation` mode that
+  lets the upload succeed. `provider` is unchanged, so RT-98.14 is unchanged.
+- Note: the generation route reached no surface at all, not merely the wrong one. `MainView`
+  observed the coordinator for **success only**, through `coordinatorOutputPath`; nothing observed
+  `.failed`. `statusText` rendered the diagnostic because it reads the phase on every redraw, which
+  is incidental rather than a presentation --- an API error in caption type at the foot of the
+  window, in the place reserved for ambient state.
+- Note: **the observation is on the failure message, not on the phase.** Observing `.failed` would
+  re-raise the alert on every redraw that happened while the phase stayed failed. RT-113.5 is the
+  guard, and it is written as a bounded positive check --- dismiss, cause a redraw, assert no alert
+  --- because "an alert never appears twice" is an unbounded negative that passes whenever the code
+  is merely slow.
+- Note: the status bar keeps ambient state and the diagnostic goes to the alert alone. RT-113.4
+  blocks the narrowest wrong fix, which is to call `report` and *also* leave the provider's words in
+  the caption, so they appear twice.
+- Note: the sweep for the same shape reached two other terminal states. `.cancelled` stays a
+  caption: the user caused it and already knows, so it is not a failure. The face-model download
+  sheet stays as it is, being this criterion's one documented exception for the reason recorded
+  above.
 - Note: **half of this criterion is a design property, confirmed by `audit-code` rather than
   asserted.** "No failure path bypasses that surface" asks a test to prove a negative across paths
   that do not exist yet, and checking it by reading source is what `TESTING.md` forbids. What the
