@@ -22,6 +22,7 @@ struct SettingsView: View {
                         title: "Generation key",
                         text: $state.generationKey,
                         status: state.generationKeyStatus,
+                        canRemove: state.generationKeyStatus.isPresent,
                         isChecking: state.isVerifyingGenerationKey,
                         fieldIdentifier: "generationKeyField",
                         save: saveGenerationKey,
@@ -43,13 +44,37 @@ struct SettingsView: View {
                         text: $state.accountAdministrationKey,
                         // The account key carries no verification state: verifying it would mean
                         // calling an account or billing endpoint, which is the surface the MVP has
-                        // paused. Stored or absent is all that can honestly be said about it.
-                        status: state.isAccountAdministrationConfigured ? .stored : .absent,
+                        // paused (#89, #95; AC89.7). Stored or absent is all that can honestly be
+                        // said about it.
+                        //
+                        // #109: it now says "stored" only when it is. This read from whether the
+                        // *text box* held anything, so the badge flipped on the first keystroke and
+                        // the save press had no change left to make — beside a generation key that
+                        // answers a press with a green tick, a row that answers with nothing reads
+                        // as a broken button, and that is how it was reported.
+                        status: state.accountAdministrationStatus,
+                        // Not the badge. The badge asks whether the field matches the Keychain; this
+                        // asks whether anything is in the Keychain. Driving remove from the badge
+                        // would disable it the moment a saved key was edited, so a user correcting a
+                        // typo could no longer delete the key they were correcting.
+                        canRemove: state.isAccountAdministrationConfigured,
                         isChecking: false,
                         fieldIdentifier: "accountAdministrationKeyField",
                         save: saveAccountKey,
                         clear: clearAccountKey
                     )
+
+                    // Why this row never turns green, said in the scene rather than behind a hover.
+                    //
+                    // A tooltip is invisible until hovered and invisible to anyone who does not know
+                    // to hover, which makes it the wrong home for the one sentence that explains an
+                    // apparently inert control. It sits in the section rather than as a parameter on
+                    // `credentialRow`, because a note belonging to one row is not a property of the
+                    // shared component that draws both.
+                    Text("Stored for future account features; not verified.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityIdentifier("accountKeyExplanation")
                 }
 
                 Section("Defaults") {
@@ -155,6 +180,7 @@ struct SettingsView: View {
         title: String,
         text: Binding<String>,
         status: CredentialStatus,
+        canRemove: Bool,
         isChecking: Bool,
         fieldIdentifier: String,
         save: @escaping () -> Void,
@@ -187,7 +213,7 @@ struct SettingsView: View {
                     Image(systemName: "trash")
                 }
                 .help("Remove \(title.lowercased())")
-                .disabled(!status.isPresent || isChecking)
+                .disabled(!canRemove || isChecking)
                 .accessibilityIdentifier(
                     fieldIdentifier == "generationKeyField"
                         ? "removeGenerationKeyButton"

@@ -48,6 +48,13 @@ public final class GenerationSettingsState: ObservableObject {
         defaultUpscaleModelID = preferences.defaultUpscaleModelID
         defaultPromptPackID = preferences.defaultPromptPackID
         lastError = startupError ?? credentialError
+
+        // Seeded from what the Keychain actually returned, so a key stored in an earlier session
+        // reads as stored on launch without anyone pressing anything. Left nil when the load threw,
+        // which is honest: nothing is known about the slot in that case. Assigned after the other
+        // stored properties because reading `accountAdministrationKey` back is a use of `self`.
+        let loadedAccountKey = accountAdministrationKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        storedAccountAdministrationKey = loadedAccountKey.isEmpty ? nil : loadedAccountKey
     }
 
     /// Builds the state around a catalogue that may not load.
@@ -149,8 +156,40 @@ public final class GenerationSettingsState: ObservableObject {
         }
     }
 
+    /// The account key as it was last stored, so the row can report the Keychain and not the field.
+    ///
+    /// The account key's badge read from whether the *text box* held anything, so it flipped to
+    /// "stored" on the user's first keystroke. Pressing save then had no state change left to make:
+    /// the key went to the Keychain and the row repainted exactly as it was, which is the whole of
+    /// #109 — beside a generation key that answers a press with a green tick, a row that answers
+    /// with nothing reads as a broken button.
+    ///
+    /// Held alongside the answer rather than reset on edit, the same shape as `verifiedKey` one
+    /// notch up. That is deliberate: the two rows now say "stored" about the same kind of fact.
+    @Published public private(set) var storedAccountAdministrationKey: String?
+
+    /// What the account row reports.
+    ///
+    /// Never `verified` or `rejected`: verifying this key would call an account or billing endpoint,
+    /// which is the surface the MVP paused (#89, #95; AC89.7). Stored or absent is all that can
+    /// honestly be said, and now "stored" means it — the field matches what is in the Keychain.
+    ///
+    /// Editing a saved key returns the row to `absent`, because that text is not stored. The row is
+    /// then telling the truth about a key the user is halfway through changing.
+    public var accountAdministrationStatus: CredentialStatus {
+        let trimmed = accountAdministrationKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed == storedAccountAdministrationKey else { return .absent }
+        return .stored
+    }
+
+    /// Whether an account key is held at all, whatever the field currently says.
+    ///
+    /// A different question from `accountAdministrationStatus`, and the distinction matters: the
+    /// badge answers *does the field match the Keychain*, this answers *is anything in the Keychain*.
+    /// Driving the remove control from the badge would disable it the moment a user edited a saved
+    /// key, so someone correcting a typo could no longer delete the key they were correcting.
     public var isAccountAdministrationConfigured: Bool {
-        !accountAdministrationKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        storedAccountAdministrationKey != nil
     }
 
     public var isSaveEnabled: Bool {
@@ -192,6 +231,10 @@ public final class GenerationSettingsState: ObservableObject {
     public func saveAccountAdministrationCredential() throws {
         try storeCredential(accountAdministrationKey, slot: .accountAdministration)
         accountAdministrationKey = accountAdministrationKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Recorded only after the store returns, so a Keychain that throws leaves the row saying
+        // "not configured" rather than claiming a key it does not hold. A whitespace-only key is a
+        // removal — `storeCredential` deletes the slot — so the row goes back to absent too.
+        storedAccountAdministrationKey = accountAdministrationKey.isEmpty ? nil : accountAdministrationKey
         lastError = nil
     }
 
@@ -204,6 +247,7 @@ public final class GenerationSettingsState: ObservableObject {
     public func clearAccountAdministrationCredential() throws {
         try credentials.removeAccountAdministrationKey()
         accountAdministrationKey = ""
+        storedAccountAdministrationKey = nil
         lastError = nil
     }
 

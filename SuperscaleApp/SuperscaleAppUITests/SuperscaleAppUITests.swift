@@ -451,6 +451,165 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(field.value as? String ?? "", "")
     }
 
+    // MARK: - AC95.3, AC95.7: the account row answers its own control (#109)
+
+    /// What the account row's badge currently says.
+    ///
+    /// Read from the label rather than the value: an element SwiftUI renders from an `Image` reports
+    /// its label to the accessibility tree and does not reliably carry a value, which the badge's own
+    /// source comment records and which the first run of `test_theCredentialBadgeCarriesItsStateAsAValue`
+    /// found the hard way.
+    private func accountBadgeReading() -> String {
+        let badge = element(identifier: "accountKeyStatusBadge")
+        XCTAssertTrue(badge.waitForExistence(timeout: 5), "the account row has no status badge")
+        return "\(badge.label) \(badge.value as? String ?? "")"
+    }
+
+    private func assertAccountBadgeSays(
+        _ expected: String, _ message: String, file: StaticString = #filePath, line: UInt = #line
+    ) {
+        let reading = accountBadgeReading()
+        XCTAssertTrue(reading.localizedCaseInsensitiveContains(expected),
+                      "\(message) — the badge reads '\(reading)'", file: file, line: line)
+    }
+
+    /// Empties the account row through its own control, so each test starts from a known Keychain.
+    ///
+    /// The GUI suite runs against the login Keychain, so a key left behind by one test is a key the
+    /// next one launches with. Pressing the row's trash is the only route available: an XCUITest
+    /// cannot reach the credential store directly, which is the same wall that retired RT-111.5.
+    private func emptyTheAccountRow() {
+        let remove = app.buttons["removeAccountKeyButton"]
+        if remove.exists, remove.isEnabled {
+            remove.click()
+        }
+        let field = app.textFields["accountAdministrationKeyField"]
+        if (field.value as? String ?? "").isEmpty == false {
+            replaceContents(of: field, with: "")
+        }
+    }
+
+    // RT-109.1
+    //
+    // A key in the text box is not a key in the Keychain, and the row used to say it was. This is
+    // the state the reported defect consumed: the badge had already flipped on the first keystroke,
+    // so by the time the author pressed save there was no change left for the press to make.
+    func test_anUnsavedAccountKeyReadsAsNotConfigured_RT109_1() {
+        openSettings()
+        emptyTheAccountRow()
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "account-key-not-a-real-credential")
+
+        assertAccountBadgeSays("not configured",
+                               "typing a key made the row claim it was stored")
+    }
+
+    // RT-109.2
+    //
+    // The reported defect, at the level it was reported: press the control, see something change.
+    func test_savingTheAccountKeyChangesWhatTheRowReports_RT109_2() {
+        openSettings()
+        emptyTheAccountRow()
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "account-key-not-a-real-credential")
+        let before = accountBadgeReading()
+
+        app.buttons["saveAccountKeyButton"].click()
+
+        let badge = element(identifier: "accountKeyStatusBadge")
+        let changed = NSPredicate(format: "label CONTAINS[c] %@", "stored")
+        expectation(for: changed, evaluatedWith: badge)
+        waitForExpectations(timeout: 5)
+        XCTAssertNotEqual(accountBadgeReading(), before, "the press changed nothing the user can see")
+
+        emptyTheAccountRow()
+    }
+
+    // RT-109.3
+    //
+    // The test that blocks the cheapest wrong fix. Flipping a flag in the button's action satisfies
+    // RT-109.2 and fails here: returning to "not configured" on an *edit* cannot be produced by a
+    // press-flipped flag, because it needs the field compared against what was actually stored.
+    func test_editingASavedAccountKeyReturnsTheRowToNotConfigured_RT109_3() {
+        openSettings()
+        emptyTheAccountRow()
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "account-key-not-a-real-credential")
+        app.buttons["saveAccountKeyButton"].click()
+        assertAccountBadgeSays("stored", "the save did not register")
+
+        replaceContents(of: field, with: "account-key-not-a-real-credential-edited")
+
+        assertAccountBadgeSays("not configured",
+                               "an edited key still read as stored, so the badge follows the box")
+
+        emptyTheAccountRow()
+    }
+
+    // RT-109.6
+    func test_removingTheAccountKeyReturnsTheRowToNotConfigured_RT109_6() {
+        openSettings()
+        emptyTheAccountRow()
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "account-key-not-a-real-credential")
+        app.buttons["saveAccountKeyButton"].click()
+        assertAccountBadgeSays("stored", "the save did not register")
+
+        app.buttons["removeAccountKeyButton"].click()
+
+        XCTAssertEqual(field.value as? String ?? "", "")
+        assertAccountBadgeSays("not configured", "a removed key still read as stored")
+    }
+
+    // RT-109.8
+    //
+    // AC95.7. Asserted as text present in the scene, not as a tooltip: `.help()` is invisible until
+    // hovered and unreadable from here, so a row explained only by a tooltip would pass a weaker
+    // test and still leave the user looking at an apparently inert control.
+    func test_theAccountRowSaysWhyItNeverTurnsGreen_RT109_8() {
+        openSettings()
+
+        let explanation = app.staticTexts["accountKeyExplanation"]
+        XCTAssertTrue(explanation.waitForExistence(timeout: 5),
+                      "the account row offers no reason for never turning green")
+        let spoken = "\(explanation.label) \(explanation.value as? String ?? "")"
+        XCTAssertTrue(spoken.localizedCaseInsensitiveContains("not verified"),
+                      "the sentence does not say the key is unverified — it reads '\(spoken)'")
+    }
+
+    // RT-109.9
+    //
+    // The trap in the obvious implementation. The badge asks whether the field matches the Keychain;
+    // the trash asks whether anything is in the Keychain. Driving the trash from the badge disables
+    // it the moment a saved key is edited, so a user correcting a typo can no longer delete the key
+    // they are correcting.
+    func test_aSavedAccountKeyCanStillBeRemovedWhileItIsBeingEdited_RT109_9() {
+        openSettings()
+        emptyTheAccountRow()
+
+        let field = app.textFields["accountAdministrationKeyField"]
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        replaceContents(of: field, with: "account-key-not-a-real-credential")
+        app.buttons["saveAccountKeyButton"].click()
+
+        replaceContents(of: field, with: "account-key-not-a-real-credential-edited")
+        assertAccountBadgeSays("not configured", "the edited key was reported as stored")
+
+        let remove = app.buttons["removeAccountKeyButton"]
+        XCTAssertTrue(remove.isEnabled,
+                      "editing a saved key removed the only way to delete it")
+        remove.click()
+        XCTAssertEqual(field.value as? String ?? "", "")
+    }
+
     /// The badge says what it means in words, not only in colour.
     ///
     /// A green tick and a grey question mark are the same element to VoiceOver, and to anyone who

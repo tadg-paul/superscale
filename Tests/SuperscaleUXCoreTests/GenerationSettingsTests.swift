@@ -305,6 +305,118 @@ final class GenerationSettingsTests: XCTestCase {
         XCTAssertTrue(state.isAccountAdministrationConfigured, "still only stored or absent")
     }
 
+    // RT-109.4
+    //
+    // A store that throws leaves the row saying "not configured".
+    //
+    // The badge is recorded only after the write returns, so the failing case is the one that proves
+    // the ordering: a row that flipped to "stored" and *then* raised an error would have told the
+    // user their key was safe before saying it was not.
+    //
+    // A unit test rather than a GUI one because there is no honest way to make the Keychain refuse
+    // from XCUITest. `SUPERSCALE_UI_TEST_FAIL` induces `upscale` and `provider` failures only, and
+    // adding a `keychain` mode would have the shipping app carry a failure injector to reach one
+    // assertion that is reachable in-process.
+    @MainActor
+    func test_aStoreThatThrowsLeavesTheAccountRowSayingNotConfigured_RT109_4() {
+        let defaults = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: defaultsSuiteName) }
+        let state = GenerationSettingsState(
+            credentials: GenerationCredentialService(storage: RefusingCredentialStorage()),
+            preferencesStore: GenerationPreferencesStore(
+                defaults: defaults, folderValidator: { _ in true }),
+            promptPackCatalogue: PromptPackCatalogue(packs: []))
+
+        state.accountAdministrationKey = "admin-key"
+        XCTAssertThrowsError(try state.saveAccountAdministrationCredential())
+
+        XCTAssertEqual(state.accountAdministrationStatus, .absent,
+                       "the row claimed a key the Keychain refused to hold")
+        XCTAssertFalse(state.isAccountAdministrationConfigured)
+    }
+
+    // RT-109.5
+    //
+    // A key stored in an earlier session reads as stored on launch, with nobody pressing anything.
+    //
+    // This is the assertion that stops the cheapest wrong fix. Flipping a flag in the save button's
+    // action satisfies "the badge changes on press" and fails here, because a flag resets on launch
+    // and a Keychain read does not.
+    @MainActor
+    func test_anAccountKeyAlreadyStoredReadsAsStoredOnLaunch_RT109_5() throws {
+        let defaults = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: defaultsSuiteName) }
+        let storage = InMemoryCredentialStorage()
+        try storage.setValue("admin-key", for: .accountAdministration)
+
+        let state = GenerationSettingsState(
+            credentials: GenerationCredentialService(storage: storage),
+            preferencesStore: GenerationPreferencesStore(
+                defaults: defaults, folderValidator: { _ in true }),
+            promptPackCatalogue: PromptPackCatalogue(packs: []))
+
+        XCTAssertEqual(state.accountAdministrationStatus, .stored)
+        XCTAssertTrue(state.isAccountAdministrationConfigured)
+    }
+
+    // RT-109.7
+    //
+    // Whitespace is not a credential. Saving a field holding only spaces removes the slot, and the
+    // row goes back to "not configured" rather than reporting a key made of nothing.
+    @MainActor
+    func test_savingWhitespaceLeavesTheAccountRowNotConfigured_RT109_7() throws {
+        let defaults = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: defaultsSuiteName) }
+        let storage = InMemoryCredentialStorage()
+        let state = GenerationSettingsState(
+            credentials: GenerationCredentialService(storage: storage),
+            preferencesStore: GenerationPreferencesStore(
+                defaults: defaults, folderValidator: { _ in true }),
+            promptPackCatalogue: PromptPackCatalogue(packs: []))
+
+        state.accountAdministrationKey = "admin-key"
+        try state.saveAccountAdministrationCredential()
+        XCTAssertEqual(state.accountAdministrationStatus, .stored)
+
+        state.accountAdministrationKey = "   "
+        try state.saveAccountAdministrationCredential()
+
+        XCTAssertEqual(state.accountAdministrationStatus, .absent)
+        XCTAssertFalse(state.isAccountAdministrationConfigured)
+        XCTAssertNil(try storage.value(for: .accountAdministration),
+                     "whitespace saved over a real key left it in the Keychain")
+    }
+
+    // RT-109.3, at the level the badge reads from.
+    //
+    // The GUI test of the same number presses the controls; this one fixes the rule, which is that
+    // the row reports the Keychain and not the text box. Editing a saved key returns it to absent
+    // because that text is not stored, and no press has stored it.
+    @MainActor
+    func test_editingASavedAccountKeyReturnsTheRowToNotConfigured_RT109_3() throws {
+        let defaults = isolatedDefaults()
+        defer { defaults.removePersistentDomain(forName: defaultsSuiteName) }
+        let state = GenerationSettingsState(
+            credentials: GenerationCredentialService(storage: InMemoryCredentialStorage()),
+            preferencesStore: GenerationPreferencesStore(
+                defaults: defaults, folderValidator: { _ in true }),
+            promptPackCatalogue: PromptPackCatalogue(packs: []))
+
+        state.accountAdministrationKey = "admin-key"
+        XCTAssertEqual(state.accountAdministrationStatus, .absent, "typed is not stored")
+
+        try state.saveAccountAdministrationCredential()
+        XCTAssertEqual(state.accountAdministrationStatus, .stored)
+
+        state.accountAdministrationKey = "admin-key-edited"
+        XCTAssertEqual(state.accountAdministrationStatus, .absent)
+        XCTAssertTrue(state.isAccountAdministrationConfigured,
+                      "a key is still held, so it can still be removed")
+
+        try state.saveAccountAdministrationCredential()
+        XCTAssertEqual(state.accountAdministrationStatus, .stored)
+    }
+
     /// The check is visible while it is in flight, and not before or after.
     ///
     /// Pressing save previously produced no visible change at all, which reads as a broken button.
@@ -389,6 +501,25 @@ private struct GatedVerificationTransport: FalHTTPTransport {
         await gate.recordAsked()
         await gate.waitForAnswer()
         return FalHTTPResponse(statusCode: 200, headers: [:], body: Data("{}".utf8))
+    }
+}
+
+/// Storage that will not write, so a save can fail the way a locked Keychain fails.
+private final class RefusingCredentialStorage: CredentialStorage {
+    struct Refusal: Error {}
+
+    private var values: [CredentialSlot: String] = [:]
+
+    func value(for slot: CredentialSlot) throws -> String? {
+        values[slot]
+    }
+
+    func setValue(_ value: String, for slot: CredentialSlot) throws {
+        throw Refusal()
+    }
+
+    func removeValue(for slot: CredentialSlot) throws {
+        throw Refusal()
     }
 }
 
