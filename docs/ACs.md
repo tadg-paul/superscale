@@ -3,8 +3,9 @@
 This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
 Pre-cutover ACs remain in their originating issues until cited or migrated.
 
-Last migrated: AC82.9, AC82.10 from #115 (backfilled onto the #82 stage family) and AC116.1
-from #116, both on 2026-08-26. Before those: AC100.1, AC100.2 from #100; AC101.1 from #101;
+Last migrated: AC117.1 from #117, and the test rows from #108 and #111 onto the criteria they
+cite, all on 2026-08-27. Before those: AC82.9, AC82.10 from #115 (backfilled onto the #82 stage
+family) and AC116.1 from #116, both on 2026-08-26. Before those: AC100.1, AC100.2 from #100; AC101.1 from #101;
 AC103.1, AC103.2 from #103, all on 2026-08-25. #102 introduced no criteria of its own and
 extended AC92.1, AC92.5 and AC92.6.
 
@@ -846,8 +847,25 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-89.8: after two locks, both iterations are reachable in order
   - ✅ RT-89.9: a locked iteration produced by a filter carries that filter's identity
   - ✅ RT-89.10: an iteration reached by scrolling back is saveable at the current scale selection
+  - ✅ RT-111.1: with two locked iterations and one open, the chain remains present and whole and the others remain reachable
+  - ✅ RT-111.2: navigating from one open iteration directly to another shows the second
+  - ✅ RT-111.3: a chain of exactly one survives being opened
+  - ✅ RT-111.6: from an open iteration, one action restores the live base, and it is that asset
+  - ✅ RT-111.7: the chain reports which entry is open as a value, asserted across two entries
+  - ✅ RT-111.8: the chain persists with the scale both cleared and selected
+  - ~~🚫 RT-111.5: an entry whose file has gone stays in the chain and reports itself unavailable~~
 - Note: saving is *at the current scale selection* rather than at whatever resolution the iteration
   happens to be, because guide 2.6 rules that an earlier iteration re-derives its upscale on demand.
+- Note: **#111 found that reachable once was not reachable.** Opening an iteration called `display`,
+  which set `viewModel.inputURL`, which fired the observer calling `adoptImportedImage`, whose guard
+  compared against the *workspace's* displayed asset - still the base or candidate, never the
+  iteration - so it passed and `importImage` ran. AC89.8 then started a new chain and the strip's own
+  condition removed it. The view now records what it last asked to show, so its own request cannot
+  read as an import.
+- Note: RT-111.5 is retired, identifier not reused. It required making an iteration's file disappear,
+  and the XCUITest runner's sandbox cannot remove a file the application wrote - `NSCocoaErrorDomain
+  513` on a file whose own permissions are ordinary. RT-81.20 and RT-81.32 hold the behaviour at
+  package level; what is lost is confirmation through the application.
 
 ### AC89.4 - An upscaled asset is never the input to a filter or to a further upscale, enforced by the graph rather than by the view.
 - Introduced: #89 (closed 2026-08-25)
@@ -911,6 +929,14 @@ extended AC92.1, AC92.5 and AC92.6.
 - Tests:
   - ✅ RT-89.25: importing a new image empties the lock chain
   - ✅ RT-89.26: the files of a released chain no longer occupy the output directory
+  - ~~🚫 RT-111.4: a genuine import from the viewing state still empties the chain~~
+- Note: RT-111.4 is retired, identifier not reused. It could not be performed: with a picture loaded
+  the application offers no route to open another. `fileChooser` lives on the empty-canvas drop
+  target and there is no File menu open command, leaving only drag and drop from Finder, which
+  XCUITest cannot drive. **The anti-gaming property is genuinely lost**: nothing now fails if a later
+  change widens `adoptImportedImage`'s guard until no import registers at all. That guide section 2.2
+  promises the open panel as one of three import routes, and the application withdraws it once an
+  image is loaded, is recorded as a separate product question on master #114.
 - Note: the chain belongs to the image it was built from. Carrying it across would offer iterations
   of a picture no longer on screen, and keeping the files would grow the output directory for the
   life of the session.
@@ -1222,6 +1248,12 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-93.11: where nothing fits at any scale, no scale reads as active
   - ✅ RT-93.14: replacing a fitting picture with a larger one moves the effective scale directly
   - ✅ RT-93.15: the scale control's accessibility value reports the readout's state, and is correct while an upscale is still in flight
+  - ✅ RT-108.1: the info panel's scale line reports both scales where the ceiling reduces the request
+  - ✅ RT-108.2: a 3840x2160 source at 8x names no impossible output, asserted literally
+  - ✅ RT-108.3: a request that fits is reported plainly, so the fix does not overcorrect
+  - ✅ RT-108.4: reduced custom dimensions report the effective pair with the typed one still distinguishable
+  - ✅ RT-108.5: with the scale cleared, the line says so and names no dimensions
+  - ~~🚫 RT-108.6: the info panel renders the sentence `SizingLine` composes~~
 - Note: the author's report was "large image warning but UX buttons unchanged indicating 4x active
   when it is not". `ScaleReadout` derives the effective scale from the picture's own dimensions
   rather than from a completed run, so the control is correct from the moment the picture loads ---
@@ -1229,6 +1261,18 @@ extended AC92.1, AC92.5 and AC92.6.
   nothing to say before one exists.
 - Note: **still choosable** is the half a reduction must not take away. The reduction reports what
   ran; it does not remove the choice.
+- Note: **#108 found a third private derivation of sizing truth.** `InfoPanel` multiplied input by
+  scale itself and never consulted `UpscaleCeiling.decide`, so a 3840x2160 photograph at 8x read
+  *"Scale: 4x -> 15360x8640"*: 132 megapixels against a 32-megapixel ceiling, and an output nothing
+  was going to produce, while the status bar a few pixels away reported the truth. The `.custom`
+  branch did the same with the typed dimensions. `SizingLine` in `SuperscaleUXCore` is the one
+  derivation now, for both branches.
+- Note: **RT-108.6 is retired and its half of the claim is structural.** The panel's line cannot be
+  read from XCUITest: a `Text` nested inside a container declaring `children: .contain` does not
+  report its label, measured four times, the last with the automation environment healthy. That
+  `InfoPanel` renders `SizingLine`'s sentence rather than deriving its own is therefore confirmed by
+  `audit-code`, as AC89.7, AC98.5, AC103.2 and AC100.2 each already do for a claim a test cannot make
+  from outside. RT-108.1 to RT-108.5 hold the observable half.
 - Note: **the readout's independence from a completed run is a strength and was also a hazard.**
   #101 found the control reporting *"8x requested, 4x in effect"* while the application sat idle
   with no run, no error and no notice: `reupscaleIfNeeded` guarded on `!isProcessing`, so a scale
@@ -1488,6 +1532,44 @@ extended AC92.1, AC92.5 and AC92.6.
   orientation exactly as the pipeline's own decode is --- so a rotated photograph measures as it will
   actually be treated. An orientation-correcting source would look more careful and disagree with the
   pixels.
+
+## What the canvas reports it is showing
+
+### AC117.1 - The canvas reports which kind of image it is currently displaying, nothing, the base, a filter result, or an upscaled rendering, as part of its accessibility label, and that report changes only when what is displayed changes.
+- Introduced: #117 (closed 2026-08-27)
+- Migrated: 2026-08-27
+- Tests:
+  - ✅ RT-117.1: with no image, the canvas reports that it is showing nothing
+  - ✅ RT-117.2: with an image imported and no scale selected, it reports the base
+  - ✅ RT-117.3: with an upscale rendered, it reports an upscaled rendering
+  - ✅ RT-117.4: with a filter result and no upscale, it reports a filter result
+  - ✅ RT-117.5: the report follows the filter toggle between base and candidate
+  - ✅ RT-117.7: while an upscale is in flight the canvas still reports the previous kind, and the upscaled rendering only once it is on screen
+  - ✅ RT-117.8: while an earlier locked iteration is being viewed, the canvas reports the base
+  - ✅ RT-117.9: the four kinds are four distinct values, collected in one test that reaches all four
+  - ✅ RT-117.10: the label both names the element and carries the state
+  - ~~🚫 RT-117.6: the label names the element, the value carries state, and they differ~~
+- Note: **the criterion first asked for a value and could not be met.** SwiftUI carried no
+  `accessibilityValue` on any element reachable here: empty on the canvas container, empty on the
+  outer container, and empty on a shape declared an element of its own. The label is the channel a
+  container declaring `children: .contain` does carry, which guide 3.18 had already recorded for
+  a different reason. Superseded to the label on that measurement, under the author's standing
+  authority for criteria a measurement shows cannot be met.
+- Note: RT-117.6 is retired with that supersession. Written against the value clause, it compared the
+  label against a substring of itself once the state moved there, and passed while proving nothing.
+- Note: **RT-117.7 is the test that stops this criterion recreating the defect it prevents.** AC90.2
+  keeps the previous picture on the canvas while work runs, so a report that moved when an upscale
+  *started* would tell the suite an upscale had finished before one had, at the 45 call sites of
+  `waitForUpscaleComplete`.
+- Note: the four kinds are display states and deliberately do not mirror `AssetRole`. A base raised to
+  the filterable minimum is a `raisedToMinimum` asset and is still the base to somebody looking at it.
+- Note: **RT-117.8 could not be written until #111 closed.** Before it, opening a locked iteration was
+  processed as an import and the viewing state collapsed at once, so the test would have passed
+  because the state was gone rather than because the report was right.
+
+**Key:** ✅ passing · ⏳ pending · ❌ failing · ~~🚫 removed~~
+
+---
 
 ## Storage locations
 
