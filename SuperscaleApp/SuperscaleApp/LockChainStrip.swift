@@ -12,14 +12,34 @@ import SwiftUI
 /// instead, which the criterion does not claim, and reads as a history rather than as navigation.
 struct LockChainStrip: View {
     let iterations: [Asset]
+    /// The iteration currently on the canvas, when one is being viewed rather than the live image.
+    ///
+    /// The reference rather than its identifier: `AssetReference.id` is internal, which is what
+    /// stops a caller outside the package inventing a reference for a file it happens to know
+    /// about (AC89.4). Comparing references respects that and needs nothing widened.
+    let viewing: AssetReference?
     let onSelect: (AssetReference) -> Void
+    let onReturn: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Locked iterations")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 12)
+            HStack(spacing: 8) {
+                Text("Locked iterations")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                // Offered only while an iteration is open, because with the live image already on
+                // the canvas there is nothing to return from. Keeping the chain present was only
+                // half of what #111 asked for: without this a user reaches every iteration and
+                // never the picture they were working on.
+                if viewing != nil {
+                    Button("Back to current", action: onReturn)
+                        .font(.caption)
+                        .buttonStyle(.link)
+                        .accessibilityIdentifier("returnToCurrentButton")
+                }
+            }
+            .padding(.horizontal, 12)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
@@ -52,6 +72,10 @@ struct LockChainStrip: View {
         .buttonStyle(.plain)
         .help("View this iteration")
         .accessibilityIdentifier("lockedIteration-\(iteration.id.uuidString)")
+        // Which entry is open is a state a user can see, so it is carried as a value rather than
+        // left to a tint. Guide section 3.9. A button carries a value reliably where a container
+        // or a plain `Text` does not, which #117 established by measurement.
+        .accessibilityValue(iteration.reference == viewing ? "Showing" : "Not showing")
     }
 
     @ViewBuilder

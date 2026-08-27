@@ -16,6 +16,13 @@ struct MainView: View {
     @State private var infoPanelDismissed = false
     /// The base's pixels, reloaded when the base changes rather than per body evaluation.
     @State private var loadedBaseImage: NSImage?
+    /// What the view last asked the view model to show.
+    ///
+    /// Distinguishes the view's own display request from a picture the user brought in, which
+    /// `adoptImportedImage` could not otherwise tell apart. #111.
+    @State private var lastDisplayedURL: URL?
+    /// The locked iteration on the canvas, when one is being viewed rather than the live image.
+    @State private var viewedIteration: AssetReference?
     @State private var didLoadDefaults = false
     /// The workspace's state. The graph decides which asset is read and which is shown; the view
     /// model renders whichever one it is handed.
@@ -69,7 +76,7 @@ struct MainView: View {
                     // container, empty on the inner one, and empty on a shape declared an element
                     // of its own. The label is the channel this platform carries on a container
                     // declaring `children: .contain`, which is what guide 3.18 already said.
-                    .accessibilityLabel("Canvas showing \(displayedKind.reportedValue)")
+                    .accessibilityLabel(canvasAccessibilityLabel)
                 Divider()
                 FilterPanel(
                     selection: $selection,
@@ -83,13 +90,7 @@ struct MainView: View {
                     onLock: lockCandidate
                 )
             }
-            if !workspace.lockedIterations.isEmpty {
-                Divider()
-                LockChainStrip(
-                    iterations: workspace.lockedIterations,
-                    onSelect: showIteration
-                )
-            }
+            lockChainSection
             Divider()
             statusBar
         }
@@ -153,6 +154,33 @@ struct MainView: View {
             }
             .padding(.top, 16)
         }
+    }
+
+    /// The lock chain beneath the canvas, present whenever there are locked iterations.
+    ///
+    /// Extracted from `body` rather than inlined: with the viewing state's two extra arguments the
+    /// whole view expression went past what the type-checker will attempt, and the compiler
+    /// reported it against an unrelated line thirty rows away.
+    @ViewBuilder
+    private var lockChainSection: some View {
+        if !workspace.lockedIterations.isEmpty {
+            Divider()
+            LockChainStrip(
+                iterations: workspace.lockedIterations,
+                viewing: viewedIteration,
+                onSelect: showIteration,
+                onReturn: returnToCurrent
+            )
+        }
+    }
+
+    /// The canvas's accessibility label, carrying what it is currently displaying.
+    ///
+    /// Composed here rather than interpolated in `body`. Inline, it pushed the view expression past
+    /// what the type-checker will attempt, and the compiler reported the failure against an
+    /// unrelated line thirty lines away.
+    private var canvasAccessibilityLabel: String {
+        "Canvas showing \(displayedKind.reportedValue)"
     }
 
     /// What the canvas is currently displaying.
@@ -258,8 +286,19 @@ struct MainView: View {
     private func adoptImportedImage(_ url: URL?) {
         guard let url,
               url != generationCoordinator.output?.localURL,
-              url != currentlyDisplayedFileURL else { return }
+              url != currentlyDisplayedFileURL,
+              // What the view itself last asked to show is not an import.
+              //
+              // This is the whole of #111. Viewing a locked iteration calls `display`, which sets
+              // `viewModel.inputURL`, which fires this observer. The guard above compares against
+              // the *workspace's* displayed asset, which is still the base or the candidate and
+              // never the iteration being viewed, so it passed — and `importImage` ran, which by
+              // AC89.8 starts a new chain. The strip's own condition then removed it, and the user
+              // was stranded on the iteration they had opened.
+              url != lastDisplayedURL else { return }
         workspace.importImage(fileURL: url, pixelSize: ImageDimensions.pixelSize(of: url))
+        // A new picture starts a new chain (AC89.8), so there is no iteration left to be viewing.
+        viewedIteration = nil
     }
 
     /// Applies the selected filter, raising the base to the filterable minimum first if it falls
@@ -428,9 +467,20 @@ struct MainView: View {
     private func showIteration(_ reference: AssetReference) {
         do {
             try display(reference)
+            viewedIteration = reference
         } catch {
             viewModel.report(error)
         }
+    }
+
+    /// Leaves the viewing state and puts the live working image back on the canvas.
+    ///
+    /// Keeping the chain present is only half of what the author asked for. Without a way back, a
+    /// user who opens an iteration can reach the other iterations and never the picture they were
+    /// working on, which is the same complaint relocated.
+    private func returnToCurrent() {
+        viewedIteration = nil
+        displayChosenAsset()
     }
 
     /// Shows whichever asset the workspace's toggle has chosen.
@@ -450,6 +500,9 @@ struct MainView: View {
     /// here rather than being sent for a second upscale.
     private func display(_ reference: AssetReference) throws {
         let source = try GUIUpscaleSource(resolving: reference, in: workspace.graph)
+        // Recorded before the request, so the observer that fires from it can tell the view's own
+        // display from a picture the user brought in. See `adoptImportedImage`.
+        lastDisplayedURL = source.url
         upscale(source, arrival: .filterResult)
     }
 
