@@ -1046,6 +1046,11 @@ final class SuperscaleAppUITests: XCTestCase {
         // used here instead, giving 17 megapixels, under the ceiling.
         let path = try writeFixture(width: 1200, height: 900, named: "unremarkable.png")
         XCTAssertTrue(loadTestImage(path: path), "the picture should load")
+        // Asked for, since #131: nothing is selected on launch, so the arithmetic this test rests
+        // on has to be requested rather than inherited. It was previously getting 4x because that
+        // was the launch default, which made the assertion below a check on the default rather than
+        // on the readout.
+        chooseScale(4)
 
         // The arithmetic above is about 4x, so 4x is what must actually be running. Which scale is
         // active follows the model's native scale rather than a constant — the reason `selectScale`
@@ -1159,14 +1164,26 @@ final class SuperscaleAppUITests: XCTestCase {
         // Absence, asserted only after a positive signal that the work finished. `waitForFilterResult`
         // is that signal; reading the tree before it returns can find an application still busy and
         // yield no snapshot at all, which is indistinguishable from an empty one.
+        // **This criterion is about the floor and the ceiling, so it asserts about those.**
+        //
+        // It previously required the notice to be entirely empty, and passed only because an
+        // upscale ran afterwards and cleared it: `publish` assigns `noticeMessage` from the
+        // reduction, which is nil here. #131 stopped that upscale happening by itself, and the
+        // notice that remains is the provider's own — the stub returns a fixed picture, so a
+        // 1200x900 input does come back a different shape, and guide 2.3 requires the user be told.
+        // That notice is correct and asserting its absence was asserting the wrong thing.
         let notice = element(identifier: "noticeMessage")
         let said = notice.waitForExistence(timeout: 5)
             ? "\(notice.value as? String ?? "") \(notice.label)"
             : ""
-        XCTAssertTrue(
-            said.isEmpty,
-            "a 1200-pixel picture is above the floor and fits the ceiling, so nothing is said "
-                + "about it: \"\(said)\"")
+        XCTAssertFalse(
+            said.localizedCaseInsensitiveContains("minimum")
+                || said.localizedCaseInsensitiveContains("raised"),
+            "a 1200-pixel picture is above the floor, so nothing is said about raising it: \"\(said)\"")
+        XCTAssertFalse(
+            said.localizedCaseInsensitiveContains("reduced")
+                || said.localizedCaseInsensitiveContains("too large"),
+            "and it fits the ceiling, so nothing is said about reducing it: \"\(said)\"")
     }
 
     // MARK: - AC96.1: the raise reaches the window (#96)
@@ -1475,6 +1492,11 @@ final class SuperscaleAppUITests: XCTestCase {
     // flight, which is exactly when the old control reported the request instead of the state.
     func test_theScaleControlsValueReportsTheReadoutInFlight_RT093_15() {
         XCTAssertTrue(loadTestImage(), "the working image should load")
+        // Asked for, since #131: importing no longer starts an upscale by itself, so there would be
+        // nothing in flight for the readout to report on. The claim under test is unchanged — the
+        // control's value comes from `ScaleReadout` rather than from a completed run — and it is now
+        // read immediately after the request rather than immediately after the import.
+        chooseScale(4)
 
         // Read *before* waiting for completion. A control deriving its state from a finished run
         // would have nothing to say here.
@@ -1962,7 +1984,12 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // MARK: - OT-008: Info panel (#53)
 
-    // RT-136: Info panel visible with model and scale text
+    // RT-136: Info panel visible with model text on launch, and scale text once a scale is chosen
+    //
+    // **The scale half moved with #131.** Nothing is selected on launch now, so there is no scale
+    // in effect and no scale line to show — a panel claiming one would be describing an upscale
+    // that is not going to happen. The line appears when the user chooses a scale, which is what
+    // this now asserts. The model line is unaffected and still shows immediately.
     func test_info_panel_visible_on_launch_RT136() {
         let modelText = app.staticTexts.matching(
             NSPredicate(format: "value CONTAINS 'Model:'")).firstMatch
@@ -1971,8 +1998,12 @@ final class SuperscaleAppUITests: XCTestCase {
 
         let scaleText = app.staticTexts.matching(
             NSPredicate(format: "value CONTAINS 'Scale:'")).firstMatch
-        XCTAssertTrue(scaleText.exists,
-                      "Info panel should show scale info on launch")
+        XCTAssertFalse(scaleText.exists,
+                       "with nothing selected there is no scale to report")
+
+        chooseScale(4)
+        XCTAssertTrue(scaleText.waitForExistence(timeout: 5),
+                      "choosing a scale should put it in the info panel")
     }
 
     // RT-137: Info panel dismiss and reappear
@@ -3409,9 +3440,15 @@ final class SuperscaleAppUITests: XCTestCase {
     // MARK: - AC82.11: nothing is upscaling until the user asks (#131)
 
     /// Whether any scale control reports itself as in effect.
+    ///
+    /// **Custom counts.** Checking only the presets made `waitForUpscaleComplete` believe nothing
+    /// was selected when a custom size was, so it pressed a preset — which under AC82.7's toggle
+    /// group *replaces* the custom selection, closes the dimension fields, and leaves them disabled.
+    /// RT-148 then failed trying to type into a field it could no longer focus.
     private var someScaleIsInEffect: Bool {
-        [2, 4, 8].contains { scale in
-            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+        let controls = ["scale2x", "scale4x", "scale8x", "scaleCustom"]
+        return controls.contains { identifier in
+            let value = (app.buttons[identifier].value as? String ?? "").lowercased()
             return value.contains("in effect") && !value.contains("not in effect")
         }
     }
@@ -3882,6 +3919,9 @@ final class SuperscaleAppUITests: XCTestCase {
         app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "upscale"
         app.launch()
         XCTAssertTrue(loadTestImage(), "the working image should load")
+        // Asked for, since #131. Importing no longer starts an upscale by itself, so there would be
+        // no upscale to fail and this test would be waiting on something that never happens.
+        chooseScale(4)
 
         XCTAssertTrue(
             failureAlert.waitForExistence(timeout: 60), "an upscale failure reaches a surface")
