@@ -1,4 +1,4 @@
-<!-- Version: 3.34 | Last updated: 2026-08-27 -->
+<!-- Version: 3.35 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -270,11 +270,24 @@ with it. That is precisely the unreachability #111 was raised to fix, arriving
 again by a new route --- and it passes every test #111 left behind, because none
 of them moves the base.
 
-So the graph holds a **tip**: the furthest-forward locked asset. Lock advances
-it. Selection does not move it. The chain is the tip's lineage, and the base and
-candidate say where in that chain the user is standing. AC89.3's requirement that
-every locked iteration stay reachable then holds in both directions, and
-returning to the newest iteration is the same operation as selecting any other.
+**So the chain is held, not derived.** It is the record of what has been made, in
+the order it was made: an import starts it, a promoted raise joins it, and each
+lock appends to it. The base and the candidate say where in that record the user
+is standing. AC89.3's requirement that every locked iteration stay reachable then
+holds in every direction, and returning to the newest iteration is the same
+operation as selecting any other.
+
+**Deriving it from a pointer was tried twice and failed twice.** From the base,
+where a backwards move lost everything forward of the selection. Then from a
+*tip* --- the furthest-forward lock --- where locking after a selection abandoned
+whatever the tip had been pointing at, because lock advanced it. Both versions
+looked correct in isolation and both destroyed work the user had paid the
+provider for. The chain is not a lineage and treating it as one keeps producing
+the same class of loss.
+
+The lineage still exists, on each asset's `parentID`. It records what descends
+from what, and I2, I3 and the session filter cache all depend on it. It is simply
+not what the strip is read from.
 
 Saving an earlier iteration upscales it on demand at the current settings,
 because the upscale is deterministic and need not have been kept. This is what
@@ -621,7 +634,7 @@ pointer, and is the only place these rules live:
 | **I4** | Lock captures the working image at model resolution, never its upscale. Lock moves the base forward; selecting an earlier locked iteration moves it back to that iteration's own parent, making the iteration the candidate. No other action moves the base. |
 | **I5** | Upscaling derives from the working asset and writes a new file. It never consumes or overwrites a previous upscaled output. |
 | **I6** | An upscaled asset is attributed to a session only if it descends from that session's lineage. Never by timing. |
-| **I7** | The lineage of a locked asset is retained and reachable, so any prior iteration can be viewed, selected and saved. Reachability is from the tip, not from the base, so it survives the base moving backwards. |
+| **I7** | The lineage of a locked asset is retained and reachable, so any prior iteration can be viewed, selected and saved. The chain of iterations is held rather than derived from any pointer, so it survives the base moving backwards and survives a lock made from an earlier point. Only a new import empties it. |
 
 Each is pure logic over the graph, testable with no network and no Core ML.
 
@@ -669,11 +682,16 @@ the general rule does not reach them. That state is the one a fresh import is
 already in, so nothing new is introduced by saying so --- but it has to be said,
 because "the base becomes the selected asset's parent" has no answer otherwise.
 
-**A third pointer, the tip**, is the furthest-forward locked asset. Lock advances
-it; selection does not move it; `lockedIterations` derives from it. Without it
-the chain is the base's ancestry, and a base that moves backwards makes every
-later iteration unreachable --- AC89.3's failure, and #111's defect returning by a
-different route.
+**The chain is a held list, not a third pointer.** An import starts it, a
+promoted raise joins it, and each lock appends to it; nothing ever removes an
+entry except a new import. `lockedIterations` reads that list.
+
+Two pointer-derived versions preceded it and each lost work. Derived from the
+**base**, a backwards move made every later iteration unreachable. Derived from a
+**tip** --- the furthest-forward lock --- locking after a selection abandoned
+whatever the tip had been pointing at, because lock advanced it. Both are
+AC89.3's failure, and both are #111's defect returning by a different route. The
+second was found only by the author, in use, after the first had been fixed.
 
 An unlocked candidate displaced by a selection is not recoverable, and that is
 consistent rather than a gap: 2.3 already establishes that applying again
@@ -1483,6 +1501,14 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.35 (2026-08-27):** Sections 2.4 and 3.2 and invariant I7 replace the tip with a **held chain**.
+  3.32's tip was right about the diagnosis and wrong about the remedy: it fixed a base that moved
+  backwards and introduced a lock that truncated. Deriving the chain from a single pointer was tried
+  twice and destroyed work the user had paid the provider for both times --- the second found only
+  by the author in use, after the first had been fixed. The chain is the record of what has been
+  made, in the order it was made; branching from an earlier point adds to it; only a new import
+  empties it. The lineage still exists on `parentID` and still governs I2, I3 and the session filter
+  cache; it is simply not what the strip is read from (#132).
 - **3.34 (2026-08-27):** Section 2.3 gains the rule that a filter result already paid for in this
   session is shown again rather than re-requested, matched on the base, the model and the prompt as
   sent. New behaviour rather than a correction: the two-step interaction was designed so that
