@@ -438,6 +438,49 @@ public struct AssetGraph: Sendable {
     }
 
     @discardableResult
+    /// A filter result already produced from this input, with this model and this prompt.
+    ///
+    /// **A read of the graph, not a second cache.** Every filtered asset already records its
+    /// parent and its `Provenance` — the model and the prompt as sent — so the question "have we
+    /// paid for exactly this before" is answerable from what is held. A parallel store keyed on a
+    /// hash would be a second place the truth about a result lives, and the two would drift.
+    ///
+    /// Matching is on the prompt **as sent**, so an invisible whitespace difference is a different
+    /// request. That is the honest comparison: it is what the provider was given.
+    ///
+    /// Session-scoped by construction, because the graph is. A result does not outlive the picture
+    /// it was made from, which is the right lifetime — a held result is only useful while the asset
+    /// it descends from is still the one being worked on.
+    public func existingFilterResult(
+        of input: AssetReference, modelID: String, prompt: String
+    ) -> AssetReference? {
+        let match = assets.values.first { asset in
+            asset.role == .filtered
+                && asset.parentID == input.id
+                && asset.provenance?.modelID == modelID
+                && asset.provenance?.prompt == prompt
+                && FileManager.default.fileExists(atPath: asset.fileURL.path)
+        }
+        return match.map { AssetReference(id: $0.id) }
+    }
+
+    /// Makes an already-held filter result the candidate again.
+    ///
+    /// The asset exists and its lineage is unchanged, so nothing is recorded: this only moves the
+    /// candidate pointer. Refuses anything that is not a filter result of the current base, because
+    /// a held result is only meaningful against the picture it was made from — I3's rule that a
+    /// filter reads the base and replaces the candidate is what this preserves.
+    public mutating func adoptExistingFilterResult(_ reference: AssetReference) throws {
+        let asset = try asset(for: reference)
+        guard asset.role == .filtered, asset.parentID == baseID else {
+            throw AssetGraphError.notAnUpscaledOutput(asset.id)
+        }
+        candidateID = asset.id
+        // The outgoing candidate's rendering describes a different picture, so it goes — the same
+        // rule guide 2.5 applies whenever the working image changes.
+        currentUpscaleID = nil
+    }
+
     public mutating func recordFilterOutput(
         of input: AssetReference,
         fileURL: URL,

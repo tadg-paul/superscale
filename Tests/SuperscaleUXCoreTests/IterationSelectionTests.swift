@@ -233,3 +233,127 @@ final class IterationSelectionTests: XCTestCase {
             "the selected iteration is shown, not a rendering of the asset that was working")
     }
 }
+
+/// A filter result already paid for is found again rather than re-requested (#124).
+///
+/// A read of the graph rather than a second store: every filtered asset already records its parent,
+/// its model and its prompt as sent, so the question "have we paid for exactly this before" is
+/// answerable from what is held. A parallel cache keyed on a hash would be a second place the truth
+/// about a result lives, and the two would drift.
+final class HeldFilterResultTests: XCTestCase {
+    @MainActor
+    private func makeWorkspace() throws -> (WorkspaceState, URL) {
+        let root = try FileManager.default.url(
+            for: .itemReplacementDirectory,
+            in: .userDomainMask,
+            appropriateFor: FileManager.default.temporaryDirectory,
+            create: true)
+        return (WorkspaceState(outputDirectory: root), root)
+    }
+
+    private func writeFixture(named name: String, in directory: URL) throws -> URL {
+        let url = directory.appendingPathComponent(name)
+        try Data([0x00]).write(to: url)
+        return url
+    }
+
+    @MainActor
+    private func importedWorkspace() throws -> (WorkspaceState, URL) {
+        let (workspace, root) = try makeWorkspace()
+        let sourceURL = try writeFixture(named: "source.png", in: root)
+        workspace.importImage(fileURL: sourceURL, pixelSize: CGSize(width: 2048, height: 2048))
+        return (workspace, root)
+    }
+
+    // RT-124.1
+    @MainActor
+    func test_anIdenticalRequestAgainstTheSameBaseIsFoundAgain_RT124_1() throws {
+        let (workspace, root) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let filtered = try writeFixture(named: "filtered.png", in: root)
+        let recorded = try workspace.recordFilter(
+            named: "noir", fileURL: filtered, pixelSize: CGSize(width: 2048, height: 2048),
+            modelID: "grok", prompt: "make it noir")
+
+        let held = workspace.heldFilterResult(modelID: "grok", prompt: "make it noir")
+        XCTAssertEqual(held, recorded, "the result already paid for was not found")
+    }
+
+    // RT-124.2
+    //
+    // Matched on the prompt **as sent**. An edit is a different request, because it is what the
+    // provider would be given.
+    @MainActor
+    func test_anEditedPromptIsADifferentRequest_RT124_2() throws {
+        let (workspace, root) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let filtered = try writeFixture(named: "filtered.png", in: root)
+        _ = try workspace.recordFilter(
+            named: "noir", fileURL: filtered, pixelSize: CGSize(width: 2048, height: 2048),
+            modelID: "grok", prompt: "make it noir")
+
+        XCTAssertNil(
+            workspace.heldFilterResult(modelID: "grok", prompt: "make it noir, but softer"),
+            "an edited prompt was served a result produced from different words")
+    }
+
+    // RT-124.3
+    @MainActor
+    func test_adifferentModelIsADifferentRequest_RT124_3() throws {
+        let (workspace, root) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let filtered = try writeFixture(named: "filtered.png", in: root)
+        _ = try workspace.recordFilter(
+            named: "noir", fileURL: filtered, pixelSize: CGSize(width: 2048, height: 2048),
+            modelID: "grok", prompt: "make it noir")
+
+        XCTAssertNil(
+            workspace.heldFilterResult(modelID: "another-model", prompt: "make it noir"),
+            "a different model was served another model's result")
+    }
+
+    // RT-124.4
+    //
+    // **The one that matters most.** A held result belongs to the picture it was made from, and
+    // serving it against a different base would be the wrong-image defect #121 closed, arriving
+    // through a cache.
+    @MainActor
+    func test_aHeldResultIsNeverServedAgainstADifferentBase_RT124_4() throws {
+        let (workspace, root) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let filtered = try writeFixture(named: "filtered.png", in: root)
+        _ = try workspace.recordFilter(
+            named: "noir", fileURL: filtered, pixelSize: CGSize(width: 2048, height: 2048),
+            modelID: "grok", prompt: "make it noir")
+        _ = try workspace.lock()
+
+        XCTAssertNil(
+            workspace.heldFilterResult(modelID: "grok", prompt: "make it noir"),
+            "the base moved and the result made from the previous one was still offered")
+    }
+
+    // RT-124.5
+    //
+    // A result whose file has gone is not a result. The output directory is the user's and they
+    // clear it out; offering a reference to a file that is not there would fail at display with a
+    // worse message than simply asking the provider again.
+    @MainActor
+    func test_aResultWhoseFileHasGoneIsNotOffered_RT124_5() throws {
+        let (workspace, root) = try importedWorkspace()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let filtered = try writeFixture(named: "filtered.png", in: root)
+        _ = try workspace.recordFilter(
+            named: "noir", fileURL: filtered, pixelSize: CGSize(width: 2048, height: 2048),
+            modelID: "grok", prompt: "make it noir")
+        try FileManager.default.removeItem(at: filtered)
+
+        XCTAssertNil(
+            workspace.heldFilterResult(modelID: "grok", prompt: "make it noir"),
+            "a reference to a file that is no longer there was offered as a held result")
+    }
+}

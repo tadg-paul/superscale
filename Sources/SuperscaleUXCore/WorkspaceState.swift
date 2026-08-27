@@ -133,6 +133,26 @@ public final class WorkspaceState: ObservableObject {
     /// Shows the new candidate whichever was being displayed, because applying while showing the
     /// base would otherwise look as though nothing had happened.
     @discardableResult
+    /// A filter result already paid for, matching what would be sent now.
+    ///
+    /// Asked before an apply, so an identical request against an identical picture costs nothing a
+    /// second time. Applying a filter is the one action in this application that spends the user's
+    /// money, and selecting an earlier iteration — which #121 made an ordinary way to work — puts a
+    /// user back in front of pictures they have already filtered.
+    ///
+    /// Returns nothing where there is no base to filter, which is the same condition that stops an
+    /// apply at all.
+    public func heldFilterResult(modelID: String, prompt: String) -> AssetReference? {
+        guard let input = try? graph.input(for: .filter) else { return nil }
+        return graph.existingFilterResult(of: input, modelID: modelID, prompt: prompt)
+    }
+
+    /// Shows a filter result already held as the candidate, without a provider request.
+    public func adoptHeldFilterResult(_ reference: AssetReference) throws {
+        try graph.adoptExistingFilterResult(reference)
+        showsBase = false
+    }
+
     public func recordFilter(
         named filterID: String,
         fileURL: URL,

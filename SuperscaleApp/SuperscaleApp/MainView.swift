@@ -478,6 +478,31 @@ struct MainView: View {
         // point of the graph being the state.
         guard let input = try? workspace.graph.input(for: .filter),
               let asset = try? workspace.graph.asset(for: input) else { return }
+
+        // Already paid for? Then do not pay again.
+        //
+        // Applying a filter is the one action here that spends money, and #121 made selecting an
+        // earlier iteration an ordinary way to work — which puts a user back in front of pictures
+        // they have already filtered, with the same filter still loaded. The graph already records
+        // every filtered asset's parent, model and prompt, so the question is answerable from what
+        // is held rather than from a second store keyed on a hash (#124).
+        if let held = workspace.heldFilterResult(
+            modelID: FalGenerationRequest.defaultModelID,
+            prompt: selection.promptToApply
+        ) {
+            do {
+                try workspace.adoptHeldFilterResult(held)
+                displayChosenAsset()
+                // Said, not silent. A paid action completing instantly is a good surprise only if
+                // the interface explains why; on the same unobtrusive channel as the raise and the
+                // reduction notices, because the application has handled it correctly.
+                viewModel.noticeMessage = "Shown from this session — no new request was made."
+            } catch {
+                viewModel.report(error)
+            }
+            return
+        }
+
         do {
             // The **location**, not the bytes. Reading here meant synchronous disk I/O on the
             // thread drawing the window, so a large picture froze the interface every time Apply
