@@ -227,6 +227,25 @@ private struct UITestVerificationTransport: FalHTTPTransport {
     }
 }
 
+/// Counts the generation requests the stub has been asked to make.
+///
+/// **The only place that sees a request.** RT-122.2 asks whether one intent produces one paid call,
+/// and a GUI test observes results rather than requests — a second request returning an identical
+/// picture is one visible change and two charges, which is exactly the defect. Counting arrivals
+/// would assert something else and pass against the bug.
+///
+/// A type of its own rather than a mutable field on the stub, because `GenerationServing` hands the
+/// service around as a value and a `var` would be counting copies.
+@MainActor
+final class UITestRequestLedger {
+    static let shared = UITestRequestLedger()
+    private(set) var generationRequests = 0
+
+    func recordGenerationRequest() {
+        generationRequests += 1
+    }
+}
+
 @MainActor
 private struct UITestGenerationService: GenerationServing {
     let imageURL: URL
@@ -254,6 +273,9 @@ private struct UITestGenerationService: GenerationServing {
     }
 
     func generate(_ request: FalGenerationRequest, apiKey: String) async throws -> FalGeneratedImage {
+        // Counted before the failure branch: a request that the provider declines was still issued
+        // and, against a real provider, still charged for.
+        UITestRequestLedger.shared.recordGenerationRequest()
         if failsGeneration {
             // A classified failure carrying the provider's own words, which is what a real one is.
             // Presented the same way as an upscale failure is the whole point of AC98.5.

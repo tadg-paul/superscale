@@ -25,6 +25,12 @@ struct MainView: View {
     // user was on, held in the view beside the graph's own answer, and keeping the two agreeing was
     // manual. The graph's candidate *is* the selected iteration as of guide 3.32, so the strip
     // reads that and there is nothing left to synchronise.
+    /// Whether an apply has been asked for and has not yet finished.
+    ///
+    /// Distinct from the coordinator's `.generating` phase, which begins only once the request is
+    /// in flight. The gap between the two is the raise and the upload, and it is where the second
+    /// paid request came from (#122).
+    @State private var isSubmittingFilter = false
     @State private var didLoadDefaults = false
     /// The workspace's state. The graph decides which asset is read and which is shown; the view
     /// model renders whichever one it is handed.
@@ -85,7 +91,9 @@ struct MainView: View {
                     catalogueFailure: settingsState.lastError,
                     isGenerationConfigured: settingsState.isGenerationConfigured,
                     hasWorkingImage: workspace.graph.base != nil,
-                    isApplying: generationCoordinator.phase == .generating,
+                    // The intent, not the request. The phase alone left the control live through
+                    // the raise and the upload; either being under way means an apply is happening.
+                    isApplying: isSubmittingFilter || generationCoordinator.phase == .generating,
                     canLock: workspace.canLock,
                     onApply: applyFilter,
                     onCancel: generationCoordinator.cancel,
@@ -214,7 +222,17 @@ struct MainView: View {
     private var canvasWork: CanvasWork {
         CanvasWork.of(
             isUpscaling: viewModel.isProcessing,
-            isApplyingFilter: generationCoordinator.phase == .generating,
+            // From the click, not from the request. AC94.1 asks the interface to report
+            // immediately, and reporting only once the provider call is in flight leaves the window
+            // silent through the raise and the upload — the same window that let a second click
+            // through (#122). Disabling the control is idempotence; this is the other half.
+            //
+            // Yielded to the upscale while one is running, so the raise keeps its own wording:
+            // "Preparing for filtering…" says more than "Applying filter" and the raise is the
+            // longer half. This speaks only for the stretch nothing else is reporting — the click
+            // itself, and the upload.
+            isApplyingFilter: generationCoordinator.phase == .generating
+                || (isSubmittingFilter && !viewModel.isProcessing),
             upscaleMessage: viewModel.progressMessage)
     }
 
@@ -360,7 +378,22 @@ struct MainView: View {
     /// only on the way in would satisfy AC96.1 while leaving the reported defect in place on every
     /// subsequent apply. This is the one place every submission passes through.
     private func applyFilter() {
+        // Set **before** the task, so the control is unavailable within the same run loop turn as
+        // the click. Bound to the coordinator's phase alone — as it was — the control stayed live
+        // through the raise and the upload, which on an undersized picture is several seconds of
+        // Neural Engine work plus a network round trip. A second click in that window sent a second
+        // paid request, and the author reported exactly that (#122).
+        //
+        // A flag rather than a debounce. A time-based guard would swallow the second click while
+        // leaving the window equally silent, so the press would still look reasonable to the user
+        // and the correctness property would become a tuning constant.
+        guard !isSubmittingFilter else { return }
+        isSubmittingFilter = true
         Task {
+            // Cleared on every terminal path, including the ones that throw. Leaking it would
+            // disable Apply for the rest of the session, which is a worse defect than the one this
+            // fixes and one no happy-path test would catch.
+            defer { isSubmittingFilter = false }
             if await raiseBaseToMinimumIfNeeded() {
                 await submitFilter()
             }
@@ -717,6 +750,23 @@ struct MainView: View {
                     .accessibilityValue(notice)
                     .accessibilityIdentifier("noticeMessage")
             }
+#if DEBUG
+            // How many generation requests the stubbed provider has been asked to make.
+            //
+            // Present only in a UI-test launch, and only because a paid request is otherwise
+            // invisible from outside the process: a GUI test sees results, and a second request
+            // returning an identical picture is one visible change and two charges. RT-122.2 is
+            // about the charges. Zero-width so it changes nothing on screen, and readable because
+            // its value carries the count.
+            if ProcessInfo.processInfo.environment["SUPERSCALE_UI_TEST_GENERATED_IMAGE"] != nil {
+                Text("")
+                    .frame(width: 0)
+                    .accessibilityElement()
+                    .accessibilityLabel("Generation requests")
+                    .accessibilityValue("\(UITestRequestLedger.shared.generationRequests)")
+                    .accessibilityIdentifier("generationRequestCount")
+            }
+#endif
         }
         .padding(.horizontal, 12)
         .frame(height: 26)

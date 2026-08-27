@@ -3035,6 +3035,20 @@ final class SuperscaleAppUITests: XCTestCase {
         lock.click()
     }
 
+    /// Applies a filter and waits for the result, without locking it.
+    ///
+    /// `applyAndLock` promotes the candidate, which is the wrong shape for a test about what the
+    /// candidate itself does: locking it would move the base forward again and undo the selection
+    /// the test just made.
+    private func applyFilterOnly(_ prompt: String) {
+        let field = element(identifier: "generationPromptField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.click()
+        field.typeText(prompt)
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+    }
+
     /// Every entry in the lock chain strip, in order.
     ///
     /// Matched as **buttons** rather than as any descendant. Each entry is a `Button` wrapping a
@@ -3066,6 +3080,204 @@ final class SuperscaleAppUITests: XCTestCase {
             element(identifier: "lockChain").waitForExistence(timeout: 10),
             "the locked iterations join the chain"
         )
+    }
+
+    // MARK: - AC94.4: one intent to apply issues one provider request (#122)
+
+    /// How many generation requests the stubbed provider has been asked to make.
+    ///
+    /// The only way to observe a paid call from outside the process. Counting arrivals on the
+    /// canvas is a different claim and passes against the defect: a second request returning an
+    /// identical picture is one visible change and two charges.
+    ///
+    /// Read after a positive signal that the work finished, because the element's value is
+    /// evaluated when the view redraws and nothing forces a redraw for the counter's own sake.
+    private var generationRequestCount: Int {
+        let element = element(identifier: "generationRequestCount")
+        guard element.waitForExistence(timeout: 5) else { return -1 }
+        return Int(element.value as? String ?? "") ?? -1
+    }
+
+    /// The suite's fixture, asserted to be below the filterable minimum.
+    ///
+    /// RT-122.7 depends on the raise happening, and the raise is the bulk of the window this issue
+    /// closes. Asserted rather than assumed so the test fails loudly if the fixture is ever
+    /// replaced, instead of quietly exercising a window of milliseconds.
+    private func assertFixtureNeedsARaise() {
+        let info = statusBarText(of: "noticeMessage")
+        XCTAssertTrue(
+            info.localizedCaseInsensitiveContains("minimum")
+                || info.localizedCaseInsensitiveContains("raised"),
+            "the fixture no longer needs a raise, so this test exercises the wrong window — \"\(info)\"")
+    }
+
+    // RT-122.1 and RT-122.2
+    //
+    // The reported defect: *"I could double click the button and it would fire twice which is a
+    // problem esp since it costs money."*
+    //
+    // Written as the second click changing nothing, not as the control being disabled after the
+    // first. A poll that runs after the disabling cannot tell "disabled synchronously" from
+    // "disabled a second later", and late is precisely the bug.
+    func test_twoRapidClicksOnApplyIssueOneRequest_RT122_1_and_RT122_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+
+        let apply = app.buttons["applyFilterButton"]
+        XCTAssertTrue(apply.isEnabled, "Apply is available before the first press")
+        apply.click()
+        // Immediately, with no wait: the window this issue closes is the one right after the click.
+        if apply.isEnabled { apply.click() }
+
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+        XCTAssertEqual(
+            generationRequestCount, 1,
+            "two clicks in the window issued two paid requests")
+    }
+
+    // RT-122.3
+    //
+    // The other half. Disabling the control is idempotence; this is AC94.1's obligation, and a fix
+    // delivering only the first leaves the user watching an unchanged window — the defect AC94.1
+    // exists to prevent, reappearing on the path that caused the double click.
+    func test_pressingApplyReportsWithinTheSameInteraction_RT122_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+
+        let indicator = app.descendants(matching: .any)
+            .matching(identifier: "workingIndicator")
+            .firstMatch
+        XCTAssertTrue(
+            indicator.waitForExistence(timeout: 3),
+            "nothing reported that work had begun, so the window is silent as well as live")
+    }
+
+    // RT-122.7
+    //
+    // The condition the author actually hit. The raise is a real Neural Engine run of several
+    // seconds and sits entirely inside the window; a picture already above the minimum exercises
+    // milliseconds and passes against the unfixed code.
+    func test_theWindowCoversTheRaiseOnAnUndersizedPicture_RT122_7() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        assertFixtureNeedsARaise()
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+
+        let apply = app.buttons["applyFilterButton"]
+        apply.click()
+        XCTAssertFalse(
+            apply.isEnabled,
+            "Apply stayed live into the raise, which is where the second click landed")
+
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+        XCTAssertEqual(generationRequestCount, 1)
+    }
+
+    // RT-122.4
+    //
+    // A flag that leaks on a failure path disables Apply for the rest of the session, which is a
+    // worse defect than the one being fixed and one no happy-path test catches.
+    func test_applyIsUsableAgainAfterTheProviderDeclines_RT122_4() {
+        failAGenerationRequest()
+        dismissFailureAlert()
+
+        let apply = app.buttons["applyFilterButton"]
+        XCTAssertTrue(
+            apply.waitForExistence(timeout: 5) && apply.isEnabled,
+            "a declined request left Apply permanently unavailable")
+    }
+
+    // RT-122.6
+    //
+    // The upload path is a different route from the generation path — #113 established that, and
+    // the flag must clear on both.
+    func test_applyIsUsableAgainAfterTheUploadFails_RT122_6() {
+        app.terminate()
+        app.launchEnvironment["SUPERSCALE_UI_TEST_FAIL"] = "provider"
+        app.launch()
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation")
+        app.buttons["applyFilterButton"].click()
+
+        XCTAssertTrue(failureAlert.waitForExistence(timeout: 120))
+        dismissFailureAlert()
+
+        let apply = app.buttons["applyFilterButton"]
+        XCTAssertTrue(
+            apply.waitForExistence(timeout: 5) && apply.isEnabled,
+            "a failed upload left Apply permanently unavailable")
+    }
+
+    // MARK: - AC89.9: selecting an iteration restores the working context it was made in (#121)
+
+    // RT-121.3
+    //
+    // The author's third symptom: *"when i click on a previous lock image, apply a filter, the
+    // 'Show original'/show filtered button is missing now."*
+    //
+    // A GUI test rather than a package one, because the claim is about what reaches the user. The
+    // control's presence follows from there being two assets to compare, and after a selection
+    // there are — the selected iteration and its parent — so a missing control means the graph and
+    // the view disagree about what is current, which is the whole of #121.
+    func test_theFilterToggleIsPresentAfterFilteringASelectedIteration_RT121_3() {
+        buildLockChain(of: 2)
+
+        let entries = lockChainEntries
+        XCTAssertGreaterThanOrEqual(entries.count, 2, "two locks give at least two entries")
+        entries[0].click()
+
+        applyFilterOnly("UI fixture generation after selecting")
+
+        let toggle = element(identifier: "filterToggle")
+        XCTAssertTrue(
+            toggle.waitForExistence(timeout: 10),
+            "filtering a selected iteration leaves nothing to compare against")
+    }
+
+    // RT-121.5
+    //
+    // The author's second symptom: *"it is showing a third image i do not know where it came from,
+    // seems to be identical but slightly brighter."*
+    //
+    // Asserted on the canvas's reported **identity**, not on its existence. A third image loaded
+    // from a real asset would satisfy "the canvas shows something the graph holds"; what was wrong
+    // was which asset, and that is what this reads. `canvasKind` is the report #117 made readable
+    // for exactly this kind of question.
+    func test_theCanvasReportsTheSelectedIterationNotSomethingElse_RT121_5() {
+        buildLockChain(of: 2)
+
+        let entries = lockChainEntries
+        XCTAssertGreaterThanOrEqual(entries.count, 2)
+        entries[0].click()
+
+        XCTAssertEqual(
+            canvasKind, "A filter result",
+            "selecting an iteration puts that iteration on the canvas as the candidate")
+
+        let showing = entries[0].value as? String ?? ""
+        XCTAssertTrue(
+            showing.localizedCaseInsensitiveContains("showing"),
+            "and the strip agrees which entry it is — the entry reads '\(showing)'")
     }
 
     /// RT-111.1: opening an iteration leaves the strip present, whole, and usable.
