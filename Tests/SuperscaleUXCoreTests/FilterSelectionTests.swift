@@ -273,3 +273,60 @@ private final class EphemeralCredentialStorage: CredentialStorage {
     func setValue(_ value: String, for slot: CredentialSlot) throws { values[slot] = value }
     func removeValue(for slot: CredentialSlot) throws { values[slot] = nil }
 }
+
+/// The mark beside a filter's name claims the box holds that filter's wording (#129).
+///
+/// In this file rather than its own, so it reaches the `noir` fixture: `private` is file-scoped for
+/// an extension in the same file.
+extension FilterSelectionTests {
+    // RT-129.3
+    //
+    // The author: *"perhaps when i start editing any prompt text, the check mark should be removed
+    // from the filter name too, to indicate that we are no longer applying one of the canned filter
+    // prompts."* Guide 2.3 allows the text to be adjusted per execution, and once it differs the
+    // mark asserts something untrue.
+    func test_editingThePromptClearsTheFilterMark_RT129_3() {
+        var selection = FilterSelection(filters: [noir])
+        selection.choose(noir.id)
+        XCTAssertTrue(selection.isShowingChosenFilterWording, "the box holds the filter's wording")
+
+        selection.text = noir.body + " Keep the sky."
+
+        XCTAssertFalse(
+            selection.isShowingChosenFilterWording,
+            "the mark still claims a filter whose words are no longer in the box")
+        XCTAssertEqual(
+            selection.selectedID, noir.id,
+            "the filter is still the one chosen; only the claim about the wording has changed")
+    }
+
+    // RT-129.4
+    //
+    // Derived rather than cleared on the first keystroke, so retyping the original brings it back.
+    // A stored flag would need an edit to un-set it and an exact-match check to re-set it, which is
+    // this computation with a state variable in front of it.
+    func test_restoringTheOriginalWordingRestoresTheMark_RT129_4() {
+        var selection = FilterSelection(filters: [noir])
+        selection.choose(noir.id)
+        selection.text = "something else entirely"
+        XCTAssertFalse(selection.isShowingChosenFilterWording)
+
+        selection.text = noir.body
+
+        XCTAssertTrue(
+            selection.isShowingChosenFilterWording,
+            "typing the filter's wording back did not restore its mark")
+    }
+
+    // RT-129.2
+    //
+    // With no filter chosen there is nothing for a mark to claim, whatever the box holds.
+    func test_textWithNoChosenFilterCarriesNoMark_RT129_2() {
+        var selection = FilterSelection(filters: [noir])
+        selection.text = noir.body
+
+        XCTAssertFalse(
+            selection.isShowingChosenFilterWording,
+            "text matching a filter's wording is not the same as having chosen it")
+    }
+}

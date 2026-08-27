@@ -28,6 +28,21 @@ public struct FilterSelection: Equatable, Sendable {
         selectedID.flatMap { id in filters.first { $0.id == id } }
     }
 
+    /// Whether the box still holds the chosen filter's own wording.
+    ///
+    /// What the mark beside a filter's name is entitled to claim. It read from `selectedID` alone,
+    /// so it stayed put through any amount of editing and went on naming a filter whose words were
+    /// no longer in the box --- guide 2.3 allows the text to be adjusted per execution, and once it
+    /// differs the mark asserts something untrue.
+    ///
+    /// Derived rather than cleared on the first keystroke, so retyping the original wording brings
+    /// it back. A stored flag would need an edit to un-set it and an exact-match check to re-set it,
+    /// which is this computation with a state variable in front of it.
+    public var isShowingChosenFilterWording: Bool {
+        guard let filter = selectedFilter else { return false }
+        return filter.body == text
+    }
+
     /// The text that would be sent, with surrounding whitespace removed.
     public var promptToApply: String {
         text.trimmingCharacters(in: .whitespacesAndNewlines)

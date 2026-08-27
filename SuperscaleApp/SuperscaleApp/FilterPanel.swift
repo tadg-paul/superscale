@@ -180,7 +180,11 @@ struct FilterPanel: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if selection.selectedID == filter.id {
+                // The mark claims the box holds *this filter's wording*, so it goes the moment the
+                // wording is edited and returns if the original is typed back. Read from
+                // `selectedID` alone it survived any amount of editing and went on naming a filter
+                // whose words were no longer there (#129).
+                if selection.selectedID == filter.id, selection.isShowingChosenFilterWording {
                     Image(systemName: "checkmark").foregroundStyle(.tint)
                 }
             }

@@ -676,9 +676,14 @@ struct MainView: View {
             // only: it stores nothing, so it is free and reversible, and it is unavailable when
             // there is no candidate to compare against.
             if workspace.canCompare {
+                // "Filter" in both states, by #129. The wording changed under the pointer —
+                // "Showing Filtered" became "Showing Original" — so the control described its
+                // current state while a toggle's label is read as what it does. A constant name and
+                // a pressed state say both things without either being ambiguous. The author's own
+                // words: *"the user will understand 'Filter' and that the button is a toggle."*
                 Toggle(isOn: $workspace.showsBase) {
                     Label(
-                        workspace.showsBase ? "Showing Original" : "Showing Filtered",
+                        "Filter",
                         systemImage: workspace.showsBase ? "photo" : "wand.and.stars"
                     )
                 }
