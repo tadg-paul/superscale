@@ -2337,6 +2337,129 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - AC119.1: the progress indicator is centred over the picture (#119)
+
+    /// How far two midpoints may differ and still count as centred.
+    ///
+    /// The criterion means centred, not identical to the last decimal. Comparing laid-out
+    /// `CGFloat` midpoints exactly fails on rounding and retina scaling rather than on placement.
+    /// Two points is well inside what anyone perceives as off-centre and well outside layout noise.
+    private static let centringTolerance: CGFloat = 2
+
+    /// The picture on the canvas, which is what the indicator is centred over.
+    ///
+    /// **Not the `workspaceCanvas` container.** That container declares `children: .contain`, and
+    /// its accessibility frame is the union of its descendants rather than the visible canvas
+    /// rectangle: measured here, its midpoint sat 68 points to the right of the indicator's, in the
+    /// direction of the filter panel. AC119.1 says centred over the *picture*, and the picture is
+    /// what this reads.
+    private var canvasPicture: XCUIElement {
+        app.descendants(matching: .any).matching(identifier: "workingImage").firstMatch
+    }
+
+    /// Brings the fixture in, runs `prepare`, then starts an upscale and catches the indicator.
+    ///
+    /// The indicator exists only while work is in flight, so anything a test needs on screen
+    /// alongside it has to be arranged *before* the work starts. Doing it afterwards races the
+    /// upscale, which on this fixture finishes in seconds.
+    private func startUpscaleAndCatchTheIndicator(
+        preparing prepare: () -> Void = {}
+    ) -> XCUIElement {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        prepare()
+        clearScale()
+        chooseScale(8)
+
+        // `firstMatch` for the same reason as the canvas: more than one element carries this
+        // identifier, and reading `.frame` from an ambiguous query raises "Multiple matching
+        // elements found" rather than returning anything.
+        let indicator = app.descendants(matching: .any)
+            .matching(identifier: "workingIndicator")
+            .firstMatch
+        XCTAssertTrue(indicator.waitForExistence(timeout: 10), "no indicator while work is running")
+        return indicator
+    }
+
+    /// RT-119.1: the indicator is horizontally centred on the canvas.
+    func test_theIndicatorIsHorizontallyCentred_RT119_1() {
+        let indicator = startUpscaleAndCatchTheIndicator()
+
+        XCTAssertEqual(
+            indicator.frame.midX, canvasPicture.frame.midX,
+            accuracy: Self.centringTolerance,
+            "the indicator is not horizontally centred on the canvas"
+        )
+    }
+
+    /// RT-119.2: the indicator is vertically centred on the canvas.
+    ///
+    /// The one that would have failed against the old placement, which put the indicator's midpoint
+    /// in the upper third.
+    func test_theIndicatorIsVerticallyCentred_RT119_2() {
+        let indicator = startUpscaleAndCatchTheIndicator()
+
+        XCTAssertEqual(
+            indicator.frame.midY, canvasPicture.frame.midY,
+            accuracy: Self.centringTolerance,
+            "the indicator is not vertically centred on the canvas"
+        )
+    }
+
+    /// RT-119.3: the indicator and the info panel are both present and do not overlap.
+    ///
+    /// #90 stacked the two together because as separate top-anchored children the panel drew over
+    /// the indicator and hid it. Centring separates them by position instead, and this holds that
+    /// the separation is real.
+    func test_theIndicatorAndTheInfoPanelDoNotCollide_RT119_3() {
+        // The panel is visible from launch: `infoPanelDismissed` starts false. Calling
+        // `showInfoPanel` here toggled the comparison on the way, which disturbed the state the
+        // test is about.
+        let indicator = startUpscaleAndCatchTheIndicator()
+
+        let panel = app.staticTexts["infoScale"]
+        XCTAssertTrue(panel.waitForExistence(timeout: 5), "the info panel is not shown")
+        XCTAssertTrue(indicator.exists, "the indicator went away when the panel appeared")
+        XCTAssertFalse(
+            indicator.frame.intersects(panel.frame),
+            "the indicator and the info panel overlap"
+        )
+    }
+
+    /// RT-119.4: with the comparison showing, the indicator is centred over the curtain.
+    ///
+    /// AC90.13 never had to answer this, because the indicator sat clear of the picture. The
+    /// operation most likely to be running while a user is comparing is an upscale, which is
+    /// exactly when they are watching.
+    func test_theIndicatorIsCentredOverTheCurtain_RT119_4() {
+        // Comparison is entered before the work starts, for the same reason as RT-119.3.
+        let indicator = startUpscaleAndCatchTheIndicator(preparing: {
+            let compare = app.buttons["compareButton"]
+            XCTAssertTrue(compare.waitForExistence(timeout: 10), "no comparison is offered")
+            compare.click()
+            // The control's own label is the signal that the toggle took. Waiting on a subview of
+            // the comparison confuses "it did not open" with "that subview is not reachable", and
+            // the last two attempts could not tell those apart.
+            let opened = NSPredicate(format: "label == %@", "Full View")
+            let promise = expectation(for: opened, evaluatedWith: compare)
+            XCTAssertEqual(
+                XCTWaiter().wait(for: [promise], timeout: 10), .completed,
+                "the comparison did not open"
+            )
+        })
+
+        XCTAssertEqual(
+            indicator.frame.midX, canvasPicture.frame.midX,
+            accuracy: Self.centringTolerance,
+            "the indicator is not horizontally centred while comparing"
+        )
+        XCTAssertEqual(
+            indicator.frame.midY, canvasPicture.frame.midY,
+            accuracy: Self.centringTolerance,
+            "the indicator is not vertically centred while comparing"
+        )
+    }
+
     // MARK: - AC94.3 and AC90.6: the curtain is offered for a filter result (#112)
 
     /// Imports the fixture and applies a filter, leaving the scale as the raise set it.

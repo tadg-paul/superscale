@@ -125,34 +125,41 @@ struct MainView: View {
     // MARK: - Canvas
 
     private var canvas: some View {
-        ZStack(alignment: .top) {
+        ZStack {
             canvasContent
 
-            // Both pieces of top chrome stack rather than overlap. They previously sat as separate
-            // children of this ZStack, both anchored to the top, and the info panel was drawn last
-            // over a material background several lines tall — so the indicator was invisible behind
-            // it. It went unnoticed because the indicator used to fill the canvas and centre its
-            // spinner well below the panel; shrinking it to a badge put it underneath.
+            // The info panel keeps the top. It is anchored by a `Spacer` beneath it rather than by
+            // the stack's alignment, because the indicator below no longer shares that alignment.
             VStack(spacing: 8) {
-                // Progress sits *over* the image rather than in place of it. Replacing the picture
-                // with a spinner threw away the thing the user came for and made a drop look as
-                // though it had been ignored.
-                //
-                // It reports *any* work, not only the local upscale. The canvas watched
-                // `isProcessing` alone, so a paid provider call ran for tens of seconds in silence
-                // while the status dot and the filter panel both knew.
-                if canvasWork.isBusy {
-                    // The indicator carries its own background, within its own bounds. Nothing is
-                    // drawn across the picture: a material applied here covered the whole canvas,
-                    // because the overlay used to be full-size.
-                    ProgressOverlay(message: canvasWork.message)
-                        .accessibilityIdentifier("workingIndicator")
-                }
                 if !infoPanelDismissed && !viewModel.showComparison {
                     InfoPanel(viewModel: viewModel, dismissed: $infoPanelDismissed)
                 }
+                Spacer(minLength: 0)
             }
             .padding(.top, 16)
+
+            // Progress sits *over* the image rather than in place of it. Replacing the picture with
+            // a spinner threw away the thing the user came for and made a drop look as though it had
+            // been ignored.
+            //
+            // It reports *any* work, not only the local upscale. The canvas watched `isProcessing`
+            // alone, so a paid provider call ran for tens of seconds in silence while the status dot
+            // and the filter panel both knew.
+            //
+            // **Centred, by #119.** It sat at the top until then, which AC90.13 specified and
+            // RT-90.49 asserted; both are superseded by AC119.1. The two pieces of chrome were
+            // stacked together at that point because as separate top-anchored children the info
+            // panel drew over the indicator and hid it. Centring separates them by position rather
+            // than by stacking, and RT-119.3 holds that they do not collide again.
+            //
+            // The indicator carries its own background, within its own bounds. Nothing is drawn
+            // across the picture: a material applied here covered the whole canvas, because the
+            // overlay used to be full-size. Centring puts the badge over the middle of the picture
+            // rather than its edge, so that guarantee is doing more work than it was.
+            if canvasWork.isBusy {
+                ProgressOverlay(message: canvasWork.message)
+                    .accessibilityIdentifier("workingIndicator")
+            }
         }
     }
 
