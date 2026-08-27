@@ -660,20 +660,17 @@ final class UpscaleViewModel: ObservableObject {
         // toggling the scale off and on again rebuilt from scratch every time while toggling faces
         // was instant — the asymmetry the author noticed, and the evidence for where the omission
         // was.
-        // 🚫 **Deliberately reads the property rather than the effective selection**, and that is a
-        // known latent defect rather than an oversight. `@Published` publishes in `willSet`, so
-        // inside the `$scaleSelection` sink this keys the store by the scale being *replaced*:
-        // choosing 8x looks up 4x, and where a 4x rendering is held it is returned instantly, so
-        // the user sees the previous scale's picture beneath a readout naming the new one.
+        // **Keyed by the effective selection, not the published property** (#123, closing #106).
         //
-        // Threading the effective selection through here fixes it in three lines and was tried.
-        // It also changes when a run happens rather than a cached rendering being served, which
-        // moved three closed issues' GUI tests (RT-156, RT-158, RT-090.52) from passing to failing
-        // — not because they were wrong, but because they were written against the timings the
-        // defect produces. That is a change with its own tests and its own verification burden.
-        // **Tracked as #106**, which carries the reachability analysis, the harmful case, and the
-        // staged fix procedure. Remove this note as part of that fix.
-        if let held = heldRendering(facesEnhanced: faceEnhance) {
+        // `@Published` publishes in `willSet`, so inside the `$scaleSelection` sink the property
+        // still holds the scale being *replaced*. Reading it here looked up 4x when the user had
+        // chosen 8x, and where a 4x rendering was held it came back instantly — the previous
+        // scale's picture beneath a readout naming the new one.
+        //
+        // The same trap, three lines below the comment that warns about the first instance of it.
+        // The remedy is the same: take the value as a parameter and never read the property back
+        // inside its own sink.
+        if let held = heldRendering(facesEnhanced: faceEnhance, selection: selection ?? scaleSelection) {
             result = held
             isProcessing = false
             progressMessage = ""

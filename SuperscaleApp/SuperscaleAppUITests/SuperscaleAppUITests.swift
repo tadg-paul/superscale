@@ -3096,6 +3096,68 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
+    // MARK: - A rendering already produced is served rather than rebuilt (#123, closing #106)
+
+    /// The scale the readout says is actually running.
+    private var scaleInEffect: Int? {
+        [2, 4, 8].first { scale in
+            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+            return value.contains("in effect") && !value.contains("not in effect")
+        }
+    }
+
+    // RT-123.2
+    //
+    // #106's defect, and the reason this cache could not simply be switched on. `heldRendering`
+    // was consulted inside the `$scaleSelection` sink, and `@Published` publishes in `willSet` —
+    // so the lookup was keyed by the scale being **replaced**. Choosing 8x looked up 4x, found the
+    // rendering held from a moment earlier, and returned it instantly: the previous scale's picture
+    // beneath a readout naming the new one.
+    //
+    // Asserted on the readout and the canvas together, because either alone is satisfied by the
+    // defect — the readout was always right, and the canvas always had *a* rendering on it.
+    func test_choosingANewScaleDoesNotServeThePreviousScalesRendering_RT123_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        chooseScale(4)
+        XCTAssertTrue(waitForUpscaleComplete(), "the 4x rendering should complete")
+
+        chooseScale(8)
+        XCTAssertTrue(waitForUpscaleComplete(), "the 8x rendering should complete")
+
+        XCTAssertEqual(scaleInEffect, 8, "the readout names the scale that is running")
+        XCTAssertEqual(
+            canvasKind, "An upscaled rendering",
+            "and an upscaled rendering is what is on the canvas")
+    }
+
+    // RT-123.1
+    //
+    // The author: *"toggling on and off 2x or 4x etc, should be instantaneous - it has already
+    // upscaled this image and should be rendering it from cache. instead it spends time upscaling
+    // every time."*
+    //
+    // Observed as the **absence of a run**: a rendering served from the store shows no progress
+    // indicator, because no pipeline work happens. Going back to a scale rendered earlier in the
+    // same session is the case the author described.
+    func test_returningToAPreviouslyRenderedScaleRunsNothing_RT123_1() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        chooseScale(4)
+        XCTAssertTrue(waitForUpscaleComplete(), "the 4x rendering should complete")
+        chooseScale(8)
+        XCTAssertTrue(waitForUpscaleComplete(), "the 8x rendering should complete")
+
+        // Back to 4x, which was rendered a moment ago and is still held.
+        chooseScale(4)
+
+        let indicator = app.descendants(matching: .any)
+            .matching(identifier: "workingIndicator")
+            .firstMatch
+        XCTAssertFalse(
+            indicator.waitForExistence(timeout: 3),
+            "returning to an already-rendered scale started a new run instead of serving the held one")
+        XCTAssertEqual(scaleInEffect, 4, "and the readout names it")
+    }
+
     // MARK: - AC90.6, AC94.3, AC90.13: the curtain can always be left (#126)
 
     // RT-126.2
