@@ -1,4 +1,4 @@
-<!-- Version: 3.33 | Last updated: 2026-08-27 -->
+<!-- Version: 3.34 | Last updated: 2026-08-27 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -138,6 +138,23 @@ is not the default and is not in the MVP.
 **Edits are not saved in the v2 MVP.** They apply to that execution only, do not
 modify the built-in filter, and do not persist across selections or sessions.
 Saving user-authored filters is deferred.
+
+**A result already paid for in this session is shown again rather than
+re-requested.** Where the base, the model and the prompt as sent all match a
+filtered asset the graph already holds, that asset becomes the candidate and no
+provider request is made. The user is told, on the same unobtrusive channel as
+the minimum-resolution raise: a paid action completing instantly is a good
+surprise only if the application says why.
+
+This is **a read of the graph, not a cache beside it.** Every filtered asset
+already records its parent and its provenance, so the question is answerable
+from what is held; a parallel store keyed on a hash would be a second place the
+truth about a result lives, and the two would drift. It is session-scoped for
+the same reason: a held result is only useful while the picture it descends from
+is still the one being worked on.
+
+The match is on the prompt **as sent**, so an edit is a different request. That
+is the honest comparison, because it is what the provider would be given.
 
 **The MVP ships one model: `xai/grok-imagine-image`.** There is no model picker
 to reason about. Every filter runs against it, using its edit endpoint
@@ -1466,6 +1483,15 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.34 (2026-08-27):** Section 2.3 gains the rule that a filter result already paid for in this
+  session is shown again rather than re-requested, matched on the base, the model and the prompt as
+  sent. New behaviour rather than a correction: the two-step interaction was designed so that
+  *exploring* costs nothing, and said nothing about a repeated identical application. It became
+  worth having when #121 made selecting an earlier iteration an ordinary way to work, which puts a
+  user back in front of pictures they have already filtered with the same filter still loaded.
+  Recorded as **a read of the graph rather than a cache beside it**: every filtered asset already
+  holds its parent and its provenance, and a parallel store keyed on a hash would be a second place
+  the truth about a result lives (#124).
 - **3.33 (2026-08-27):** Section 2.5's launch default is reversed: nothing is selected when the
   application starts. Reactivity is unchanged --- an upscale still runs whenever a scale is selected
   and there is something to run on --- but a session no longer begins with one already in effect.

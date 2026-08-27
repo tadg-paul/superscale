@@ -316,14 +316,22 @@ final class AssetGraphTests: XCTestCase {
     // MARK: - AC81.6 every locked iteration remains reachable
 
     // RT-81.16
-    func test_afterThreeLocksTheChainYieldsThreePriorIterationsInOrder() throws {
+    //
+    // **The newest lock joins the chain as of #121, so this expects four entries where it expected
+    // three.** The chain was the base's ancestry, which excluded the newest lock because it was
+    // where the user stood rather than somewhere they could go. Guide 3.32 reads the chain from the
+    // tip instead, because selecting an earlier iteration now moves the base backwards and a chain
+    // read from the base would lose everything forward of the selection. Every lock is selectable,
+    // including the newest — which is what lets a user who scrolled back get forward again.
+    func test_afterThreeLocksTheChainYieldsEveryIterationInOrder() throws {
         var graph = try makeGraph()
         let source = graph.importSource(fileURL: try placeholder(named: "source.png"), pixelSize: .fixture)
         let first = try applyFilterAndLock(&graph, name: "first")
         let second = try applyFilterAndLock(&graph, name: "second")
-        _ = try applyFilterAndLock(&graph, name: "third")
+        let third = try applyFilterAndLock(&graph, name: "third")
 
-        XCTAssertEqual(graph.lockedIterations.map(\.id), [source, first, second].map(\.id))
+        XCTAssertEqual(
+            graph.lockedIterations.map(\.id), [source, first, second, third].map(\.id))
     }
 
     // RT-81.17
@@ -375,7 +383,11 @@ final class AssetGraphTests: XCTestCase {
 
         try FileManager.default.removeItem(at: try graph.asset(for: first).fileURL)
 
-        XCTAssertEqual(graph.lockedIterations.count, 2)
+        // Three, not two, since #121: the source, the iteration whose file is gone, and the newest
+        // lock — which now joins the chain because every lock is selectable. The claim being made
+        // here is unchanged and is the one in the name: an iteration whose file has gone **stays**
+        // in the chain and reports itself unavailable, rather than vanishing from the record.
+        XCTAssertEqual(graph.lockedIterations.count, 3)
         XCTAssertTrue(graph.lockedIterations.contains { $0.id == first.id })
         XCTAssertFalse(try graph.isAvailable(first))
     }
