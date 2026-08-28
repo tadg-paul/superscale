@@ -3240,6 +3240,47 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(app.images["workingImage"].exists, "and the picture is still on the canvas")
     }
 
+    // RT-126.5
+    //
+    // *"The comparator should appear the first time i do an operation on it."* It appeared on the
+    // second and not the first, because the application switched it on wherever a run published —
+    // so the very first operation of a session, which has nothing held to publish over, showed
+    // nothing.
+    func test_theCurtainAppearsOnTheFirstOperation_RT126_5() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
+            "the first operation of the session did not show the comparison")
+    }
+
+    // RT-126.3 and RT-126.4
+    //
+    // *"If i switch it off, never show it, if i switch it on, always show it."*
+    //
+    // The second assertion is the one that matters: switching it off and then completing another
+    // operation must leave it off. Defaulting the flag to on while leaving the application's writes
+    // in place satisfies RT-126.5 and fails here, because the next completed run turns it back on.
+    func test_theCurtainStaysOffAcrossAnOperation_RT126_3_and_RT126_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let compare = app.buttons["compareButton"]
+        XCTAssertTrue(compare.waitForExistence(timeout: 10))
+        compare.click()
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
+            "the curtain did not switch off")
+
+        // Another operation completes. The setting must survive it.
+        applyFilterOnly("UI fixture generation with the curtain off")
+
+        XCTAssertFalse(
+            app.otherElements["curtainDivider"].exists,
+            "a completed operation switched the comparison back on against the user's choice")
+    }
+
     // RT-126.1
     //
     // *"the comparator appears, but the info panel with the resolution is NOT VISIBLE"* — and the
@@ -3492,6 +3533,40 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(
             waitForUpscaleComplete(),
             "selecting a scale did not run the upscale, so reactivity was lost with the default")
+    }
+
+    // RT-131.4 and RT-131.5
+    //
+    // *"When i un-toggle both 2x and 4x, then re toggle 4x, it appears like 2x and 4x are pressed
+    // in."*
+    //
+    // Exactly one scale is ever *in effect*, and the readout is what says so. The appearance the
+    // author saw came from `tint()` returning a fill for the requested-but-reduced state as well,
+    // which decision D-2 replaces with an outline — but the underlying state was always singular,
+    // and this holds that line so a future rendering change cannot blur it again.
+    func test_exactlyOneScaleReadsAsInEffect_RT131_4_and_RT131_5() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        chooseScale(4)
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let inEffect = [2, 4, 8].filter { scale in
+            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+            return value.contains("in effect") && !value.contains("not in effect")
+        }
+        XCTAssertEqual(inEffect, [4], "exactly one scale is in effect, and it is the one chosen")
+
+        // Clear it and choose again, which is the sequence the author described.
+        clearScale()
+        chooseScale(8)
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let afterReselect = [2, 4, 8].filter { scale in
+            let value = (app.buttons["scale\(scale)x"].value as? String ?? "").lowercased()
+            return value.contains("in effect") && !value.contains("not in effect")
+        }
+        XCTAssertEqual(
+            afterReselect, [8],
+            "after clearing and reselecting, only the chosen scale reads as in effect")
     }
 
     // RT-131.7

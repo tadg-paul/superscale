@@ -109,7 +109,17 @@ final class UpscaleViewModel: ObservableObject {
     @Published var lastUpscaleModelName: String?
     @Published var lastUpscaleFaceCount: Int = 0
     @Published var lastUpscaleWasAutoDetect: Bool = false
-    @Published var showComparison: Bool = false
+    /// Whether the user wants the comparison curtain drawn.
+    ///
+    /// **A preference, written only by the user** (guide 2.3, #126). On by default, because the
+    /// comparison is what a filter or an upscale is for and the author asked that it be there the
+    /// first time rather than the second. The application wrote this in four places and the curtain
+    /// therefore followed work completing rather than intent: it appeared on the second operation
+    /// of a session and not the first, and turning it off did not keep it off.
+    ///
+    /// Nothing is drawn over nothing: `canvasContent` requires a derivation and a base to compare
+    /// it against, so this setting can be left alone through an import or a released result.
+    @Published var showComparison: Bool = true
 
 
     // MARK: - Model list
@@ -477,7 +487,11 @@ final class UpscaleViewModel: ObservableObject {
         resultSource = nil
         renderings.forget()
         renderedImages.removeAll()
-        showComparison = false
+        // 🚫 `showComparison = false` is removed by #126. The curtain's visibility is the user's
+        // setting and the application no longer writes it (guide 2.3). Nothing is drawn over
+        // nothing: with the result released there is no derivation, and `canvasContent` requires
+        // one. Clearing it here meant a user who had the curtain on found it off again after
+        // turning the scale off, and had to switch it back on.
         progressMessage = ""
     }
 
@@ -618,7 +632,9 @@ final class UpscaleViewModel: ObservableObject {
             result = nil
             resultData = nil
             resultSource = nil
-            showComparison = false
+            // 🚫 `showComparison = false` removed by #126: a new picture has nothing to compare, so
+            // the guard in `canvasContent` already keeps the curtain away. Turning the user's
+            // setting off here meant importing a second picture silently reversed their choice.
             renderings.forget()
         }
 
@@ -674,7 +690,9 @@ final class UpscaleViewModel: ObservableObject {
             result = held
             isProcessing = false
             progressMessage = ""
-            showComparison = true
+            // 🚫 `showComparison = true` removed by #126. Serving a held rendering is work
+            // completing, and the curtain follows the user's setting rather than work completing —
+            // which is why it appeared on the second operation of a session and not the first.
             return
         }
 
@@ -891,7 +909,8 @@ final class UpscaleViewModel: ObservableObject {
         lastUpscaleWasAutoDetect = output.wasAutoDetect
         isProcessing = false
         progressMessage = ""
-        showComparison = true
+        // 🚫 `showComparison = true` removed by #126. The last of four places the application wrote
+        // this; between them the curtain followed work completing rather than the user's intent.
     }
 
     private func abandon(_ run: UUID, error: Error) {

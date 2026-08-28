@@ -1,4 +1,4 @@
-<!-- Version: 3.35 | Last updated: 2026-08-27 -->
+<!-- Version: 3.36 | Last updated: 2026-08-28 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -173,6 +173,22 @@ Other rules:
 compares **what is on the canvas against the base it descends from** --- so after
 applying a filter it shows the user's own picture against what the filter made of
 it, whether or not that has since been upscaled.
+
+**Whether it is drawn is the user's setting and nothing else's.** The Compare
+control is a preference, on by default, and the application never writes it: the
+curtain appears when the setting is on and there are two assets to compare, and
+at no other time. Off means never, on means always.
+
+This was previously incidental. The curtain was switched on wherever a run
+published or a held rendering was served, and off wherever a result was
+released --- so it followed *work completing* rather than intent, and appeared on
+the second operation of a session but not the first. Being told the comparison
+is available throughout is no use if the user cannot predict when it will be
+there, or turn it off and have it stay off.
+
+The two-asset guard does the rest of the work: with nothing derived there is
+nothing to compare, so the setting can be left alone across an import or a
+released result without a curtain being drawn over nothing.
 
 The pair is never an image and its own rendering. Pairing them was the earlier
 rule, and it produced a comparison whose two sides differed in resolution and in
@@ -1501,6 +1517,13 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.36 (2026-08-28):** Section 2.3 gains the rule that the comparison curtain's visibility is the
+  **user's setting and nothing else's** --- on by default, written only by the user, drawn when the
+  setting is on and there are two assets to compare. It had been switched on wherever a run
+  published or a held rendering was served, and off wherever a result was released, so it followed
+  work completing rather than intent: present on a session's second operation and not its first, and
+  not staying off when turned off. Being told comparison is *available throughout* is no use if the
+  user cannot predict when it will appear (#126).
 - **3.35 (2026-08-27):** Sections 2.4 and 3.2 and invariant I7 replace the tip with a **held chain**.
   3.32's tip was right about the diagnosis and wrong about the remedy: it fixed a base that moved
   backwards and introduced a lock that truncated. Deriving the chain from a single pointer was tried

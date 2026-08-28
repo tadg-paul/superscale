@@ -31,8 +31,15 @@ struct ScalePicker: View {
                     Text("\(scale)×")
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                 }
+                // Filled when in effect, outlined when asked for but overruled. Both states were
+                // tinted, and a tinted bordered button reads as pressed — so a ceiling reduction
+                // showed two scales apparently selected, and the author read the dimmed one as
+                // disabled as well (#131, #125, decision D-2). The outline keeps AC82.8's promise
+                // that the control goes on showing what was asked for, without claiming it is what
+                // is running.
                 .buttonStyle(.bordered)
                 .tint(tint(for: .preset(scale)))
+                .overlay(requestedOutline(for: .preset(scale)))
                 .help(help(for: .preset(scale), label: "Upscale \(scale)×"))
                 // The state travels as a value, not only as a colour. A tint reaches nobody: not
                 // VoiceOver, and not a test trying to establish which scale is actually running.
@@ -69,8 +76,24 @@ struct ScalePicker: View {
     private func tint(for choice: ScaleSelection) -> Color? {
         switch viewModel.scaleReadout.state(of: choice) {
         case .inEffect: return .accentColor
-        case .requestedNotInEffect: return .secondary
+        // No tint. A `.secondary` fill here read as pressed *and*, being dimmer than the accent,
+        // as disabled — one visual doing duty for a state that is neither. The outline below says
+        // "this is what you asked for" instead (decision D-2).
+        case .requestedNotInEffect: return nil
         case .inactive: return nil
+        }
+    }
+
+    /// The outline drawn on a scale that was asked for but overruled by the area ceiling.
+    ///
+    /// Only that state gets one, so it is distinguishable from both the scale actually running and
+    /// the scales nobody asked for. `strokeBorder` rather than `stroke`: `stroke` centres the line
+    /// on the path and grows the control, which #66 measured as a 28pt handle rendering at 29.5.
+    @ViewBuilder
+    private func requestedOutline(for choice: ScaleSelection) -> some View {
+        if viewModel.scaleReadout.state(of: choice) == .requestedNotInEffect {
+            RoundedRectangle(cornerRadius: 5)
+                .strokeBorder(Color.accentColor, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
         }
     }
 
