@@ -2622,9 +2622,12 @@ final class SuperscaleAppUITests: XCTestCase {
         // compared, and this test is about the geometry.
         applyFilterLeavingScaleOff()
 
-        let compare = app.buttons["compareButton"]
-        XCTAssertTrue(compare.waitForExistence(timeout: 10))
-        compare.click()
+        // Through the helper rather than a bare click. #126 made the curtain's visibility a
+        // preference that defaults to on, so clicking the control unconditionally now closes it.
+        XCTAssertTrue(
+            app.buttons["compareButton"].waitForExistence(timeout: 10),
+            "no comparison is offered")
+        enterComparison()
 
         let line = app.descendants(matching: .any)
             .matching(identifier: "curtainDividerLine").firstMatch
@@ -2852,7 +2855,11 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_enteringComparisonOverAFilterResultShowsTheCurtain_RT112_2() {
         applyFilterLeavingScaleOff()
 
-        app.buttons["compareButton"].click()
+        // Through the helper, which clicks only when the control says "Compare". Clicking it
+        // unconditionally used to open the curtain and now closes it: #126 made the setting a
+        // preference that defaults to on, so a bare click is a toggle away from what this test
+        // wants. The claim under test is unchanged — a filter result offers a working curtain.
+        enterComparison()
         XCTAssertTrue(
             element(identifier: "curtainDivider").waitForExistence(timeout: 5),
             "the curtain has no divider"
