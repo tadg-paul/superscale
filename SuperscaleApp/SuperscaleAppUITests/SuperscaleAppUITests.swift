@@ -3588,7 +3588,7 @@ final class SuperscaleAppUITests: XCTestCase {
             "the status bar no longer reports local upscaling as available — \"\(status)\"")
     }
 
-    // MARK: - AC94.4: one intent to apply issues one provider request (#122)
+    // MARK: - AC94.5: one intent to apply issues one provider request (#122)
 
     /// How many generation requests the stubbed provider has been asked to make.
     ///

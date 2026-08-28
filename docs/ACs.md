@@ -219,7 +219,23 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-131.2: importing with nothing selected runs no upscale
   - ✅ RT-131.3: selecting a scale after import runs the upscale
   - ✅ RT-131.7: with nothing selected, upscaling still reads as available
+  - ✅ RT-131.4: exactly one scale reads as in effect
+  - ✅ RT-131.5: after clearing and reselecting, only the chosen scale reads as in effect
   - ⏳ UT-93.1: re-offered on master #120
+- Note: **two scales appearing pressed was a rendering fault, not a selection fault.** `tint()`
+  returned a fill for `requestedNotInEffect` as well as for `inEffect`, and a tinted `.bordered`
+  button reads as pressed --- so a ceiling reduction showed the scale running *and* the scale asked
+  for, both apparently selected, and the dimmer of the two read as disabled besides. The author
+  diagnosed it as a disabled control; `ScaleReadout.isChoosable` returns true unconditionally and
+  nothing was ever disabled. **Decision D-2** on master #120: the reduced scale gets a dashed
+  outline instead, which keeps AC82.8's promise that the control shows what was asked for without
+  claiming it is what runs. RT-131.4 and RT-131.5 hold the underlying state singular so a later
+  rendering change cannot blur it again.
+- Note: **decision D-3** declined the request to disable every control above the size threshold.
+  `ScaleReadout.swift:88` records why the controls stay pressable --- *"dimmed reads as disabled ---
+  which would trap the user at the reduced scale until they imported a different picture"* --- and
+  disabling them would deliver the letter of the request while creating that trap. The appearance
+  the request was aimed at is what D-2 fixes.
 - Note: **this reverses a documented decision rather than fixing an accident.** Guide 2.5 held that
   v1's immediacy --- drop a picture and it upscales at whatever scale is selected --- was the v1
   experience and was kept. In use the cost was paid on the first action of every session, on an
@@ -1595,9 +1611,16 @@ extended AC92.1, AC92.5 and AC92.6.
 
 ## What the canvas reports, and what the curtain compares
 
-### AC94.4 - A single intent to apply a filter issues at most one provider request, whatever the interface does between the intent and the request being sent.
+### AC94.5 - A single intent to apply a filter issues at most one provider request, whatever the interface does between the intent and the request being sent.
 - Introduced: #122 (closed 2026-08-27), backfilled onto the #94 family
-- Migrated: 2026-08-27
+- Migrated: 2026-08-27, renumbered from AC94.4 on 2026-08-28
+- Note: **this was migrated as AC94.4 and collided with an existing criterion of that number**
+  (*"Scrolling moves the picture only while the pointer is over it"*, introduced by #94 and migrated
+  2026-08-25). `ISSUES.md` §"AC and test ID allocation" requires checking the family for the highest
+  allocated number before minting one, and I did not --- I read the family's tests rather than its
+  criteria. Renumbered rather than left ambiguous: two criteria sharing an ID is worse than a
+  renumber, and this one had been in the document for a day rather than being load-bearing history.
+  The colliding original keeps AC94.4.
 - Tests:
   - ✅ RT-122.1: the Apply control is unavailable from the click, before any asynchronous work
   - ✅ RT-122.2: two clicks in rapid succession issue exactly one provider request
@@ -1685,6 +1708,29 @@ extended AC92.1, AC92.5 and AC92.6.
   route, which is the shape that also nearly reinstated #111 in this delivery.
 - Note: the hit is reported on the status bar's unobtrusive channel, beside the raise and reduction
   notices. A paid action completing instantly is a good surprise only if the application says why.
+
+### AC94.6 - The comparison curtain is shown when the user has it switched on and there are two assets to compare, and at no other time. Nothing but the user changes that setting.
+- Introduced: #126 (closed 2026-08-28), backfilled onto the #94 family
+- Migrated: 2026-08-28
+- Tests:
+  - ✅ RT-126.3: with the curtain switched off, no operation shows it
+  - ✅ RT-126.4: the setting survives a completed operation
+  - ✅ RT-126.5: with it on, the first operation of a session shows it
+  - ⏳ UT-126.1: pending human resolution in delivery master #120
+- Note: **the application wrote this setting in four places** --- true wherever a run published or a
+  held rendering was served, false wherever a result was released or a new picture arrived. So the
+  curtain followed *work completing* rather than intent: present on a session's second operation and
+  absent on its first, and not staying off when switched off. The author reported it as *"very
+  inconsistent about when it decides to show the comparator curtain"*.
+- Note: **the setting defaults to on**, because the comparison is what a filter or an upscale is
+  for, and the author asked that it be there the first time rather than the second.
+- Note: nothing is drawn over nothing. `canvasContent` already requires a derivation and a base to
+  compare it against, so the setting can be left alone through an import or a released result ---
+  which is what lets the four writes go rather than be replaced with narrower ones.
+- Note: **I parked this half of #126 as "a decision awaiting the author" and it was not one.** The
+  rule had been stated plainly in the user-test round; I reclassified an instruction as a question,
+  and that cost a delivery window. Recorded because the misclassification is the reusable lesson,
+  not the flag.
 
 ### AC94.3 - The curtain compares what is on the canvas against the base it descends from, so a filter result is compared against the picture it was made from rather than against its own upscale.
 - Introduced: #94 (closed 2026-08-25)
