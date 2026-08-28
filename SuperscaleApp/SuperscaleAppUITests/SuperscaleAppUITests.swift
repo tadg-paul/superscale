@@ -2737,12 +2737,61 @@ final class SuperscaleAppUITests: XCTestCase {
         )
     }
 
-    // 🚫 RT-119.4, the indicator centred over the curtain, is retired. Not deleted, and not quietly
-    // dropped: the identifier stays here with what four attempts established.
+    /// RT-119.4: with the comparison showing, the indicator is centred over the curtain.
+    ///
+    /// **Reinstated.** It was retired against #106, which closed with #123 — and the two obstacles
+    /// recorded below have both gone, from different directions:
+    ///
+    /// 1. Clearing the scale no longer shuts the comparison. `releaseUpscaledResult` stopped
+    ///    writing `showComparison` when #126 made the curtain's visibility the user's setting
+    ///    alone, so the sequence that previously opened and shut it now leaves it open.
+    /// 2. #123 keyed the rendering lookup by the effective selection, so a preset change against a
+    ///    scale that has not been rendered starts real work rather than serving the previous
+    ///    scale's picture instantly.
+    ///
+    /// Either alone would have been enough. The sequence below uses the first: clear, choose, and
+    /// the curtain is still there when the work starts.
+    func test_theIndicatorIsCentredOverTheCurtain_RT119_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        applyFilterOnly("UI fixture generation for the curtain")
+
+        enterComparison()
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
+            "the comparison did not open")
+
+        // No clear needed: the raise to the filterable minimum turned the scale off (guide 2.5) and
+        // forgot the held renderings with it, so choosing one starts real work. The first attempt
+        // at this called `clearScale()` first and failed with "no scale reads as in effect, so
+        // there is nothing to clear" — the very state that makes the clear unnecessary.
+        chooseScale(8)
+
+        let indicator = app.descendants(matching: .any)
+            .matching(identifier: "workingIndicator")
+            .firstMatch
+        XCTAssertTrue(indicator.waitForExistence(timeout: 15), "no indicator while work is running")
+
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].exists,
+            "the curtain closed when the upscale started, so this is not the comparison state")
+
+        XCTAssertEqual(
+            indicator.frame.midX, canvasPicture.frame.midX,
+            accuracy: Self.centringTolerance,
+            "the indicator is not horizontally centred while comparing")
+        XCTAssertEqual(
+            indicator.frame.midY, canvasPicture.frame.midY,
+            accuracy: Self.centringTolerance,
+            "the indicator is not vertically centred while comparing")
+    }
+
+    // The record of why RT-119.4 was retired, kept because the obstacles are worth remembering even
+    // though both are now gone.
     //
-    // **It is blocked by #106, an open defect, and nothing inside #119 can route around it.**
-    // The test needs real work running while the comparison is open. There are two ways to start
-    // work and both are closed:
+    // **It was blocked by #106, and nothing inside #119 could route around it.**
+    // The test needs real work running while the comparison is open. There were two ways to start
+    // work and both were closed:
     //
     // 1. `clearScale()` then a preset. Clearing sets the selection to `.off`, which calls
     //    `releaseUpscaledResult` — that drops the result and sets `showComparison = false`. Right
@@ -2759,16 +2808,12 @@ final class SuperscaleAppUITests: XCTestCase {
     //    that fixing it moves three closed issues' GUI tests, so it is #106's work and not this
     //    ticket's.
     //
-    // **What stays uncovered, stated rather than glossed.** No automated test asserts the
-    // indicator's placement while the curtain is showing. The exposure is small and the reason is
-    // structural: the indicator is a **sibling of `canvasContent` in the canvas `ZStack`**, not a
-    // child of it, so its placement is decided by the stack and cannot depend on whether the stack's
-    // other child is the plain picture or the curtain. RT-119.1 and RT-119.2 exercise that same
-    // placement code. What is lost is confidence that nothing inside `ComparisonView` displaces it,
-    // which is a narrower claim than the criterion.
-    //
-    // UT-119.1 covers the judgement, and a user comparing while an upscale runs is exactly the case
-    // it puts in front of the author. Reinstate this test with #106.
+    // The gap it left, while it lasted: no automated test asserted the indicator's placement while
+    // the curtain was showing. The exposure was small and the reason structural — the indicator is
+    // a **sibling of `canvasContent` in the canvas `ZStack`**, not a child of it, so its placement
+    // is decided by the stack and cannot depend on which child the stack draws beside it. What was
+    // missing was confidence that nothing inside `ComparisonView` displaces it, and the test above
+    // now supplies that.
 
     // MARK: - AC94.3 and AC90.6: the curtain is offered for a filter result (#112)
 

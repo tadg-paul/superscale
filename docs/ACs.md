@@ -1341,7 +1341,8 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-119.1: the indicator's horizontal midpoint agrees with the picture's within two points
   - ✅ RT-119.2: the indicator's vertical midpoint agrees with the picture's within two points
   - ✅ RT-119.3: with the indicator centred and the info panel shown, both are present and neither overlaps the other
-  - 🚫 RT-119.4, centred over the curtain: retired, blocked by **#106**. See the note below.
+  - ✅ RT-119.4: with the comparison showing, the indicator is centred over the curtain --- **retired
+    against #106 on 2026-08-27, reinstated 2026-08-28 when both of its obstacles went**
   - ✅ RT-128.1: the indicator's background width tracks its content rather than a fixed maximum
   - ✅ RT-128.4: the indicator's area stays under a quarter of the canvas at its larger size
   - ✅ RT-128.5: the indicator remains one addressable element carrying its message
@@ -1360,11 +1361,21 @@ extended AC92.1, AC92.5 and AC92.6.
   than hiding it. An estimate of typography is not a measurement, and the first version's estimate
   was generous enough to accept the defect. This is the third time in this delivery that reasoning
   about layout stood in for measuring it.
-- Note: **RT-119.4 is now unblocked.** #106 closed with #123, so a preset change against an
-  unrendered scale starts real work again and the sequence this test needs is reachable. Its code
-  and reasoning are preserved in place in `SuperscaleAppUITests.swift`. Reinstating it is follow-on
-  work recorded on master #120, not done here, because it belongs to this criterion's verification
-  rather than to #123's.
+- Note: **RT-119.4 is reinstated and passing.** It was retired against #106 after four attempts, and
+  **both of its obstacles went, from different directions**. Clearing the scale no longer shuts the
+  comparison, because #126 made the curtain's visibility the user's setting and
+  `releaseUpscaledResult` stopped writing it. And #123 keyed the rendering lookup by the effective
+  selection, so a preset change against an unrendered scale starts real work rather than serving the
+  previous scale's picture instantly. Either alone would have sufficed.
+- Note: **the sequence needed neither obstacle's workaround in the end.** Applying a filter to the
+  suite's undersized fixture raises it, and the raise turns the scale off and forgets the held
+  renderings (guide 2.5) --- so choosing a scale afterwards simply starts work with the curtain
+  already open. The first reinstatement attempt called `clearScale()` first and failed with *"no
+  scale reads as in effect, so there is nothing to clear"*: the very state that made the clear
+  unnecessary.
+- Note: I recorded at #119's closure that this gap *"stays uncovered"* and again at the delivery exit
+  that reinstating it was follow-on work. **Both were wrong to defer** --- it was executable, in
+  scope, and took two runs.
 - Note: **the last failure was a measurement, not a placement, and four cycles went into the wrong
   half of that sentence.** RT-119.1 reported the indicator's midpoint 68 points left of the
   picture's, consistently, and the earlier attempts treated it as a layout problem. It was not.
