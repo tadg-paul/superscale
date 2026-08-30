@@ -221,7 +221,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-131.7: with nothing selected, upscaling still reads as available
   - ✅ RT-131.4: exactly one scale reads as in effect
   - ✅ RT-131.5: after clearing and reselecting, only the chosen scale reads as in effect
-  - ⏳ UT-93.1: re-offered on master #120
+  - ✅ UT-93.1: no scale is in effect at launch, so the first upscale of a session is one the user asked for --- passed by the author in the round of 2026-08-29, recorded on master #133
 - Note: **two scales appearing pressed was a rendering fault, not a selection fault.** `tint()`
   returned a fill for `requestedNotInEffect` as well as for `inEffect`, and a tinted `.bordered`
   button reads as pressed --- so a ceiling reduction showed the scale running *and* the scale asked
@@ -1038,7 +1038,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-132.3: the lineage still records the restored base as the new iteration's parent
   - ✅ RT-132.4: importing a different picture still empties the chain
   - ✅ RT-132.5: returning to the newest reaches the most recently locked result
-  - ⏳ UT-132.1: pending human resolution in delivery master #120
+  - ✅ UT-132.1: every locked iteration stays reachable, and navigating and saving them works --- passed by the author in the round of 2026-08-29, recorded on master #133 as *"Lock image navigation, saving, PASS"*
 - Note: **RT-89.8's expected count moved from two to three, and RT-111.6's expected report from "The
   base" to "A filter result".** Both are this criterion changing rather than tests weakening. The
   newest lock was previously excluded from the chain because it was where the user stood; it is now
@@ -1126,7 +1126,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-121.4: locking after a selection extends the chain from the selected point
   - ✅ RT-121.5: the canvas reports the selected iteration, not something else
   - ✅ RT-121.8: selecting an iteration discards the outgoing asset's rendering
-  - ⏳ UT-121.1: pending human resolution in delivery master #120
+  - ✅ UT-121.1: select an earlier iteration, apply a filter, and judge the result --- passed by the author in the round of 2026-08-29, recorded on master #133. **Master #120 had recorded this as still pending**; the later round supersedes that
 - Note: **the specification was incomplete, not the build.** Until guide 3.31 the base moved only
   forwards, on lock, and a filter reads the base (I2) --- so applying one after scrolling back sent
   the newest lock, which is what the design said to do. The author reported it as filters landing on
@@ -1492,7 +1492,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-128.1: the indicator's background width tracks its content rather than a fixed maximum
   - ✅ RT-128.4: the indicator's area stays under a quarter of the canvas at its larger size
   - ✅ RT-128.5: the indicator remains one addressable element carrying its message
-  - ⏳ UT-119.1: with an operation running, the indicator's position is judged
+  - ✅ UT-119.1: with an operation running, the indicator's position is judged --- **failed** on 2026-08-27 (remediated by #128), then **passed** by the author in the round of 2026-08-29, recorded on master #133. Both rulings kept: the failure is why #128 exists
 - Note: **RT-128.x were migrated late.** #128 was closed without them, which is an omission in that
   closure rather than in the tests; recorded rather than quietly corrected.
 - Note: **#128's first fix did nothing, and its test was too weak to notice.** The bound was moved
@@ -1925,7 +1925,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-124.3: a different model is a different request
   - ✅ RT-124.4: a held result is never served against a different base
   - ✅ RT-124.5: a result whose file has gone is not offered
-  - ⏳ UT-124.1: pending human resolution in delivery master #120
+  - ✅ UT-124.1: a filter already paid for in this session is shown again rather than requested a second time --- passed by the author in the round of 2026-08-29, recorded on master #133
 - Note: **a read of the graph, not a cache beside it.** Every filtered asset already records its
   parent and its `Provenance` --- the model and the prompt as sent --- so *"have we paid for exactly
   this before"* is answerable from what is held. A parallel store keyed on a hash would be a second
@@ -1950,7 +1950,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-126.3: with the curtain switched off, no operation shows it
   - ✅ RT-126.4: the setting survives a completed operation
   - ✅ RT-126.5: with it on, the first operation of a session shows it
-  - ⏳ UT-126.1: pending human resolution in delivery master #120
+  - ❌ UT-126.1: the curtain's behaviour --- **failed** by the author in the round of 2026-08-29, *"I am unable to disable the curtain slider after applying a filter."* Answered by **#134**, whose **UT-134.1** the author passed on 2026-08-30. The failure is kept rather than overwritten: the criterion's own behaviour was correct throughout and the defect was AC94.7's, which is exactly what this record should show
 - Note: **the application wrote this setting in four places** --- true wherever a run published or a
   held rendering was served, false wherever a result was released or a new picture arrived. So the
   curtain followed *work completing* rather than intent: present on a session's second operation and
@@ -2137,20 +2137,20 @@ extended AC92.1, AC92.5 and AC92.6.
 - Introduced: #66 (closed 2026-08-27)
 - Migrated: 2026-08-27
 - Tests:
-  - ⏳ UT-66.1: pending human resolution in delivery master #114
+  - ✅ UT-66.1: the divider line is visible over a bright, near-white region of the picture --- passed by the author, 2026-08-27, recorded on master #120
 
 ### AC66.2 - The divider line is visible when positioned over a dark (near-black) image region.
 - Introduced: #66 (closed 2026-08-27)
 - Migrated: 2026-08-27
 - Tests:
-  - ⏳ UT-66.2: pending human resolution in delivery master #114
+  - ✅ UT-66.2: the divider line is visible over a dark, near-black region of the picture --- passed by the author, 2026-08-27, recorded on master #120
 
 ### AC66.3 - The circle handle is visible against both bright and dark image regions.
 - Introduced: #66 (closed 2026-08-27)
 - Migrated: 2026-08-27
 - Tests:
-  - ⏳ UT-66.3: pending human resolution in delivery master #114
-  - ⏳ UT-66.4: pending human resolution in delivery master #114
+  - ✅ UT-66.3: the handle's outline is visible against a bright, near-white region --- passed by the author, 2026-08-27, recorded on master #120
+  - ✅ UT-66.4: the handle is visible against a dark, near-black region --- passed by the author, 2026-08-27, recorded on master #120
   - ✅ RT-66.1: the divider's and the handle's frames are unchanged by the paint
 - Note: **these three criteria carry no automated floor beyond RT-66.1, deliberately.** Whether a
   line reads against a photograph is human judgement, which `TESTING.md`'s decision tree sends to a
