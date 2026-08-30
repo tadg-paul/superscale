@@ -194,10 +194,17 @@ final class SuperscaleAppUITests: XCTestCase {
     /// `compareButton` *toggles*, and a completed upscale already sets the comparison showing — so
     /// clicking it unconditionally leaves comparison rather than entering it. Three tests did
     /// exactly that and then looked for a curtain they had just dismissed.
+    /// Ensures the comparison curtain is showing, whatever state it is in.
+    ///
+    /// Keyed on **whether the curtain is drawn**, not on the control's label. It read
+    /// `label == "Compare"` while the control renamed itself to "Full View" when active; #134 gave
+    /// it one constant name, so a label check would now be true in both states and this helper
+    /// would switch the curtain *off* half the time. What it wants to know is whether the curtain
+    /// is there, and that is a thing it can look at directly.
     private func enterComparison() {
         let comparisonButton = app.buttons["compareButton"]
         guard comparisonButton.waitForExistence(timeout: 5) else { return }
-        if comparisonButton.label == "Compare" {
+        if !app.otherElements["curtainDivider"].exists {
             comparisonButton.click()
         }
     }
@@ -3290,6 +3297,100 @@ final class SuperscaleAppUITests: XCTestCase {
             app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
             "the curtain did not close")
         XCTAssertTrue(app.images["workingImage"].exists, "and the picture is still on the canvas")
+    }
+
+    // MARK: - AC94.6: the curtain stays off, on the author's own path (#134)
+
+    /// Loads a picture above the filterable minimum, selects a scale, and applies a filter.
+    ///
+    /// **The state RT-126.3 and RT-126.4 never reach.** They use the suite's 240x320 fixture, which
+    /// is below the minimum — so applying a filter raises it, and the raise turns the scale off.
+    /// `viewModel.result` is then nil and every branch that reads it goes the other way. The
+    /// author's pictures are large, no raise happens, and an upscale exists throughout.
+    private func filterALargePictureWithAScaleSelected() throws {
+        let path = try writeFixture(width: 1600, height: 1200, named: "above-the-floor.png")
+        XCTAssertTrue(loadTestImage(path: path), "the large picture should load")
+        chooseScale(2)
+        XCTAssertTrue(waitForUpscaleComplete(), "and upscale before the filter")
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation above the floor")
+        app.buttons["applyFilterButton"].click()
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+    }
+
+    // RT-134.1
+    //
+    // The control must be present **and recognisable**. The author reports being *"unable to
+    // disable the curtain"* while the code shows one writer and a control that renders — so
+    // "present" may not be the property in question. The label is asserted because the control
+    // renames itself to "Full View" when the curtain is up, and the author has already told us what
+    // he thinks of a toggle that renames itself: *"the change of wording on the toggle is
+    // confusing."*
+    func test_theCompareControlIsPresentAndNamedAfterFilteringALargePicture_RT134_1() throws {
+        try filterALargePictureWithAScaleSelected()
+
+        let compare = app.buttons["compareButton"]
+        XCTAssertTrue(compare.waitForExistence(timeout: 10), "no way to switch the curtain off")
+        XCTAssertTrue(compare.isEnabled, "and it is usable")
+
+        // The label, which is what the defect turned out to be. Measured at "Full View" on the
+        // first run: present, enabled, working, and not called what the author switched it on with.
+        XCTAssertEqual(
+            compare.label, "Compare",
+            "the control renames itself, so the way back is not the word the user came in by")
+
+        // And again with the curtain off, because a constant name is the whole point.
+        compare.click()
+        XCTAssertTrue(app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5))
+        XCTAssertEqual(compare.label, "Compare", "the name is constant in both states")
+    }
+
+    // RT-134.2
+    func test_theCurtainSwitchesOffAfterFilteringALargePicture_RT134_2() throws {
+        try filterALargePictureWithAScaleSelected()
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
+            "the curtain is up to begin with")
+
+        app.buttons["compareButton"].click()
+
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
+            "pressing the control did not switch the curtain off")
+    }
+
+    // RT-134.3, RT-134.4, RT-134.5
+    //
+    // *"If i switch it off, i don't want to see it again until i toggle it back on no matter what i
+    // do in the app."* RT-126.4 sampled one operation; this enumerates the ones the author performs.
+    func test_theCurtainStaysOffThroughEveryOperation_RT134_3_and_RT134_4_and_RT134_5() throws {
+        try filterALargePictureWithAScaleSelected()
+        app.buttons["compareButton"].click()
+        XCTAssertTrue(
+            app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
+            "the curtain did not switch off")
+
+        applyFilterOnly("UI fixture generation, second")
+        XCTAssertFalse(app.otherElements["curtainDivider"].exists, "another filter brought it back")
+
+        chooseScale(4)
+        XCTAssertTrue(waitForUpscaleComplete())
+        XCTAssertFalse(app.otherElements["curtainDivider"].exists, "a scale change brought it back")
+
+        let lock = element(identifier: "lockButton")
+        if lock.isEnabled {
+            lock.click()
+            let entries = lockChainEntries
+            if entries.count > 1 {
+                entries[0].click()
+                XCTAssertFalse(
+                    app.otherElements["curtainDivider"].exists,
+                    "selecting an earlier iteration brought it back")
+            }
+        }
     }
 
     // RT-126.5

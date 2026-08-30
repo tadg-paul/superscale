@@ -728,11 +728,24 @@ struct MainView: View {
             // toggle shows the base, so pressing one control removed the other. The author was left
             // in the curtain with no way out. A control that dismisses something must not be
             // conditioned on that thing's own state.
+            //
+            // **"Compare" in both states, by #134.** It read "Full View" while the curtain was up,
+            // and the author reported being unable to switch the comparison off — measured on his
+            // own path, the behaviour was correct throughout and the control was present, enabled
+            // and working. What was missing was the *word*: a user who switched the comparison on
+            // with a control saying "Compare" looks for that word to switch it off.
+            //
+            // His rule, given about the filter control in the previous round and applied there by
+            // #129: *"the user will understand 'Filter' and that the button is a toggle."* A toggle
+            // with a constant name and a pressed state says both things; a button that renames
+            // itself says neither reliably.
             if canOfferComparison {
-                Button(viewModel.showComparison ? "Full View" : "Compare") {
-                    viewModel.showComparison.toggle()
+                Toggle(isOn: $viewModel.showComparison) {
+                    Label("Compare", systemImage: "rectangle.split.2x1")
                 }
+                .toggleStyle(.button)
                 .disabled(viewModel.originalImage == nil)
+                .help("Draw the comparison curtain across the picture")
                 .accessibilityIdentifier("compareButton")
             }
 

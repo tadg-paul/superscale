@@ -14,7 +14,10 @@ final class PromptPackTests: XCTestCase {
         let catalogue = try PromptPackCatalogue.bundled()
         let architectural = try XCTUnwrap(catalogue.pack(id: "image-design-architectural-drawing"))
 
-        XCTAssertEqual(catalogue.packs.count, 86)
+        // 108 since #138 added the twenty-two the author named. Asserted here as well as in
+        // RT-138.1 because this test's other claims are about one specific filter, and a corpus
+        // that silently lost entries would still satisfy them.
+        XCTAssertEqual(catalogue.packs.count, 108)
         XCTAssertEqual(architectural.displayName, "Architectural Drawing")
         XCTAssertEqual(architectural.category, "Design")
         XCTAssertTrue(architectural.body.hasPrefix("Transform the input image into an architectural drawing."))
@@ -308,6 +311,123 @@ final class PromptPackTests: XCTestCase {
                     line: line
                 )
             }
+        }
+    }
+}
+
+/// The twenty-two prompts the author named on 2026-08-29, and the corpus they joined (#138).
+///
+/// Package-level throughout: the corpus is a bundled resource and `PromptPackCatalogue.bundled()`
+/// loads it without a window.
+extension PromptPackTests {
+    /// The identifiers the author listed, verbatim.
+    private static let namedAdditions = [
+        "image-narrative-archaeological-excavation",
+        "image-narrative-folklore-witness-illustration",
+        "image-narrative-museum-conservation-view",
+        "image-narrative-theatrical-stage-set",
+        "image-institutional-infrastructure-maintenance-manual",
+        "image-institutional-queue-management",
+        "image-institutional-public-information-leaflet",
+        "image-narrative-forensic-evidence-board",
+        "image-zeitgeist-civic-feasibility-study",
+        "image-institutional-compliance-photograph",
+        "image-media-long-exposure-memory",
+        "image-media-contact-sheet",
+        "image-media-thermal-receipt",
+        "image-media-photogram",
+        "image-material-weathered-public-mural",
+        "image-material-ceramic-transferware",
+        "image-material-cake-decoration",
+        "image-narrative-public-aquarium-exhibit",
+        "image-narrative-local-history-museum",
+        "image-design-board-game-box",
+        "image-narrative-disaster-preparedness-diorama",
+        "image-print-petrol-station-postcard",
+    ]
+
+    // RT-138.1
+    func test_theBundledCorpusHoldsOneHundredAndEight_RT138_1() throws {
+        let catalogue = try PromptPackCatalogue.bundled()
+        XCTAssertEqual(catalogue.packs.count, 108, "86 existing plus the 22 the author named")
+    }
+
+    // RT-138.2
+    //
+    // **Named individually, not counted.** A count of 108 is satisfied by any twenty-two additions,
+    // including twenty-two of the wrong ones — the source directory holds 108 files and only these
+    // were asked for.
+    func test_everyNamedPromptIsPresentAndLoadable_RT138_2() throws {
+        let catalogue = try PromptPackCatalogue.bundled()
+        for id in Self.namedAdditions {
+            let pack = catalogue.pack(id: id)
+            XCTAssertNotNil(pack, "\(id) was named by the author and is not in the corpus")
+            XCTAssertFalse(pack?.body.isEmpty ?? true, "\(id) loaded with no prompt text")
+        }
+    }
+
+    // RT-138.3 and RT-138.4
+    //
+    // Across **all** 108, not only the new ones: a mistyped identifier in a header is caught
+    // wherever it lands, and the transformation that produced the new files could as easily have
+    // damaged an existing one.
+    func test_everyBundledPromptDeclaresItselfConsistently_RT138_3_and_RT138_4() throws {
+        let catalogue = try PromptPackCatalogue.bundled()
+        for pack in catalogue.packs {
+            XCTAssertTrue(pack.id.hasPrefix("image-"), "\(pack.id) does not follow the corpus naming")
+            XCTAssertFalse(pack.displayName.isEmpty, "\(pack.id) has no name")
+            XCTAssertFalse(pack.category.isEmpty, "\(pack.id) has no category")
+            XCTAssertTrue(
+                pack.requiresInput,
+                "\(pack.id) does not require an input image, and every MVP filter transforms one")
+            // Not "contains a hyphen" — that was the first version and it failed on
+            // "Post-Vaporwave Muted" and "Texture-Forward Analogue Revival", which are proper names
+            // with hyphens in them. What distinguishes a filename is that it is unpunctuated
+            // lowercase: a name begins with a capital and is not the identifier's tail verbatim.
+            // Capitalisation is mechanical and worth asserting: a name begins with a capital and a
+            // filename does not.
+            let initial = String(pack.displayName.prefix(1))
+            XCTAssertEqual(
+                initial, initial.uppercased(),
+                "\(pack.id) has a name that does not begin as a name: \"\(pack.displayName)\"")
+
+            // 🚫 No assertion that the name "reads as a name rather than a filename". **It is not
+            // machine-checkable and two attempts proved it.** The first rejected any hyphen and
+            // failed on "Post-Vaporwave Muted", a proper name. The second compared the name against
+            // its identifier's tail and failed on "Solarpunk Civic" — which lowercases back to
+            // `solarpunk-civic` precisely *because* the corpus follows its naming convention. The
+            // check condemned the convention it was meant to enforce.
+            //
+            // That judgement is **UT-74.1**, where the author reads the list. My own AC audit for
+            // #138 said prompt quality is human judgement, and then I tried to automate the
+            // judgement next door to it anyway.
+        }
+        XCTAssertEqual(
+            Set(catalogue.packs.map(\.id)).count, catalogue.packs.count,
+            "two entries share an identifier")
+    }
+
+    // RT-138.5
+    func test_theNarrativeAndInstitutionalCategoriesArePresent_RT138_5() throws {
+        let catalogue = try PromptPackCatalogue.bundled()
+        let categories = Set(catalogue.packs.map(\.category))
+
+        XCTAssertTrue(categories.contains("Narrative"), "the Narrative category is missing")
+        XCTAssertTrue(categories.contains("Institutional"), "the Institutional category is missing")
+        XCTAssertEqual(catalogue.packs.filter { $0.category == "Narrative" }.count, 8)
+        XCTAssertEqual(catalogue.packs.filter { $0.category == "Institutional" }.count, 4)
+    }
+
+    // RT-138.6
+    //
+    // A floor, not a standard. Nothing machine-checkable establishes that a prompt is *good*, and
+    // this does not pretend to — that judgement is UT-74.1's and the author's.
+    func test_everyBundledPromptHasABody_RT138_6() throws {
+        let catalogue = try PromptPackCatalogue.bundled()
+        for pack in catalogue.packs {
+            XCTAssertGreaterThan(
+                pack.body.trimmingCharacters(in: .whitespacesAndNewlines).count, 40,
+                "\(pack.id) has little or no prompt text")
         }
     }
 }
