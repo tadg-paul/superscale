@@ -5120,9 +5120,19 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(
             wasRefusedWhileWorking,
             "a clear was available mid-filter, so a paid result can land on an emptied canvas")
-        XCTAssertTrue(
-            clearImageButton.isEnabled,
-            "and the refusal outlasted the work it was protecting")
+
+        // **Waited for, not read.** The first version read `isEnabled` the moment the filter result
+        // landed and failed intermittently — diagnosed rather than dismissed as a flake, and the
+        // application was right both times. A scale is in effect, so the arriving candidate starts
+        // an *upscale*, and the control is correctly still refusing: AC135.7 covers "an upscale or a
+        // filter", not the filter alone. What is asserted is that the refusal **ends when the work
+        // does**, which is a different claim from ending when the filter does.
+        let refusalLifted = expectation(
+            for: NSPredicate { _, _ in self.clearImageButton.isEnabled },
+            evaluatedWith: clearImageButton)
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [refusalLifted], timeout: 120), .completed,
+            "the refusal outlasted the work it was protecting")
     }
 
     // RT-135.10
