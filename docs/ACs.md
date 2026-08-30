@@ -368,7 +368,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ⏳ RT-101.1: with a reduction in force, the status bar reports it where a user reads it
   - ⏳ RT-101.2: the report names the scale used and the scale requested, and they differ
   - ⏳ RT-101.4: with no reduction and no raise, no notice is shown at all
-  - ⏳ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive --- pending on master #79's roll-up
+  - ✅ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive --- passed by the author, 2026-08-30
 - Note: **#91 proved the decision, not the sentence.** Its ten tests are all package-level over
   `UpscaleCeiling` and assert which scale was chosen, what size resulted, and that a reduction
   occurred. None of them asserts that the user is ever *told*. #101 added the three regression tests
@@ -479,7 +479,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-138.4: each new file's identifier matches its filename
   - ✅ RT-138.6: every bundled prompt has a non-empty body
   - ✅ RT-74.1: valid bundled resources load, count updated 86 to 108
-  - ⏳ UT-74.1 re-offered: read the filter list and judge that all 108 names read as names rather than filenames
+  - ✅ UT-74.1 re-offered: all 108 names read as names rather than filenames --- passed by the author, 2026-08-30
 - Note: transformed by one rule rather than hand-authored --- `id` from the filename, `category` from
   its second segment, `name` from the rest, `requiresInput` true. Twenty-two hand-written headers is
   twenty-two chances to differ from each other.
@@ -501,7 +501,7 @@ extended AC92.1, AC92.5 and AC92.6.
 - Tests:
   - ✅ RT-138.5: the Narrative and Institutional categories are present and non-empty in the catalogue
   - ✅ RT-138.7: both are offered as chips in the filter list, and choosing Narrative narrows to its eight
-  - ⏳ UT-74.1 re-offered: the grouping is judged with the names
+  - ✅ UT-74.1 re-offered: the grouping is judged with the names --- passed by the author, 2026-08-30
 - Note: **the ticket estimated Narrative at 11 of the 22 and it is 8.** The final split is Narrative
   8, Institutional 4, Media 4, Material 3, and one each into Design, Print and Zeitgeist. The
   estimate was made by reading filenames before the transformation ran; the count above is from the
@@ -650,7 +650,7 @@ extended AC92.1, AC92.5 and AC92.6.
 - Migrated: 2026-08-24, cited by #88
 - Tests:
   - ✅ RT-73.8: the Settings controls are present, with their enabled and disabled states
-  - ⏳ UT-73.2: pending human resolution in delivery master #79
+  - ✅ UT-73.2: the Settings layout follows `docs/v2/WIREFRAMES.md` closely enough for discovery refinement --- passed by the author, 2026-08-30. **Descriptor backfilled the same day**: this line had carried only "pending human resolution in delivery master #79" since #88, so the criterion recorded that a judgement was outstanding without recording what was to be judged. Recovered from #73's own body.
 - Note: the criterion says *which* controls exist. Whether each can be reached is AC73.6, backfilled
   beside it. RT-73.8's pricing and account assertions were removed by #88 with the surface they
   covered, and its navigation by `modeSettings` is rewritten by #87 when Settings becomes a scene
@@ -1205,7 +1205,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-135.6: no clear control is offered before a picture is loaded
   - ✅ RT-135.3: clearing returns the canvas to the drop target, with its chooser reachable
   - ✅ RT-135.4: a picture can be brought in through the drop target after a clear
-  - ⏳ UT-135.1: work on a picture, clear it, bring in another; judge the route obvious and nothing lost unexpectedly
+  - ✅ UT-135.1: work on a picture, clear it, bring in another; the route is obvious and nothing is lost unexpectedly --- passed by the author, 2026-08-30
 - Note: **this was raised three times.** #130 answered it with a File menu command that tested green
   and was reported missing twice more. The control is therefore on the canvas beside Save As rather
   than in a menu: a route the user does not find is not a route, and three reports is enough evidence
@@ -1462,7 +1462,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - 🚫 RT-90.49, the indicator's vertical midpoint lies in the upper third: removed by #119 with the
     clause it asserted. Centred, the midpoint is at one half, so this now asserts the defect.
   - ✅ RT-90.52: the canvas outside the indicator's frame is identical before work begins and while it runs
-  - ⏳ UT-90.2: the picture is unaltered while the ticker sits on top
+  - ✅ UT-90.2: the picture is unaltered while the ticker sits on top --- passed by the author, 2026-08-30
 - Note: **this criterion exists because its predecessor was reported as satisfied and failed.** The
   author was told the picture remained visible with the ticker on top, and it did --- softened.
   `ProgressOverlay` filled the canvas with a `.thinMaterial` background, which is a blur. The
@@ -1588,7 +1588,7 @@ extended AC92.1, AC92.5 and AC92.6.
 - Tests:
   - ✅ RT-136.1: the reachable handle exceeds the drawn one by a usable margin, and the paint is unchanged
   - ✅ RT-136.2: a press beside the drawn handle still takes the divider
-  - ⏳ UT-136.1: zoom in, move the divider by scrolling, and judge that inspecting a detail is workable
+  - ✅ UT-136.1: zoom in, move the divider by scrolling, and inspecting a detail is workable --- passed by the author, 2026-08-30
 - Note: the drag gesture sat on the drawn `Circle` itself, so the reachable target and the paint were
   one 28-point thing over a photograph that also accepts a drag. The author: *"I always end up
   grabbing the image and moving it instead."* **Always**, not sometimes.
@@ -1610,7 +1610,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-136.8: the divider stays within its clamp however far a scroll continues
   - ✅ RT-136.9: the divider follows the reported sign, both ways
   - ✅ RT-136.10: a vertical-only scroll moves it, so a wheel mouse is not excluded
-  - ⏳ UT-136.1: judged with AC136.1
+  - ✅ UT-136.1: judged with AC136.1 --- passed by the author, 2026-08-30
 - Note: the author's own proposal, and he had thought past the report: *"I could then toggle off the
   filter and zoom in, scroll around, re-enable and expect to see the comparison on the zoomed in
   portion."* At zoom the divider most needs moving exactly where the drag is most wanted for the
@@ -1978,7 +1978,7 @@ extended AC92.1, AC92.5 and AC92.6.
 - Tests:
   - ✅ RT-134.1: the Compare control is present and named "Compare" after filtering a large picture, in both states
   - ✅ RT-134.2: pressing it switches the curtain off, and it stays off
-  - ⏳ UT-134.1: switch the curtain off, work normally, and judge that it stays off
+  - ✅ UT-134.1: switch the curtain off, work normally, and it stays off --- passed by the author, 2026-08-30
 - Note: **the author reported being unable to switch the curtain off, and the curtain was switching
   off correctly the whole time.** The control read "Full View" while the curtain was up. A user who
   switched the comparison on with a control saying "Compare" then looked for "Compare" to switch it
