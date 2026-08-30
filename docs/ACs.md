@@ -365,9 +365,9 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-91.8: a custom target above the ceiling is reduced proportionally, preserving its aspect
   - ✅ RT-91.9: the ceiling binds the output produced rather than the request typed
   - ✅ RT-91.10: the coordinator asks its processor for an output within the ceiling
-  - ⏳ RT-101.1: with a reduction in force, the status bar reports it where a user reads it
-  - ⏳ RT-101.2: the report names the scale used and the scale requested, and they differ
-  - ⏳ RT-101.4: with no reduction and no raise, no notice is shown at all
+  - ✅ RT-101.1: with a reduction in force, the status bar reports it where a user reads it
+  - ✅ RT-101.2: the report names the scale used and the scale requested, and they differ --- asserted within RT-101.1's test, as the suite does elsewhere
+  - ✅ RT-101.4: with no reduction and no raise, no notice is shown at all
   - ✅ UT-91.1: the message explaining a reduced upscale is clear and unobtrusive --- passed by the author, 2026-08-30
 - Note: **#91 proved the decision, not the sentence.** Its ten tests are all package-level over
   `UpscaleCeiling` and assert which scale was chosen, what size resulted, and that a reduction
@@ -1824,9 +1824,9 @@ extended AC92.1, AC92.5 and AC92.6.
 - Introduced: #101 (closed 2026-08-25)
 - Migrated: 2026-08-25
 - Tests:
-  - ⏳ RT-101.3: the notice is reachable in the accessibility tree rather than absorbed
-  - ⏳ RT-101.5: the status text beside it is reachable too, so the rule holds of the bar rather than of one label
-  - ⏳ RT-101.6: a notice replaced while displayed carries the new text
+  - ✅ RT-101.3: the notice is reachable in the accessibility tree rather than absorbed
+  - ✅ RT-101.5: the status text beside it is reachable too, so the rule holds of the bar rather than of one label --- asserted within RT-101.3's test
+  - ✅ RT-101.6: a notice replaced while displayed carries the new text
 - Note: **the sixth occurrence of guide 3.9's D-2 rule in this codebase**, and the first found in code
   that predates the rule. An identifier on an `HStack` makes SwiftUI treat the stack as a single
   element and absorb its children, so the notice and the status text were rendered on screen and
@@ -2210,7 +2210,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-100.7: a picture recording 300 dpi measures at its pixel dimensions
   - ✅ RT-100.8: a picture recording no resolution measures at its pixel dimensions
   - ✅ RT-100.9: a file that cannot be decoded measures as zero rather than crashing
-  - ⏳ RT-100.10: a picture above the filterable minimum but recording 300 dpi is not raised when a filter is applied
+  - ✅ RT-100.10: a picture above the filterable minimum but recording 300 dpi is not raised when a filter is applied
 - Note: **"through one function" is the criterion, not an implementation detail.** The defect existed
   precisely because the view and the view model each had their own way of measuring a picture, and
   nothing could tell them apart. `MainView.importedPixelSize` was private to a view, exercised by
@@ -2279,7 +2279,7 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-116.1: with a root configured, an upscale location resolves beneath it
   - ✅ RT-116.2: with a root configured, a raise location resolves beneath it
   - ✅ RT-116.3: with no root configured, all three storage kinds resolve beneath the application-support path
-  - ⏳ RT-116.4: after a filter and a raise in the GUI suite, the assets are present beneath the configured root and the user's own directory is unchanged
+  - ✅ RT-116.4: after a filter and a raise in the GUI suite, the assets are present beneath the configured root and the user's own directory is unchanged
   - ✅ RT-116.5: with a root configured, the session history root resolves beneath it
   - ✅ RT-116.6: with a root configured, the generated-image store resolves beneath it
 - Note: the behaviour was never specified, so this is defined under path 2 of `ISSUES.md` §"Bug-fix issues reference existing ACs" rather than backfilled onto a family that did not exist.
