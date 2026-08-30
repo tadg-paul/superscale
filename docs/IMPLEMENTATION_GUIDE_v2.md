@@ -217,6 +217,38 @@ custom cursor and reads as brittle in use, and the curtain is the instrument thi
 comparison wants. The divider follows the pointer within the picture's own
 displayed frame, which is not the same rectangle as the window.
 
+**Which gesture drives which thing, while the curtain is up.** Two consumers want
+the same gestures over the same rectangle, so the split is stated here rather
+than left to whichever modifier was written last:
+
+- **Scroll moves the divider.** Whichever axis the scroll is dominantly along, so
+  a trackpad's sideways swipe and a wheel mouse, which reports only its vertical
+  axis, both work. The sign is taken as the system reports it, so a user whose
+  natural-scrolling preference inverts their deltas gets the direction that
+  preference implies.
+- **Drag moves the picture**, and while the curtain is up it is the only thing
+  that does.
+- **A single scroll moves one of them, never both**, including with the pointer
+  over the divider's own handle.
+- **The divider's hit area is larger than the circle drawn for it**, at the
+  44-point target the platform asks for. The drawn handle stays 28 points: the
+  reachable area and the painted one are different things and only the first is
+  about whether a user can take hold of it.
+
+This reverses an earlier binding, and deliberately. Scroll panned the picture,
+and it only ever did so inside the curtain --- `ComparisonView` is constructed in
+one place --- so nothing outside the comparison changes. The reason to reverse it
+is that at zoom the divider most needs moving exactly where the drag is most
+wanted for the picture, and a 28-point target over a photograph that also accepts
+a drag means a near-miss moves the photograph. The trade is that panning inside
+the curtain is by drag alone, which is workable because dragging the picture was
+always available.
+
+What does **not** change is that a scroll is only ours when the pointer is over
+the picture. That rule was written for a global event monitor that moved the
+photograph when the user scrolled the filter strip, and it is about *where the
+pointer is* rather than about *what the scroll drives*.
+
 **The two sides share a width and may differ in height.** Each keeps its own
 proportions, so nothing is stretched to match the other's shape, and the single
 vertical divider therefore falls at the same fraction of width on both. Fitting

@@ -23,6 +23,8 @@ struct ComparisonView: View {
     /// Whether the pointer is within the picture's own displayed frame, which is not the same
     /// rectangle as the canvas and is not the window at all.
     @State private var pointerIsOverPicture = false
+    /// The picture's displayed frame, published out of the `GeometryReader` for the scroll monitor.
+    @State private var currentImageFrame: CGRect = .zero
 
     /// The space the pointer and the picture are both measured in.
     ///
@@ -108,6 +110,14 @@ struct ComparisonView: View {
             case .ended:
                 pointerIsOverPicture = false
             }
+        }
+        // The scroll monitor needs the picture's frame and cannot see it: it is computed inside this
+        // `GeometryReader` and the monitor is installed outside one. Published here rather than
+        // recomputed there, because a second computation of the same rectangle is a second thing to
+        // keep in step — and #90 is the ticket about the divider being mapped against the wrong
+        // rectangle.
+        .onChange(of: imageFrame, initial: true) { _, frame in
+            currentImageFrame = frame
         }
         // The pan reaches the accessibility tree as a **label as well as a value**. Expressed only
         // as a rendered offset it reaches nobody — not VoiceOver, and not a test asking whether the
@@ -214,6 +224,19 @@ struct ComparisonView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.secondary)
                 )
+                // **Reachable is not the same as drawn (#136).** The gesture sat on the 28-point
+                // circle itself, so the target and the paint were one thing — over a photograph
+                // that also accepts a drag. The author: *"I always end up grabbing the image and
+                // moving it instead."* Always.
+                //
+                // A larger box around the same circle, and `contentShape` to make the whole of it
+                // hit-testable. The paint is untouched: #66 established that this handle's drawn
+                // size is load-bearing and that `stroke` versus `strokeBorder` already moved it
+                // once.
+                .frame(
+                    width: CurtainGeometry.handleHitDiameter,
+                    height: CurtainGeometry.handleHitDiameter)
+                .contentShape(Circle())
                 .position(x: x, y: height / 2)
                 .gesture(dividerDragGesture(imageFrame: imageFrame))
                 // A shape is decorative: SwiftUI keeps `Circle` out of the accessibility tree
@@ -362,7 +385,20 @@ struct ComparisonView: View {
 
     // MARK: - Slider scroll monitor
 
-    /// The monitor moves the picture only while the pointer is over it.
+    /// The monitor moves **the divider** only while the pointer is over the picture.
+    ///
+    /// **It used to move the picture, and #136 reversed that deliberately** --- guide 2.3 carries the
+    /// split. The author asked for it and reasoned through the cost himself: *"If we could have the
+    /// mouse/trackpad scroll move the curtain left and right... Though i could still grab the image
+    /// to move it about, so zooming in to inspect it is still possible either way."* At zoom the
+    /// divider most needs moving exactly where the drag is most wanted for the picture.
+    ///
+    /// The reversal is narrower than it sounds: `ComparisonView` is constructed in one place, inside
+    /// the comparing branch, so scroll-to-pan only ever existed while the curtain was up. Dragging
+    /// the picture is untouched and remains the way to pan it.
+    ///
+    /// Nothing else moves on a scroll. `offset` and `dragStart` are left alone, so one scroll moves
+    /// one thing (AC136.8), including with the pointer over the handle.
     ///
     /// It previously moved it for any scroll anywhere in the window, including over the filter
     /// category strip, which is a horizontal `ScrollView` of its own. A local `NSEvent` monitor is a
@@ -377,10 +413,11 @@ struct ComparisonView: View {
         scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
             guard pointerIsOverPicture else { return event }
 
-            offset = CGSize(
-                width: offset.width + event.scrollingDeltaX,
-                height: offset.height + event.scrollingDeltaY)
-            dragStart = offset
+            dividerPosition = CurtainGeometry.dividerFraction(
+                scrolledFrom: dividerPosition,
+                byX: event.scrollingDeltaX,
+                y: event.scrollingDeltaY,
+                in: currentImageFrame)
             return event
         }
     }

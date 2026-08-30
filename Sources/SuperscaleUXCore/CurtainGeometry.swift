@@ -67,6 +67,45 @@ public enum CurtainGeometry {
         frame.minX + frame.width * fraction
     }
 
+    /// How wide the divider's handle is drawn.
+    public static let handleDiameter: CGFloat = 28
+
+    /// How wide the divider's handle is to the pointer.
+    ///
+    /// Larger than what is drawn, and that is the point of it. The drag gesture sat on the 28-point
+    /// circle itself, so the reachable target and the painted one were the same thing --- over a
+    /// photograph that also accepts a drag, which is why the author reported *"I always end up
+    /// grabbing the image and moving it instead"*. Always, not sometimes.
+    ///
+    /// 44 points is the target size the platform's own guidance asks for, and it is the reason to
+    /// prefer a number over "bigger". The circle stays 28: how reachable a control is and how large
+    /// it looks are different questions, and only the first is about whether it can be taken hold
+    /// of.
+    public static let handleHitDiameter: CGFloat = 44
+
+    /// Where the divider belongs after a scroll of `delta` from `fraction`.
+    ///
+    /// **Takes both axes and uses whichever dominates.** A trackpad's sideways swipe reports
+    /// `scrollingDeltaX`; **a wheel mouse reports only `scrollingDeltaY` and no X at all**, so a
+    /// mapping written against X alone would do nothing for most mice while looking correct on the
+    /// machine it was written on.
+    ///
+    /// The sign is used as reported rather than negated. macOS applies the user's natural-scrolling
+    /// preference to the deltas before they arrive, so following the sign *is* following the
+    /// preference; inverting here would fight it for half of all users.
+    ///
+    /// Clamped by `dividerFraction`'s own bounds, reached through the same call the pointer path
+    /// uses, so a scroll and a drag cannot come to disagree about where the divider may go.
+    public static func dividerFraction(
+        scrolledFrom fraction: CGFloat, byX deltaX: CGFloat, y deltaY: CGFloat, in frame: CGRect
+    ) -> CGFloat {
+        guard frame.width > 0 else { return fraction }
+
+        let dominant = abs(deltaX) >= abs(deltaY) ? deltaX : deltaY
+        let x = dividerX(fraction: fraction, in: frame) + dominant
+        return dividerFraction(pointerX: x, in: frame)
+    }
+
     /// Frames for two pictures that may not be the same shape.
     ///
     /// Grok squares anything whose short edge is under 1024, so a 3:4 original can come back 1:1.

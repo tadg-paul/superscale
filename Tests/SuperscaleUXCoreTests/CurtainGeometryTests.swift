@@ -328,4 +328,118 @@ final class CurtainGeometryTests: XCTestCase {
         XCTAssertEqual(frame, .zero)
         XCTAssertFalse(CurtainGeometry.dividerFraction(pointerX: 10, in: frame).isNaN)
     }
+
+    // MARK: - #136: the divider is reachable, and scroll moves it
+
+    // RT-136.1
+    //
+    // AC136.1's geometry half. The drag gesture used to sit on the drawn circle itself, so the
+    // reachable target and the paint were one 28-point thing over a photograph that also accepts a
+    // drag --- the author's *"I always end up grabbing the image and moving it instead."*
+    //
+    // A **usable** margin rather than any margin, which is why the threshold is 44 rather than
+    // "greater than 28": one point larger would satisfy a looser assertion and change nothing for
+    // the user. 44 is the target size the platform's own guidance asks for.
+    func test_theHandleIsReachableBeyondWhatIsDrawn_RT136_1() {
+        XCTAssertGreaterThan(
+            CurtainGeometry.handleHitDiameter, CurtainGeometry.handleDiameter,
+            "the reachable handle is no larger than the drawn one, which is the defect")
+        XCTAssertGreaterThanOrEqual(
+            CurtainGeometry.handleHitDiameter, 44,
+            "a margin too small to help is not a fix")
+        XCTAssertEqual(
+            CurtainGeometry.handleDiameter, 28,
+            "the paint is unchanged: #66 established that this handle's drawn size is load-bearing")
+    }
+
+    // RT-136.4
+    //
+    // AC136.3. Scrolling and dragging must not come to disagree about where the divider belongs, so
+    // the scroll mapping is asserted against the pointer mapping rather than against a number of
+    // its own.
+    func test_aScrollLandsWhereTheSamePointerWould_RT136_4() {
+        let frame = CGRect(x: 100, y: 0, width: 400, height: 300)
+        let start: CGFloat = 0.5
+        let startX = CurtainGeometry.dividerX(fraction: start, in: frame)
+
+        let scrolled = CurtainGeometry.dividerFraction(
+            scrolledFrom: start, byX: 40, y: 0, in: frame)
+
+        XCTAssertEqual(
+            scrolled,
+            CurtainGeometry.dividerFraction(pointerX: startX + 40, in: frame),
+            accuracy: 0.0001,
+            "a scroll of 40 points puts the divider somewhere a drag to that point would not")
+    }
+
+    // RT-136.8
+    //
+    // AC136.4. A scroll accumulates with no natural end --- a trackpad flick keeps delivering events
+    // after the fingers have left --- so this is the criterion most likely to break in use. The
+    // clamp is reached through `dividerFraction`, so it is the same clamp a drag observes.
+    func test_theDividerStaysWithinItsBoundsHoweverFarAScrollContinues_RT136_8() {
+        let frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+
+        var fraction: CGFloat = 0.5
+        for _ in 0..<200 {
+            fraction = CurtainGeometry.dividerFraction(
+                scrolledFrom: fraction, byX: 50, y: 0, in: frame)
+        }
+        XCTAssertEqual(fraction, CurtainGeometry.maximumFraction, accuracy: 0.0001,
+                       "scrolling right ran the divider past its bound")
+
+        for _ in 0..<400 {
+            fraction = CurtainGeometry.dividerFraction(
+                scrolledFrom: fraction, byX: -50, y: 0, in: frame)
+        }
+        XCTAssertEqual(fraction, CurtainGeometry.minimumFraction, accuracy: 0.0001,
+                       "and scrolling left ran it past the other")
+    }
+
+    // RT-136.9
+    //
+    // AC136.7. Direction is a coin flip an implementation can lose silently, and macOS has already
+    // applied the user's natural-scrolling preference to the delta before it arrives --- so
+    // following the reported sign *is* following the preference, and negating it would fight the
+    // setting for half of all users.
+    func test_theDividerFollowsTheReportedSign_RT136_9() {
+        let frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+
+        XCTAssertGreaterThan(
+            CurtainGeometry.dividerFraction(scrolledFrom: 0.5, byX: 30, y: 0, in: frame), 0.5,
+            "a positive delta moved the divider the wrong way")
+        XCTAssertLessThan(
+            CurtainGeometry.dividerFraction(scrolledFrom: 0.5, byX: -30, y: 0, in: frame), 0.5,
+            "and a negative delta moved it the wrong way too")
+    }
+
+    // RT-136.10
+    //
+    // AC136.2's dominant-axis clause, and the case that motivated it. A trackpad reports
+    // `scrollingDeltaX` on a sideways swipe; **an ordinary wheel mouse reports only
+    // `scrollingDeltaY`**. Written against X alone, the feature would look right on a laptop and do
+    // nothing on a desk.
+    func test_aVerticalOnlyScrollMovesTheDivider_RT136_10() {
+        let frame = CGRect(x: 0, y: 0, width: 400, height: 300)
+
+        XCTAssertGreaterThan(
+            CurtainGeometry.dividerFraction(scrolledFrom: 0.5, byX: 0, y: 30, in: frame), 0.5,
+            "a wheel mouse, which has no horizontal axis, cannot move the divider at all")
+
+        // And the dominant axis wins where both are present, so a slightly-off sideways swipe on a
+        // trackpad does not fight itself.
+        XCTAssertEqual(
+            CurtainGeometry.dividerFraction(scrolledFrom: 0.5, byX: 40, y: 5, in: frame),
+            CurtainGeometry.dividerFraction(scrolledFrom: 0.5, byX: 40, y: 0, in: frame),
+            accuracy: 0.0001,
+            "a small perpendicular component changed the result")
+    }
+
+    // A zero-width frame has no curtain to move, and a scroll arriving during layout must not
+    // produce a NaN the view then tries to draw. The same guard `dividerFraction` carries.
+    func test_aScrollAgainstAZeroWidthFrameChangesNothing() {
+        XCTAssertEqual(
+            CurtainGeometry.dividerFraction(scrolledFrom: 0.42, byX: 100, y: 0, in: .zero), 0.42,
+            accuracy: 0.0001)
+    }
 }

@@ -5068,4 +5068,172 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(
             app.dialogs.count, 0, "a dialogue was interposed between the user and the clear")
     }
+
+    // MARK: - #136: the divider is reachable, and scroll drives it
+
+    /// The comparison divider's handle, with the curtain up.
+    private var curtainDivider: XCUIElement {
+        element(identifier: "curtainDivider")
+    }
+
+    /// How far the picture has been panned.
+    ///
+    /// **Delegates to `reportedPan()` rather than reading the container's label directly, and that
+    /// distinction cost a run.** `element(identifier: "curtainPicture").label` came back empty, so
+    /// the first version of RT-136.7 and RT-136.11 compared `""` against `""` and **passed
+    /// vacuously** while asserting nothing at all. RT-136.5 is what exposed it: the only one of the
+    /// three that expected the value to *change*.
+    ///
+    /// `reportedPan()` already existed for this and reads three places --- the container's label,
+    /// its value, and the picture's own label --- because a container declaring `children: .contain`
+    /// reports its own label unreliably. The lesson is the reusable part: **a test that asserts two
+    /// unknown values are equal proves nothing until one of them is known to be non-empty.**
+    private var panOffset: String {
+        reportedPan()
+    }
+
+    /// Brings a curtain up over a picture and reports the divider's resting position.
+    private func curtainReadyForGestures() -> CGFloat? {
+        guard loadTestImage(), waitForUpscaleComplete() else { return nil }
+        enterComparison()
+        guard curtainDivider.waitForExistence(timeout: 5) else { return nil }
+        return curtainDivider.frame.midX
+    }
+
+    // RT-136.2
+    //
+    // AC136.1's user-facing half, and the one that catches the shortcut RT-136.1 cannot: declaring
+    // a larger frame while leaving the gesture on the inner circle satisfies a geometry assertion
+    // and changes nothing under the pointer.
+    //
+    // The press is at the far edge of the enlarged element --- inside the 44-point hit area and
+    // outside the 28-point circle that is drawn --- which is exactly the near-miss the author
+    // described as *"I always end up grabbing the image and moving it instead."*
+    func test_aPressBesideTheDrawnHandleStillTakesTheDivider_RT136_2() {
+        guard let startX = curtainReadyForGestures() else {
+            XCTFail("no curtain to grab")
+            return
+        }
+        let canvas = element(identifier: "workspaceCanvas")
+        let target = canvas.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5))
+
+        // 0.93 across a 44-point element is about 19 points from its centre: past the drawn circle's
+        // 14-point radius, inside the hit area's 22.
+        curtainDivider.coordinate(withNormalizedOffset: CGVector(dx: 0.93, dy: 0.5))
+            .press(forDuration: 0.2, thenDragTo: target)
+
+        XCTAssertNotEqual(
+            curtainDivider.frame.midX, startX, accuracy: 2.0,
+            "a press beside the drawn handle grabbed the photograph instead of the divider")
+    }
+
+    // RT-136.3
+    //
+    // AC136.2. The author's own proposal: *"If we could have the mouse/trackpad scroll move the
+    // curtain left and right."*
+    func test_scrollingOverThePictureMovesTheDivider_RT136_3() {
+        guard let startX = curtainReadyForGestures() else {
+            XCTFail("no curtain to scroll over")
+            return
+        }
+
+        curtainDivider.scroll(byDeltaX: 60, deltaY: 0)
+
+        XCTAssertNotEqual(
+            curtainDivider.frame.midX, startX, accuracy: 2.0,
+            "scrolling over the picture left the divider where it was")
+    }
+
+    // RT-136.7
+    //
+    // AC136.5, and **the test that makes the reassignment a constraint rather than an addition.**
+    // Without it, an implementation that left scroll panning and never wired the divider at all
+    // passes RT-136.5 --- which is the change of doing nothing, and therefore the likely one.
+    func test_scrollingOverThePictureDoesNotPanIt_RT136_7() {
+        guard curtainReadyForGestures() != nil else {
+            XCTFail("no curtain to scroll over")
+            return
+        }
+        let before = panOffset
+        // Without this the assertion below is `"" == ""` and proves nothing. It did exactly that on
+        // the first run.
+        XCTAssertTrue(
+            before.localizedCaseInsensitiveContains("panned"),
+            "the pan is unreadable, so no assertion about it means anything: \(before)")
+
+        curtainDivider.scroll(byDeltaX: 60, deltaY: 0)
+
+        XCTAssertEqual(
+            panOffset, before,
+            "the scroll moved the picture as well, so it still owns the gesture")
+    }
+
+    // RT-136.11
+    //
+    // AC136.8. With the pointer over the handle the scroll is over the picture too, so moving both
+    // is a plausible implementation and nothing else here would fail.
+    func test_aScrollOverTheHandleMovesOnlyTheDivider_RT136_11() {
+        guard let startX = curtainReadyForGestures() else {
+            XCTFail("no curtain to scroll over")
+            return
+        }
+        let before = panOffset
+        XCTAssertTrue(
+            before.localizedCaseInsensitiveContains("panned"),
+            "the pan is unreadable, so no assertion about it means anything: \(before)")
+
+        curtainDivider.scroll(byDeltaX: 50, deltaY: 0)
+
+        XCTAssertNotEqual(
+            curtainDivider.frame.midX, startX, accuracy: 2.0, "the divider did not move")
+        XCTAssertEqual(panOffset, before, "and the picture moved as well")
+    }
+
+    // RT-136.5
+    //
+    // AC136.5's other half. Reassigning scroll must not cost the pan: dragging the picture is now
+    // the only way to move it, so it has to work.
+    func test_thePictureIsStillPannedByDragging_RT136_5() {
+        guard curtainReadyForGestures() != nil else {
+            XCTFail("no curtain to pan under")
+            return
+        }
+        let picture = element(identifier: "curtainPicture")
+        let before = panOffset
+
+        // Away from the divider, so this is a drag on the photograph rather than on the handle.
+        picture.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.7))
+            .press(
+                forDuration: 0.2,
+                thenDragTo: picture.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.5)))
+
+        XCTAssertNotEqual(
+            panOffset, before,
+            "dragging no longer pans the picture, which was the one route left for it")
+    }
+
+    // RT-136.6
+    //
+    // AC136.6, and a regression guard rather than a new property. `scrollBelongsToPicture` was
+    // written because a global `NSEvent` monitor moved the photograph when the user scrolled the
+    // filter category strip. #136 changes what the scroll drives and must not change where it is
+    // ours: the strip is a horizontal `ScrollView` of its own and scrolling it must still reach it.
+    func test_scrollingOutsideThePictureMovesNeither_RT136_6() throws {
+        guard let startX = curtainReadyForGestures() else {
+            XCTFail("no curtain")
+            return
+        }
+        let before = panOffset
+
+        let catalogue = element(identifier: "filterCatalogue")
+        guard catalogue.waitForExistence(timeout: 5) else {
+            throw XCTSkip("the filter catalogue is not on screen in this state")
+        }
+        catalogue.scroll(byDeltaX: 0, deltaY: -60)
+
+        XCTAssertEqual(
+            curtainDivider.frame.midX, startX, accuracy: 2.0,
+            "scrolling the filter strip moved the comparison divider")
+        XCTAssertEqual(panOffset, before, "and it moved the photograph")
+    }
 }
