@@ -1,9 +1,9 @@
-<!-- Version: 3.36 | Last updated: 2026-08-28 -->
+<!-- Version: 3.37 | Last updated: 2026-08-30 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
 Superscale is a working macOS app that upscales images locally on the Neural
-Engine. v2 puts a library of 86 curated AI filters in front of that upscaler.
+Engine. v2 puts a library of 108 curated AI filters in front of that upscaler.
 
 This is the single design document for the uplift. Wire-level FAL detail is in
 the [FAL request reference](FAL_REQUEST_REFERENCE.md); the original upscaler
@@ -22,7 +22,7 @@ Superscale v2 is **a creative tool built on an image-generation API client**.
 The client is not the product; the value added on top of it is.
 
 That value is two things. **The curated filters** carry the artistic intent ---
-86 of them, each a considered piece of direction rather than a blank prompt box.
+108 of them, each a considered piece of direction rather than a blank prompt box.
 **The native upscale** turns a roughly 1024-pixel API response into a deliverable
 at full resolution, locally, in seconds. A cloud filter alone gives you
 something too small to use. An upscaler alone gives you a bigger version of what
@@ -33,7 +33,7 @@ the filter, adjusting its wording, deciding what to lock, selecting the upscale
 model and scale, and judging the result are all creative decisions the app
 exists to serve.
 
-The 86 filters in `Sources/SuperscaleUXCore/Resources/PromptPacks/` are
+The 108 filters in `Sources/SuperscaleUXCore/Resources/PromptPacks/` are
 **built-in**, owned by this repository. Their text is **editable at runtime,
 before the API call is made**; in the v2 MVP those edits apply to that run only
 and are **not saved**.
@@ -101,8 +101,23 @@ Accepts PNG, JPEG, TIFF and HEIC via drag and drop, the open panel, or paste.
 One image at a time; this is not a batch tool. The image's true pixel dimensions
 are read and shown, and it becomes the base with role `source`.
 
+**Putting a picture away is part of bringing one in.** A picture can be cleared
+from the canvas at any time it is not being worked on, which returns the window
+to the drop target and so to the chooser the drop target carries. That is the
+route back, and it is on the canvas rather than in a menu for a reason worth
+recording: the same request was answered three times with a File menu command
+that tested green each time and was reported missing each time. A route the user
+does not find is not a route.
+
+Clearing keeps the division between what belongs to the picture and what belongs
+to the user. The scale, the dimensions, the derivation and the last run's
+messages go with the picture. The chosen model, face enhancement, the button
+labels and **whether the comparison curtain is switched on** are the user's and
+survive. The curtain in particular: 2.3 holds that the application never writes
+that setting, and a clear is not an exception to it.
+
 The MVP has no "generate from a prompt" entry, because the filter corpus is
-built for transformation: 60 of the 86 carry preserve clauses and 50 explicitly
+built for transformation: 82 of the 108 carry preserve clauses and 72 explicitly
 transform "the input image". Every MVP journey therefore starts from an image
 the user brings in.
 
@@ -116,9 +131,11 @@ filtering and upscaling unchanged downstream.
 Applying a filter costs money, so selecting one must not. The interaction is
 **two steps, deliberately**.
 
-**Step one --- select (free).** The filter list is the primary surface: 86 filters
-grouped by category (lighting, print, sketch, material, illustration, design,
-media, zeitgeist), searchable by name. Clicking one loads its text into an
+**Step one --- select (free).** The filter list is the primary surface: 108 filters
+grouped by category (zeitgeist, illustration, sketch, material, print, narrative,
+media, design, lighting, institutional, photo), searchable by name. **Narrative
+and institutional arrived with #138**, and photo had been in the corpus and
+missing from this list. Clicking one loads its text into an
 editable text area. **No API call is made.** The user can read the filter, see
 exactly what will be sent, and click through as many as they like at no cost.
 
@@ -1062,7 +1079,7 @@ integration API --- described the world sections 3 and 6 were written to fix,
 and is preserved in git history.*
 
 **The v2 MVP is delivered and running.** One workspace: import a picture,
-browse 86 filters in the side panel, apply one through
+browse 108 filters in the side panel, apply one through
 `xai/grok-imagine-image/edit`, lock the iterations worth keeping, native local
 upscaling over it all. Delivered under master #79 through slices 0--11
 (children #80--#98), plus the defect-closure delivery under master #99

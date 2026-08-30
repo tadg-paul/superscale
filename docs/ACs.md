@@ -465,6 +465,50 @@ extended AC92.1, AC92.5 and AC92.6.
   against that while keeping its identifier. The model compatibility clause survives because
   `compatibleModelIDs` was never file metadata: the loader supplies the one MVP model, as it
   always did.
+- Note: **UT-74.1 is re-offered by #138 (2026-08-30).** It passed on 86 names; the corpus is now 108
+  and twenty-two more names go in front of the same judgement. RT-74.1's count moved with it. See
+  AC138.1.
+
+### AC138.1 - The bundled corpus holds the twenty-two named additions alongside the original filters, each loadable, each with a well-formed header and a non-empty body.
+- Introduced: #138 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-138.1: the bundled corpus contains 108 filters
+  - ✅ RT-138.2: each of the twenty-two named identifiers is present and loadable
+  - ✅ RT-138.3: every bundled file carries a well-formed header with id, name, category and requiresInput
+  - ✅ RT-138.4: each new file's identifier matches its filename
+  - ✅ RT-138.6: every bundled prompt has a non-empty body
+  - ✅ RT-74.1: valid bundled resources load, count updated 86 to 108
+  - ⏳ UT-74.1 re-offered: read the filter list and judge that all 108 names read as names rather than filenames
+- Note: transformed by one rule rather than hand-authored --- `id` from the filename, `category` from
+  its second segment, `name` from the rest, `requiresInput` true. Twenty-two hand-written headers is
+  twenty-two chances to differ from each other.
+- Note: bodies are copied **verbatim**. They are the author's words and the thing being paid for at
+  the provider, so no reflowing and no tidying.
+- Note: **RT-138.3 carries a removal rather than an assertion, and it is worth reading before anyone
+  tries again.** Two attempts were made to assert mechanically that a name "reads as a name rather
+  than a filename". The first rejected any hyphen and failed on *Post-Vaporwave Muted*; the second
+  compared the name against the identifier's tail and failed on *Solarpunk Civic*, which lowercases
+  back to its own filename **because that is what the convention requires**. The property is not
+  machine-checkable. What remains asserted is capitalization, which is. The judgement itself is
+  UT-74.1's, which is where it was all along.
+- Note: neither the Settings count nor the filter panel's count is written down. `SettingsView` reads
+  `packs.count` and `FilterPanel` derives its own, so 86 became 108 without either being touched.
+
+### AC138.2 - The Narrative and Institutional categories exist in the corpus and are non-empty, and the filter list groups by them alongside the categories already there.
+- Introduced: #138 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-138.5: the Narrative and Institutional categories are present and non-empty
+  - ⏳ UT-74.1 re-offered: the grouping is judged with the names
+- Note: **the ticket estimated Narrative at 11 of the 22 and it is 8.** The final split is Narrative
+  8, Institutional 4, Media 4, Material 3, and one each into Design, Print and Zeitgeist. The
+  estimate was made by reading filenames before the transformation ran; the count above is from the
+  headers as written. Recorded rather than quietly corrected because the ticket's reasoning about
+  the primary surface was sized against the wrong number.
+- Note: adding categories changes how the *existing* filters are found, not only the new ones. Guide
+  2.3 calls the filter list the primary surface, and its category list in guide 2.2 had also been
+  missing `photo` before this ticket --- corrected there at guide 3.37.
 
 ### AC74.2 - The prompt-pack loader rejects invalid or incomplete resources with actionable diagnostics and no secret leakage.
 - Introduced: #74 (closed, pre-cutover)
@@ -1130,6 +1174,98 @@ extended AC92.1, AC92.5 and AC92.6.
 - Note: the chain belongs to the image it was built from. Carrying it across would offer iterations
   of a picture no longer on screen, and keeping the files would grow the output directory for the
   life of the session.
+- Note: **#130's route was real and undiscovered, which #135 established by looking.** RT-135.1
+  pulls down the File menu with a picture loaded and finds both Open Image and Open Recent, so the
+  two `CommandGroup(after: .newItem)` blocks coexist and neither displaced the other. The author
+  nonetheless reported the same defect a third time. What was missing was not the command but a
+  route he would find, and the other half of what he asked for each time --- *clearing* --- had
+  never been built. See AC135.2.
+- Note: **the verification gap this criterion has carried since #130 is now closed.** RT-135.4 drives
+  a real `NSOpenPanel` to a real file after a clear and confirms the picture reaches the canvas. It
+  goes through the drop target's chooser rather than the menu command, so the menu route itself is
+  still asserted only as far as existing and being enabled --- but the *import path underneath both*
+  is now driven end to end, which is what RT-111.4's retirement had left unguarded.
+
+### AC135.2 - A control that clears the current picture is present on the main window whenever a picture is loaded, and absent when the canvas is empty.
+- Introduced: #135 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-135.1: with a picture loaded, the File menu offers both Open Image and Open Recent
+  - ✅ RT-135.2: a clear control is available once a picture is loaded
+  - ✅ RT-135.6: no clear control is offered before a picture is loaded
+  - ✅ RT-135.3: clearing returns the canvas to the drop target, with its chooser reachable
+  - ✅ RT-135.4: a picture can be brought in through the drop target after a clear
+  - ⏳ UT-135.1: work on a picture, clear it, bring in another; judge the route obvious and nothing lost unexpectedly
+- Note: **this was raised three times.** #130 answered it with a File menu command that tested green
+  and was reported missing twice more. The control is therefore on the canvas beside Save As rather
+  than in a menu: a route the user does not find is not a route, and three reports is enough evidence
+  about where he looks.
+- Note: the clear delivers the *browse* as well, without a second route being built. An empty canvas
+  is the drop target and the drop target has always carried its own chooser --- so returning to it
+  restores an import path that XCUITest can drive, which is why RT-135.4 can exist at all.
+
+### AC135.5 - A cleared session's lock chain is gone from the window; where the session produced a generation it is still listed under Open Recent.
+- Introduced: #135 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-135.5: clearing empties the lock strip and Open Recent survives
+  - ✅ RT-135.11: after a clear the comparison is unavailable, so the model emptied rather than the canvas alone
+- Note: the same terms AC89.8 sets for an import, for the same reason --- the chain belongs to the
+  picture it was built from.
+- Note: a picture cleared without ever having generated leaves no recents entry. The store records
+  `GenerationSessionRecord`s, so an import that reached no provider was never written. **The AC audit
+  raised this as F2 against my own first draft**, which asserted the entry unconditionally and would
+  have made a correct implementation read as broken.
+- Note: RT-135.11 is the guard against the shape of fix that would have produced a fourth report ---
+  a clear that swaps the view to the drop target while the model stays populated. Every other test
+  here passes in that state.
+
+### AC135.6 - After a clear the settings that belong to the picture are back at their defaults, and the settings that belong to the user are unchanged.
+- Introduced: #135 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-135.7: a scale chosen for one picture is not in effect after a clear
+  - ✅ RT-135.8: the chosen model survives a clear
+- Note: a partition rather than a reset. The scale, the custom dimensions, the derivation and the
+  last run's messages go with the picture; the chosen model, face enhancement and the button labels
+  are the user's and stay. Wiping those would make putting a picture away a punishment for putting a
+  picture away.
+- Note: **the comparison setting is on the user's side of the partition, and my own audits put it on
+  the wrong one.** The criterion as first drafted listed it among the settings a clear resets.
+  Implementing that would have had the application write `showComparison` --- the exact thing guide
+  2.3 forbids and the author has reported twice, most recently as #134. What caught it was opening
+  `releaseUpscaledResult` and reading the 🚫 note #126 left there. Recorded as DECISION D-6 on #135.
+
+### AC135.7 - The clear control is unavailable while an upscale or a filter is in flight, so no operation can finish onto an emptied canvas.
+- Introduced: #135 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-135.9: the clear control is refused mid-filter and available again once the work settles
+- Note: refusal rather than cancellation, recorded as DECISION D-5 on #135. `UpscaleViewModel` has no
+  cancellation path, and a filter in flight is a paid provider call that cancelling locally would not
+  refund. Building cancellation inside a defect about a missing button is how a small fix becomes a
+  subsystem; refusal is one `.disabled` and leaves cancellation to be asked for on its own terms.
+- Note: RT-135.9 samples rather than asserting at an instant. The stubbed provider settles quickly
+  and a single check races it, so what is asserted is that the control was seen refused at some point
+  while the filter was in flight --- and, in the same test, that the refusal ended with the work.
+
+### AC135.8 - A clear takes effect immediately and asks for no confirmation, and an unsaved result goes with it.
+- Introduced: #135 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-135.10: clearing empties the canvas with no sheet or dialogue interposed
+- Note: the same terms as the import in AC89.8, which has always discarded without prompting. Stated
+  as a criterion rather than left as a gap so that it is a decision on the record --- the alternative
+  is a fourth report about a confirmation nobody ever discussed.
+
+### AC135.9 - After a clear the comparison is unavailable because there is nothing to compare, and becomes available again on the next picture that derives something.
+- Introduced: #135 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-135.11: after a clear the comparison control is gone
+- Note: availability is a fact about the graph; visibility is the user's setting. Conflating the two
+  is what AC135.6's first draft did. The user does not have to switch the curtain back on after a
+  clear, because it was never switched off --- there was simply nothing to draw it over.
 
 ### AC103.1 - An upscale is allocated from the picture the canvas is showing, whichever of the base or the candidate that is.
 - Introduced: #103 (closed 2026-08-25)
@@ -1742,6 +1878,34 @@ extended AC92.1, AC92.5 and AC92.6.
   rule had been stated plainly in the user-test round; I reclassified an instruction as a question,
   and that cost a delivery window. Recorded because the misclassification is the reusable lesson,
   not the flag.
+- Note: **re-tested by #134 (2026-08-30) against the case the original tests missed.** RT-126.3 and
+  RT-126.4 ran on a picture below the filterable minimum with no scale in effect. RT-134.3, RT-134.4
+  and RT-134.5 re-run the same property on a 1600x1200 picture with a scale selected and a live
+  upscale, through another filter, a scale change and the selection of an earlier iteration. **All
+  three passed first time: the behaviour this criterion states was correct throughout.** What the
+  author was reporting turned out to be AC94.7.
+
+### AC94.7 - A control that switches something on and off carries one constant name in both states, and shows which state it is in.
+- Introduced: #134 (closed 2026-08-30), backfilled onto the #94 family
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-134.1: the Compare control is present and named "Compare" after filtering a large picture, in both states
+  - ✅ RT-134.2: pressing it switches the curtain off, and it stays off
+  - ⏳ UT-134.1: switch the curtain off, work normally, and judge that it stays off
+- Note: **the author reported being unable to switch the curtain off, and the curtain was switching
+  off correctly the whole time.** The control read "Full View" while the curtain was up. A user who
+  switched the comparison on with a control saying "Compare" then looked for "Compare" to switch it
+  off, and there wasn't one. Present, enabled, working, and not called what he came in by.
+- Note: this is the author's own rule, given about the filter control in the previous round ---
+  *"the user will understand 'Filter' and that the button is a toggle"* --- and *"the change of
+  wording on the toggle is confusing."* #129 applied it to the filter control and left this one
+  alternating. The criterion is stated generally so the next renaming control is caught by an
+  existing rule rather than by a fourth report.
+- Note: **it is a `Toggle` with `.toggleStyle(.button)`, and that is not an `app.buttons`.** Changing
+  it broke all twenty-two call sites in the GUI suite that located the control as a button, because
+  I committed the change without running its own tests. They now go through one `compareControl`
+  helper typed `.any`: what this criterion is about is a control the user can press, not whichever
+  element kind SwiftUI currently emits for a styled toggle.
 
 ### AC94.3 - The curtain compares what is on the canvas against the base it descends from, so a filter result is compared against the picture it was made from rather than against its own upscale.
 - Introduced: #94 (closed 2026-08-25)
