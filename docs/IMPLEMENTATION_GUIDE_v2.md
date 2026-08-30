@@ -1,4 +1,4 @@
-<!-- Version: 3.37 | Last updated: 2026-08-30 -->
+<!-- Version: 3.38 | Last updated: 2026-08-30 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -1566,6 +1566,24 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.38 (2026-08-30):** Section 2.3 gains **the gesture split inside the curtain**, because two
+  consumers wanting the same gestures over the same rectangle is a design question and not a
+  modifier. Scroll moves the divider along whichever axis dominates --- a wheel mouse reports only
+  its vertical one --- with the sign as the system reports it, so natural scrolling is respected.
+  Drag moves the picture and is the only thing that does. One scroll moves one of them. The
+  divider's hit area is 44 points against a handle still drawn at 28: reachable and drawn are
+  different questions and only the first decides whether a user can take hold of it. This reverses
+  scroll-to-pan, which only ever existed inside the curtain, and the author proposed the reversal
+  having reasoned through the cost (#136).
+- **3.37 (2026-08-30):** Section 2.2 gains **clearing** as part of bringing a picture in --- the
+  route back to the drop target and its chooser, and which settings survive it. The curtain is named
+  there explicitly: 2.3 holds that the application never writes that setting and a clear is not an
+  exception, which is the trap the first draft of #135's criteria fell into. The corpus counts are
+  corrected 86 to 108 across five places of live prose, with the preserve-clause figures recounted
+  rather than scaled --- 82 of 108 carry one and 72 name the input image. The category list gains
+  `narrative` and `institutional` from #138, and `photo`, which had been in the corpus and missing
+  from the list all along. Four historical occurrences of 86 are deliberately left: they describe
+  what was true when written (#135, #138).
 - **3.36 (2026-08-28):** Section 2.3 gains the rule that the comparison curtain's visibility is the
   **user's setting and nothing else's** --- on by default, written only by the user, drawn when the
   setting is on and there are two assets to compare. It had been switched on wherever a run

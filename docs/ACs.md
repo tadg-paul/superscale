@@ -1564,6 +1564,83 @@ extended AC92.1, AC92.5 and AC92.6.
   *picture's* frame, which is narrower than the canvas, so a drag far enough across the canvas
   legitimately stops at the picture's edge --- and one measurement cannot tell that from a
   coordinate-space error, because both leave the handle short of the pointer.
+- Note: **unchanged as a rule by #136 (2026-08-30), and re-asserted under a second gesture.** Where
+  the divider *lands* is this criterion; whether it can be *reached* is AC136.1, and what drives it
+  is AC136.2. RT-136.4 pins the scroll mapping against this one's pointer mapping rather than
+  against a number of its own, so the two cannot come to disagree, and RT-90.48 was re-run after the
+  hit area grew and still passes.
+
+## The divider can be taken hold of, and scroll drives it
+
+### AC136.1 - The divider's hit area is larger than its drawn handle, and a press inside the hit area but outside the drawn circle moves the divider rather than panning the picture.
+- Introduced: #136 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-136.1: the reachable handle exceeds the drawn one by a usable margin, and the paint is unchanged
+  - ✅ RT-136.2: a press beside the drawn handle still takes the divider
+  - ⏳ UT-136.1: zoom in, move the divider by scrolling, and judge that inspecting a detail is workable
+- Note: the drag gesture sat on the drawn `Circle` itself, so the reachable target and the paint were
+  one 28-point thing over a photograph that also accepts a drag. The author: *"I always end up
+  grabbing the image and moving it instead."* **Always**, not sometimes.
+- Note: 44 points, which is the target size the platform's own guidance asks for, and the reason to
+  state a number rather than "larger". A hit area one point bigger satisfies "larger" and helps
+  nobody, which the test audit raised as F4.
+- Note: **the paint is deliberately unchanged at 28.** #66 established that this handle's drawn size
+  is load-bearing and that `stroke` versus `strokeBorder` already moved it once, to 29.5. How
+  reachable a control is and how large it looks are different questions.
+- Note: RT-136.1 alone would pass an implementation that declared a larger frame and left the gesture
+  on the inner circle. RT-136.2 is what catches that, by pressing where a user actually misses.
+
+### AC136.2 - While the curtain is up, scrolling with the pointer over the picture moves the divider, along whichever axis the scroll dominantly is, in the direction the system reports, and within the bounds a drag observes.
+- Introduced: #136 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-136.3: scrolling over the picture moves the divider
+  - ✅ RT-136.4: the position a scroll reaches is the position the pointer mapping gives
+  - ✅ RT-136.8: the divider stays within its clamp however far a scroll continues
+  - ✅ RT-136.9: the divider follows the reported sign, both ways
+  - ✅ RT-136.10: a vertical-only scroll moves it, so a wheel mouse is not excluded
+  - ⏳ UT-136.1: judged with AC136.1
+- Note: the author's own proposal, and he had thought past the report: *"I could then toggle off the
+  filter and zoom in, scroll around, re-enable and expect to see the comparison on the zoomed in
+  portion."* At zoom the divider most needs moving exactly where the drag is most wanted for the
+  picture.
+- Note: **the dominant-axis clause exists because a wheel mouse has no horizontal axis.** A trackpad
+  reports `scrollingDeltaX` on a sideways swipe; an ordinary mouse reports only `scrollingDeltaY`.
+  Written against X alone this would have looked correct on the machine it was written on and done
+  nothing on a desk. The AC audit raised it as F1 before any code.
+- Note: **the sign is used as reported, never negated.** macOS applies the user's natural-scrolling
+  preference to the deltas before they arrive, so following the sign *is* following the preference.
+  Inverting here would fight the setting for half of all users.
+- Note: the clamp is reached through `dividerFraction`, the same call the pointer path uses, which is
+  what makes RT-136.4 possible as an assertion against the other mapping rather than against a
+  constant.
+
+### AC136.3 - Dragging is how the picture is panned while the curtain is up, and it is the only way; a scroll moves the divider or the picture, never both, and a scroll outside the picture moves neither.
+- Introduced: #136 (closed 2026-08-30)
+- Migrated: 2026-08-30
+- Tests:
+  - ✅ RT-136.5: the picture is still panned by dragging
+  - ✅ RT-136.7: a scroll over the picture does not pan it
+  - ✅ RT-136.11: a scroll over the handle moves the divider and leaves the pan alone
+  - ✅ RT-136.6: a scroll outside the picture moves neither
+- Note: **RT-136.7 is what makes this a constraint rather than an addition.** Without it, an
+  implementation that left scroll panning and never wired the divider at all passes RT-136.5 --- and
+  that is the change of doing nothing, so it is the likely one. The test audit raised it as F5.
+- Note: recorded as **DECISION D-7** on #136. Scroll-to-pan is withdrawn, and the scope is smaller
+  than it reads: `ComparisonView` is constructed in exactly one place, inside the comparing branch,
+  so scroll-to-pan only ever existed while the curtain was up. Nothing outside the comparison loses
+  anything, and the author accepted the trade in the report itself --- *"Though i could still grab
+  the image to move it about."*
+- Note: **`scrollBelongsToPicture` is untouched and RT-136.6 keeps it asserted.** It was written for
+  a global `NSEvent` monitor that moved the photograph when the user scrolled the filter strip. That
+  rule is about *where the pointer is*; this ticket changes *what the scroll drives*. Conflating the
+  two would have undone a fix while claiming to extend it.
+- Note: **RT-136.7 and RT-136.11 first passed vacuously and it is worth recording how.** The helper
+  read the curtain container's label directly, which came back empty, so both compared `""` against
+  `""`. RT-136.5 exposed it by being the only one of the three that expected the value to change.
+  Both now assert the pan is readable before comparing it. The reusable lesson: **a test asserting
+  two unknown values are equal proves nothing until one is known to be non-empty.**
 
 ## Reference upload
 
