@@ -183,7 +183,7 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     private func showInfoPanel() {
-        let comparisonButton = app.buttons["compareButton"]
+        let comparisonButton = compareControl
         if comparisonButton.label == "Full View" {
             comparisonButton.click()
         }
@@ -202,7 +202,7 @@ final class SuperscaleAppUITests: XCTestCase {
     /// would switch the curtain *off* half the time. What it wants to know is whether the curtain
     /// is there, and that is a thing it can look at directly.
     private func enterComparison() {
-        let comparisonButton = app.buttons["compareButton"]
+        let comparisonButton = compareControl
         guard comparisonButton.waitForExistence(timeout: 5) else { return }
         if !app.otherElements["curtainDivider"].exists {
             comparisonButton.click()
@@ -215,6 +215,22 @@ final class SuperscaleAppUITests: XCTestCase {
 
     private func element(identifier: String) -> XCUIElement {
         app.descendants(matching: .any)[identifier]
+    }
+
+    /// The control that draws and dismisses the comparison curtain.
+    ///
+    /// **Not `app.buttons`, and this cost a run to learn.** #134 changed the control from a `Button`
+    /// that renamed itself to a `Toggle` with `.toggleStyle(.button)`, which looks identical and
+    /// does not resolve as a button: twenty-two call sites across this suite went to `app.buttons`
+    /// and every one of them stopped finding it. The change was committed before its own GUI tests
+    /// were run, which is how that reached the branch.
+    ///
+    /// Typed `.any` deliberately. What the criteria are about is a control the user can see and
+    /// press, and pinning the query to whichever element kind SwiftUI currently produces for a
+    /// styled toggle makes the suite an assertion about SwiftUI's internals rather than about the
+    /// application.
+    private var compareControl: XCUIElement {
+        element(identifier: "compareButton")
     }
 
     /// The application's failure alert, however the platform chooses to present it.
@@ -734,7 +750,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // released" from "there is something on the canvas" — see the note at
         // `test_theCanvasKeepsTheImportedImageWithNoScaleSelected`.
         XCTAssertFalse(
-            app.buttons["compareButton"].waitForExistence(timeout: 2),
+            compareControl.waitForExistence(timeout: 2),
             "turning the scale off releases the upscaled output"
         )
 
@@ -1285,7 +1301,7 @@ final class SuperscaleAppUITests: XCTestCase {
     /// Comparison is **entered automatically** when an upscale completes, so a test wanting the
     /// plain canvas has to ask for it. `compareButton` reads "Full View" while the curtain is up.
     private func leaveComparison() {
-        let button = app.buttons["compareButton"]
+        let button = compareControl
         guard button.waitForExistence(timeout: 5) else { return }
         if button.label != "Compare" { button.click() }
     }
@@ -1657,7 +1673,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // RT-141: Compare button appears after upscale, comparison elements visible
     func test_compare_button_after_upscale_RT141() {
-        XCTAssertFalse(app.buttons["compareButton"].exists,
+        XCTAssertFalse(compareControl.exists,
                        "Compare button should not exist before upscale")
 
         guard loadTestImage() else {
@@ -1669,7 +1685,7 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        XCTAssertTrue(app.buttons["compareButton"].exists,
+        XCTAssertTrue(compareControl.exists,
                       "Compare button should exist after upscale")
     }
 
@@ -1684,7 +1700,7 @@ final class SuperscaleAppUITests: XCTestCase {
             return
         }
 
-        let compare = app.buttons["compareButton"]
+        let compare = compareControl
         XCTAssertTrue(compare.exists)
 
         // Click to enter comparison mode
@@ -1692,7 +1708,7 @@ final class SuperscaleAppUITests: XCTestCase {
         sleep(1)
 
         // Click again to exit
-        let fullView = app.buttons["compareButton"]
+        let fullView = compareControl
         XCTAssertTrue(fullView.exists, "Button should still exist in comparison mode")
         fullView.click()
     }
@@ -2632,7 +2648,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // Through the helper rather than a bare click. #126 made the curtain's visibility a
         // preference that defaults to on, so clicking the control unconditionally now closes it.
         XCTAssertTrue(
-            app.buttons["compareButton"].waitForExistence(timeout: 10),
+            compareControl.waitForExistence(timeout: 10),
             "no comparison is offered")
         enterComparison()
 
@@ -2846,7 +2862,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_aFilterResultOffersTheComparison_RT112_1() {
         applyFilterLeavingScaleOff()
 
-        let compare = app.buttons["compareButton"]
+        let compare = compareControl
         XCTAssertTrue(
             compare.waitForExistence(timeout: 10),
             "no comparison is offered for a filter result"
@@ -2885,7 +2901,7 @@ final class SuperscaleAppUITests: XCTestCase {
         chooseScale(2)
 
         XCTAssertTrue(
-            app.buttons["compareButton"].waitForExistence(timeout: 30),
+            compareControl.waitForExistence(timeout: 30),
             "selecting a scale after a filter withdrew the comparison"
         )
     }
@@ -2900,7 +2916,7 @@ final class SuperscaleAppUITests: XCTestCase {
         clearScale()
 
         XCTAssertFalse(
-            app.buttons["compareButton"].exists,
+            compareControl.exists,
             "a comparison is offered with nothing derived to compare against"
         )
     }
@@ -3264,7 +3280,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(waitForUpscaleComplete())
         applyFilterOnly("UI fixture generation for comparison")
 
-        let compare = app.buttons["compareButton"]
+        let compare = compareControl
         XCTAssertTrue(compare.waitForExistence(timeout: 10), "no comparison is offered")
 
         let toggle = element(identifier: "filterToggle")
@@ -3291,7 +3307,7 @@ final class SuperscaleAppUITests: XCTestCase {
             app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
             "the comparison did not open")
 
-        app.buttons["compareButton"].click()
+        compareControl.click()
 
         XCTAssertTrue(
             app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
@@ -3332,7 +3348,7 @@ final class SuperscaleAppUITests: XCTestCase {
     func test_theCompareControlIsPresentAndNamedAfterFilteringALargePicture_RT134_1() throws {
         try filterALargePictureWithAScaleSelected()
 
-        let compare = app.buttons["compareButton"]
+        let compare = compareControl
         XCTAssertTrue(compare.waitForExistence(timeout: 10), "no way to switch the curtain off")
         XCTAssertTrue(compare.isEnabled, "and it is usable")
 
@@ -3355,7 +3371,7 @@ final class SuperscaleAppUITests: XCTestCase {
             app.otherElements["curtainDivider"].waitForExistence(timeout: 10),
             "the curtain is up to begin with")
 
-        app.buttons["compareButton"].click()
+        compareControl.click()
 
         XCTAssertTrue(
             app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
@@ -3368,7 +3384,7 @@ final class SuperscaleAppUITests: XCTestCase {
     // do in the app."* RT-126.4 sampled one operation; this enumerates the ones the author performs.
     func test_theCurtainStaysOffThroughEveryOperation_RT134_3_and_RT134_4_and_RT134_5() throws {
         try filterALargePictureWithAScaleSelected()
-        app.buttons["compareButton"].click()
+        compareControl.click()
         XCTAssertTrue(
             app.otherElements["curtainDivider"].waitForNonExistence(timeout: 5),
             "the curtain did not switch off")
@@ -3419,7 +3435,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(waitForUpscaleComplete())
 
-        let compare = app.buttons["compareButton"]
+        let compare = compareControl
         XCTAssertTrue(compare.waitForExistence(timeout: 10))
         compare.click()
         XCTAssertTrue(
@@ -4386,7 +4402,7 @@ final class SuperscaleAppUITests: XCTestCase {
         // upscale selected. **Compare** is the control that genuinely requires a derivation, so it
         // takes over the absence assertion.
         XCTAssertFalse(
-            app.buttons["compareButton"].exists,
+            compareControl.exists,
             "there is nothing derived to compare the picture against")
         XCTAssertTrue(
             app.buttons["saveButton"].exists,
@@ -4816,5 +4832,240 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertGreaterThan(
             far.divider, middling.divider,
             "and a drag further out still moves it further out. \(diagnosis)")
+    }
+
+    // MARK: - #135: putting a picture away and starting another
+
+    /// The control that clears the current picture.
+    private var clearImageButton: XCUIElement {
+        app.buttons["clearImageButton"]
+    }
+
+    /// The File menu's Open Recent submenu.
+    private var openRecentMenu: XCUIElement {
+        app.menuBars.menuItems["Open Recent"]
+    }
+
+    // RT-135.1
+    //
+    // The two-`CommandGroup` hypothesis, settled by looking rather than by reasoning about SwiftUI.
+    // `SuperscaleApp.swift` declares two `CommandGroup(after: .newItem)` blocks in one builder, and
+    // if the second displaced the first then #130's command was never where the author looked --
+    // which would explain a defect that tested green and was reported twice more.
+    func test_bothFileMenuRoutesSurviveWithAPictureLoaded_RT135_1() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        XCTAssertTrue(
+            openImageCommand.waitForExistence(timeout: 5),
+            "Open Image is missing with a picture loaded")
+        XCTAssertTrue(
+            openRecentMenu.waitForExistence(timeout: 5),
+            "Open Recent is missing, so the second command group displaced the first")
+    }
+
+    // RT-135.2
+    //
+    // The half of the request that was never built. Three reports asked to *"clear the image and
+    // browse"*; #130 answered the browse.
+    func test_aClearControlAppearsOnceAPictureIsLoaded_RT135_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        XCTAssertTrue(
+            clearImageButton.waitForExistence(timeout: 10),
+            "there is still no route to put the picture away")
+        XCTAssertTrue(clearImageButton.isEnabled, "and it is usable")
+    }
+
+    // RT-135.6
+    //
+    // AC135.2's other half. Without this a control permanently on screen passes RT-135.2, and an
+    // empty canvas would offer to empty itself.
+    func test_noClearControlIsOfferedBeforeAPictureIsLoaded_RT135_6() {
+        XCTAssertTrue(
+            element(identifier: "fileChooser").waitForExistence(timeout: 10),
+            "the drop target should be showing at launch")
+        XCTAssertFalse(
+            clearImageButton.exists,
+            "an empty canvas offers to clear itself")
+    }
+
+    // RT-135.3
+    //
+    // Clearing delivers *both* halves of the request, which is the design: the empty canvas is the
+    // drop target, and the drop target has always carried its own chooser. Browsing needed no new
+    // route once there was a way back to it.
+    func test_clearingReturnsTheCanvasToTheDropTarget_RT135_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+
+        clearImageButton.click()
+
+        XCTAssertTrue(
+            element(identifier: "dropTarget").waitForExistence(timeout: 10),
+            "the canvas did not go back to the drop target")
+        XCTAssertTrue(
+            element(identifier: "fileChooser").exists,
+            "and with no chooser there is still no way to browse")
+    }
+
+    // RT-135.4
+    //
+    // **The gap #130 left.** Its own code audit recorded that "the open panel itself remains
+    // undrivable from XCUITest, so RT-130.2 asserts the command exists and is enabled rather than
+    // driving it to a file" -- so the menu entry was verified and the action never was, and the
+    // defect came back twice.
+    //
+    // This drives a real `NSOpenPanel` to a real file, because `loadTestImage` already does exactly
+    // that through the drop target's chooser. The route that could not be verified through the menu
+    // is verifiable through the canvas, which is a second reason to have put the clear there.
+    func test_aPictureCanBeBroughtInAfterClearing_RT135_4() throws {
+        XCTAssertTrue(loadTestImage(), "the first picture should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        let second = try writeFixture(width: 1600, height: 1200, named: "after-the-clear.png")
+        XCTAssertTrue(loadTestImage(path: second), "a second picture will not load after a clear")
+
+        XCTAssertTrue(
+            clearImageButton.waitForExistence(timeout: 10),
+            "the second picture did not reach the canvas")
+    }
+
+    // RT-135.5
+    //
+    // AC135.5. The chain belongs to the picture it was built from, on the same terms AC89.8 sets
+    // for an import -- and the files themselves are untouched, so a session that reached the
+    // provider is still offered under Open Recent.
+    func test_clearingEmptiesTheLockStripAndKeepsRecents_RT135_5() {
+        buildLockChain(of: 2)
+        XCTAssertGreaterThan(lockChainEntries.count, 1, "the chain should have been built")
+
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertEqual(
+            lockChainEntries.count, 0,
+            "the previous picture's iterations are still on offer after it was put away")
+        XCTAssertTrue(
+            openRecentMenu.waitForExistence(timeout: 5),
+            "and the way back to earlier sessions went with it")
+    }
+
+    // RT-135.11
+    //
+    // The integration gap the test audit raised as F6, and the failure most likely to produce a
+    // fourth report: a clear that swaps the *view* to the drop target while the model stays
+    // populated. Every other test here would pass in that state.
+    //
+    // The comparison is the cheapest thing that tells the two apart. It is offered when the
+    // workspace can compare or the view model holds a result, so its absence is a statement about
+    // the model rather than about what is drawn.
+    func test_clearingEmptiesTheModelAndNotOnlyTheCanvas_RT135_11() throws {
+        try filterALargePictureWithAScaleSelected()
+        XCTAssertTrue(compareControl.waitForExistence(timeout: 10))
+
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertFalse(
+            compareControl.exists,
+            "the canvas is empty but the model still holds a derivation to compare against")
+    }
+
+    // RT-135.7
+    //
+    // AC135.6, the picture's half. A scale chosen for one picture must not be in effect for the
+    // next: #131 established that a session opens with no scale selected, and a clear returns the
+    // application to that state.
+    func test_aScaleChosenForOnePictureIsNotInEffectAfterAClear_RT135_7() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        chooseScale(2)
+        XCTAssertTrue(someScaleIsInEffect, "the scale should have taken effect")
+        XCTAssertTrue(waitForUpscaleComplete(), "and settle before the clear")
+
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertFalse(
+            someScaleIsInEffect,
+            "the next picture inherits a scale chosen for a picture that is gone")
+    }
+
+    // RT-135.8
+    //
+    // AC135.6, the user's half, and the reason the criterion is a partition rather than a reset.
+    // Wiping the model choice would make putting a picture away cost the user their settings.
+    func test_theChosenModelSurvivesAClear_RT135_8() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        let picker = element(identifier: "modelPicker")
+        guard picker.waitForExistence(timeout: 5) else {
+            XCTFail("the model picker should be reachable with a picture loaded")
+            return
+        }
+        let before = picker.value as? String
+
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertEqual(
+            picker.value as? String, before,
+            "clearing a picture also reset a setting that belongs to the user")
+    }
+
+    // RT-135.9
+    //
+    // AC135.7 and DECISION D-5. A filter is a paid provider call with no cancellation path, so a
+    // clear during one is refused rather than granted -- and refusing is only correct if it stops
+    // refusing afterwards, which is the second half of this test.
+    func test_theClearControlIsUnavailableWhileAFilterIsInFlight_RT135_9() throws {
+        let path = try writeFixture(width: 1600, height: 1200, named: "clear-during-filter.png")
+        XCTAssertTrue(loadTestImage(path: path), "the large picture should load")
+        chooseScale(2)
+        XCTAssertTrue(waitForUpscaleComplete(), "and upscale before the filter")
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation during a clear")
+        app.buttons["applyFilterButton"].click()
+
+        // Sampled rather than asserted at one instant: the stub settles quickly and a single check
+        // races it. What is asserted is that the control was seen disabled at some point while the
+        // filter was in flight, which is the property AC135.7 states.
+        var wasRefusedWhileWorking = false
+        for _ in 0..<40 where !wasRefusedWhileWorking {
+            if clearImageButton.exists, !clearImageButton.isEnabled { wasRefusedWhileWorking = true }
+            if !app.buttons["applyFilterButton"].exists { break }
+        }
+
+        XCTAssertTrue(waitForFilterResult(), "the filter result should reach the canvas")
+        XCTAssertTrue(
+            wasRefusedWhileWorking,
+            "a clear was available mid-filter, so a paid result can land on an emptied canvas")
+        XCTAssertTrue(
+            clearImageButton.isEnabled,
+            "and the refusal outlasted the work it was protecting")
+    }
+
+    // RT-135.10
+    //
+    // AC135.8. Nothing is interposed: the picture goes on the click. Asserted as the absence of a
+    // sheet or dialogue rather than as speed, because "immediately" is about what stands in the
+    // way, not about milliseconds.
+    func test_clearingAsksForNoConfirmation_RT135_10() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+
+        clearImageButton.click()
+
+        XCTAssertTrue(
+            element(identifier: "dropTarget").waitForExistence(timeout: 10),
+            "the canvas did not clear on the click")
+        XCTAssertEqual(
+            app.sheets.count, 0, "a sheet was interposed between the user and the clear")
+        XCTAssertEqual(
+            app.dialogs.count, 0, "a dialogue was interposed between the user and the clear")
     }
 }

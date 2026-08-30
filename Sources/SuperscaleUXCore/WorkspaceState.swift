@@ -128,6 +128,21 @@ public final class WorkspaceState: ObservableObject {
         showsBase = false
     }
 
+    /// Puts the workspace back to the state a fresh launch has: no assets, nothing displayed.
+    ///
+    /// A **new graph** rather than a reset on the existing one. #121 and #132 taught the same lesson
+    /// from opposite ends — state that is unwound field by field drifts from state that is rebuilt,
+    /// and both times the drift destroyed iterations the author had paid for. A fresh `AssetGraph`
+    /// cannot forget a field, because there is no field to forget.
+    ///
+    /// Nothing on disk is touched. The rendered files stay where they were written and a session
+    /// that reached the provider is still offered under Open Recent (AC135.5); what goes is this
+    /// window's knowledge of them, which is the whole of what "clear" means here.
+    public func clear() {
+        graph = AssetGraph(outputDirectory: graph.outputDirectory)
+        showsBase = false
+    }
+
     /// Records a filter result as the candidate, replacing any candidate before it.
     ///
     /// Shows the new candidate whichever was being displayed, because applying while showing the

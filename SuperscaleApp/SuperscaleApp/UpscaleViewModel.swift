@@ -549,6 +549,43 @@ final class UpscaleViewModel: ObservableObject {
         processImage(source: .imported(url))
     }
 
+    /// Puts the picture away and leaves the user's preferences alone (AC135.6).
+    ///
+    /// The division is the point, and it is not the same as "reset everything". What belongs to the
+    /// **picture** goes: the image, the derivation, the dimensions read off it, the scale chosen for
+    /// it, and whatever the last run had to say. What belongs to the **user** stays: the model they
+    /// picked, face enhancement, and whether the buttons carry labels. Wiping those would make
+    /// clearing a picture a punishment for clearing a picture.
+    ///
+    /// 🚫 **`showComparison` is not touched, by #126's rule and #134's repeat of it.** The curtain's
+    /// visibility is the user's setting and the application does not write it (guide 2.3). Resetting
+    /// it here would be the same defect the author has now reported twice, arriving through a new
+    /// door: he switches the curtain off, clears a picture, loads another, and the curtain is back.
+    /// After a clear the comparison is *unavailable* because there is nothing to compare — which is
+    /// a fact about the graph, not a setting, and RT-135.11 stands over it.
+    ///
+    /// `releaseUpscaledResult` already owns tearing down a running upscale and its output, so this
+    /// calls it rather than repeating the list and drifting from it.
+    func clearPicture() {
+        releaseUpscaledResult()
+        originalImage = nil
+        inputURL = nil
+        inputWidth = nil
+        inputHeight = nil
+        turnScaleOff()
+        showCustomFields = false
+        customWidth = ""
+        customHeight = ""
+        definingDimension = .width
+        stretchEnabled = false
+        errorMessage = nil
+        noticeMessage = nil
+        dimensionCapWarning = nil
+        lastUpscaleModelName = nil
+        lastUpscaleFaceCount = 0
+        lastUpscaleWasAutoDetect = false
+    }
+
     /// Upscales an image that came from elsewhere in the application, such as a generation
     /// result or a history session.
     ///

@@ -366,6 +366,24 @@ struct MainView: View {
     }
 
     /// Adopts an image the user brought in as the graph's source, starting a new chain.
+    /// Puts the picture away across all three owners of its state (#135).
+    ///
+    /// Three, because that is how many there are, and a clear that reached two of them would leave
+    /// the canvas empty over a populated model — the failure RT-135.11 exists to catch. The view
+    /// model holds the picture and its derivation, the workspace holds the graph and the lock
+    /// chain, and this view holds the two caches it keeps to avoid re-decoding.
+    ///
+    /// `lastDisplayedURL` in particular: it is #111's guard against a displayed iteration being
+    /// mistaken for an import. Left set across a clear, re-importing the very picture just cleared
+    /// would be swallowed by that guard and nothing would appear.
+    private func clearPicture() {
+        viewModel.clearPicture()
+        workspace.clear()
+        loadedBaseImage = nil
+        lastDisplayedURL = nil
+        selection = FilterSelection()
+    }
+
     private func adoptImportedImage(_ url: URL?) {
         guard let url,
               url != generationCoordinator.output?.localURL,
@@ -760,6 +778,29 @@ struct MainView: View {
                     viewModel.saveAs(defaultDirectory: settingsState.outputFolder)
                 }
                 .accessibilityIdentifier("saveButton")
+            }
+
+            // Putting the picture away, and the author's third report (#135).
+            //
+            // #130 answered the same report with a File ▸ Open Image command, which tested green
+            // and was reported again twice. RT-130.2 proved the *menu item* existed; nothing proved
+            // a user would find it, and nothing at all offered the other half of what was asked
+            // for — *"clear the image **and** browse"*, each of the three times.
+            //
+            // So this is on the canvas, beside Save As, where the author is already looking and
+            // where he has not had to be told twice. It also delivers the browse: an empty canvas
+            // *is* the drop target, and the drop target carries its own chooser (AC135.3).
+            //
+            // Disabled rather than hidden while work is in flight, by DECISION D-5: a filter is a
+            // paid provider call with no cancellation path, and a clear that let one land on an
+            // emptied canvas would be a defect built on purpose.
+            if viewModel.originalImage != nil {
+                Button("Clear Image") {
+                    clearPicture()
+                }
+                .disabled(viewModel.isProcessing || isSubmittingFilter)
+                .help("Put this picture away and go back to the drop target")
+                .accessibilityIdentifier("clearImageButton")
             }
 
             if infoPanelDismissed {
