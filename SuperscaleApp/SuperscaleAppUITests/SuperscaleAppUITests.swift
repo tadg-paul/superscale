@@ -1825,21 +1825,45 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     // RT-146: Stretch uncheck preserves defining dimension
+    //
+    // **Hardened on 2026-08-30 after one intermittent failure in a full run.** It read `"00"`
+    // against the `"600"` it had typed --- a dropped *leading* character, which is a lost keystroke
+    // and not a logic defect. Diagnosed rather than assumed: it passed in the preceding full run and
+    // three consecutive times in isolation afterwards, and the same failure mode is already recorded
+    // at `loadTestImage`, where synthesized keystrokes go to whichever application is frontmost.
+    //
+    // So the field is focused before anything is typed, and the typing is confirmed to have landed
+    // rather than trusted. **This is not the criterion changing** --- what is asserted is exactly
+    // what was asserted before.
     func test_stretch_uncheck_preserves_defining_RT146() {
         let custom = app.buttons["scaleCustom"]
         XCTAssertTrue(custom.waitForExistence(timeout: 5))
         custom.click()
 
+        /// Types into a field and confirms the field received all of it.
+        ///
+        /// Re-types once on a short read. A first keystroke lost to something else taking focus is
+        /// the observed failure, and one retry after `activate()` distinguishes that from a field
+        /// that genuinely refuses the input --- which would fail on the assertion below, as it
+        /// should.
+        func type(_ text: String, into field: XCUIElement) {
+            XCTAssertTrue(field.waitForExistence(timeout: 5), "no field to type into")
+            app.activate()
+            field.click()
+            field.typeText(text)
+            if (field.value as? String ?? "") != text {
+                app.activate()
+                field.click()
+                field.typeKey("a", modifierFlags: .command)
+                field.typeText(text)
+            }
+        }
 
-        // Enter width
-        let widthField = app.textFields["customWidth"]
-        widthField.click()
-        widthField.typeText("800")
+        type("800", into: app.textFields["customWidth"])
 
-        // Enter height (this makes height the defining dimension)
+        // Entering the height makes it the defining dimension.
         let heightField = app.textFields["customHeight"]
-        heightField.click()
-        heightField.typeText("600")
+        type("600", into: heightField)
 
         // The height field should have the value we typed
         let heightValue = heightField.value as? String ?? ""
