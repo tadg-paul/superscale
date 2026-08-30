@@ -1300,10 +1300,21 @@ final class SuperscaleAppUITests: XCTestCase {
     ///
     /// Comparison is **entered automatically** when an upscale completes, so a test wanting the
     /// plain canvas has to ask for it. `compareButton` reads "Full View" while the curtain is up.
+    /// Leaves the curtain, so the canvas shows one picture.
+    ///
+    /// **Behaviour-based, for the reason `enterComparison` is, and I fixed only the twin.** This
+    /// read `button.label != "Compare"`, which worked while the control renamed itself to "Full
+    /// View". #134 gave it one constant name, so the condition became permanently false and this
+    /// helper **silently stopped doing anything at all** --- it did not fail, it just never left.
+    /// RT-94.13 caught it in the full run by asserting no curtain was on screen.
+    ///
+    /// The lesson is the same one #134 already taught once: a helper that infers state from what a
+    /// control is *called* breaks the moment the control stops renaming itself. It wants to know
+    /// whether the curtain is drawn, and that is a thing it can look at.
     private func leaveComparison() {
         let button = compareControl
         guard button.waitForExistence(timeout: 5) else { return }
-        if button.label != "Compare" { button.click() }
+        if app.otherElements["curtainDivider"].exists { button.click() }
     }
 
     // RT-94.18
@@ -1344,19 +1355,16 @@ final class SuperscaleAppUITests: XCTestCase {
             reportedPan(), before,
             "scrolling the filter list must not move the photograph")
 
-        // RT-94.12: over the picture itself.
-        curtain.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).hover()
-        curtain.scroll(byDeltaX: 0, deltaY: -120)
-
-        // Waited for rather than read immediately: the pan travels from an `NSEvent` monitor
-        // through `@State` to a re-rendered accessibility value, and none of that is synchronous
-        // with the scroll returning.
-        let moved = expectation(
-            for: NSPredicate { _, _ in self.reportedPan() != before },
-            evaluatedWith: curtain)
-        XCTAssertEqual(
-            XCTWaiter().wait(for: [moved], timeout: 10), .completed,
-            "scrolling the picture pans it; still \(reportedPan())")
+        // 🚫 **RT-94.12 is retired by #136, identifier not reused.** It asserted that scrolling the
+        // picture pans it, and that is precisely what #136 reversed: inside the curtain, scroll now
+        // moves the divider and drag moves the picture. Guide 2.3 carries the split and DECISION
+        // D-7 records why. The assertion is not weakened, it is **inverted** — RT-136.7 now asserts
+        // that a scroll over the picture does *not* pan it, and RT-136.5 asserts that dragging
+        // still does.
+        //
+        // What survives here is RT-94.11, above, which is the half this test was written for: a
+        // scroll over the filter panel must not reach the photograph. That rule is about *where the
+        // pointer is* and #136 did not touch it.
     }
 
     // RT-94.13
@@ -2658,11 +2666,26 @@ final class SuperscaleAppUITests: XCTestCase {
             .matching(identifier: "curtainDivider").firstMatch
         XCTAssertTrue(handle.waitForExistence(timeout: 10), "the divider handle is not present")
 
-        // The declared sizes, not measured guesses: the line is 2 points wide and the handle is a
-        // 28-point circle. Both are the values the drag gesture and the pointer mapping assume.
+        // The declared sizes, not measured guesses. The line is 2 points wide, and that is the hit
+        // area AC90.14's pointer mapping sits on.
         XCTAssertEqual(line.frame.width, 2, accuracy: 1, "the divider line changed width")
-        XCTAssertEqual(handle.frame.width, 28, accuracy: 1, "the handle changed width")
-        XCTAssertEqual(handle.frame.height, 28, accuracy: 1, "the handle changed height")
+
+        // **The handle's accessible frame is 44 since #136, and that is the change, not a
+        // regression.** Reachable and drawn used to be one thing, which is the defect #136 fixed:
+        // the gesture sat on the 28-point circle over a photograph that also accepts a drag.
+        //
+        // This test's purpose survives intact. #66 was about the *paint* not moving the geometry —
+        // `stroke` versus `strokeBorder` had taken the handle to 29.5 — and that guard now lives in
+        // RT-136.1, which pins `CurtainGeometry.handleDiameter` at 28. The view draws the circle
+        // from that constant rather than from a literal, so the unit test genuinely stands over the
+        // paint. What is asserted here is the half only the running application can show: that the
+        // reachable handle is the enlarged one.
+        // The literal 44 rather than `CurtainGeometry.handleHitDiameter`: this target does not link
+        // `SuperscaleUXCore`, and adding a module dependency to read one number would be a larger
+        // change than the assertion is worth. RT-136.1 holds the constant to the same value, so the
+        // two cannot drift without one of them failing.
+        XCTAssertEqual(handle.frame.width, 44, accuracy: 1, "the reachable handle changed width")
+        XCTAssertEqual(handle.frame.height, 44, accuracy: 1, "the reachable handle changed height")
     }
 
     // MARK: - AC119.1: the progress indicator is centred over the picture (#119)
@@ -4511,7 +4534,10 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "4")
         lighting.click()
 
-        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "86")
+        // 108 since #138. The corpus size is asserted in three places across the suite and none of
+        // them derives it, which is why growing it broke two GUI tests that #138's own test audit
+        // never looked at — it audited `PromptPackTests` and stopped there.
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "108")
         XCTAssertTrue(element(identifier: "filter-image-print-linocut").exists)
     }
 
@@ -4531,14 +4557,40 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(element(identifier: "filterCount").waitForExistence(timeout: 5))
         let reported = textContent(of: element(identifier: "filterCount"))
 
-        XCTAssertEqual(reported, "86", "with no category chosen, every filter is offered")
+        XCTAssertEqual(reported, "108", "with no category chosen, every filter is offered")
+    }
+
+    // RT-138.7
+    //
+    // **A coverage gap in my own audit of #138, found while assembling the review package.**
+    // AC138.2 says the filter list *groups by* the two new categories, and the only test I had cited
+    // for it was RT-138.5, which asserts they exist and are non-empty in the catalogue. The
+    // catalogue is not the list.
+    //
+    // It happens that `FilterPanel.categories` derives its chips from the loaded filters, so nothing
+    // was hardcoded and this passes without a change to the application. That is the answer, not the
+    // excuse: the criterion was untested either way, and a later change that hardcoded the chip list
+    // would have satisfied every test #138 shipped with.
+    func test_theNewCategoriesAreOfferedInTheFilterList_RT138_7() {
+        XCTAssertTrue(
+            element(identifier: "category-narrative").waitForExistence(timeout: 5),
+            "the Narrative chip is not offered, so its filters are reachable only by search")
+        XCTAssertTrue(
+            element(identifier: "category-institutional").exists,
+            "the Institutional chip is not offered")
+
+        // And a chip that narrows to nothing is worse than no chip. Chosen rather than merely
+        // present, because presence is what RT-138.5 already covers at the catalogue level.
+        element(identifier: "category-narrative").click()
+        let narrowed = textContent(of: element(identifier: "filterCount"))
+        XCTAssertEqual(narrowed, "8", "the Narrative chip narrows to its eight filters")
     }
 
     // RT-87.11: choosing a filter fills the prompt area.
     //
     // Narrowed to its category first, which is what the chips are for and what a user does: with
-    // all 86 listed, a row far down the list is in the tree but scrolled out of view, so it has no
-    // hit point.
+    // all 108 listed, a row far down the list is in the tree but scrolled out of view, so it has no
+    // hit point. More true since #138 than when it was written, not less.
     func test_choosingAFilterFillsThePromptArea_RT087_11() {
         let lighting = element(identifier: "category-lighting")
         XCTAssertTrue(lighting.waitForExistence(timeout: 5))

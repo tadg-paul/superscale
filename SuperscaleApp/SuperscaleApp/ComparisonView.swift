@@ -212,7 +212,12 @@ struct ComparisonView: View {
 
             Circle()
                 .fill(Color.white)
-                .frame(width: 28, height: 28)
+                // From the constant, not a literal, so RT-136.1's assertion that
+                // `handleDiameter == 28` genuinely stands over what is drawn. RT-66.1 used to guard
+                // this through the running application and cannot any more: since #136 the handle's
+                // accessible frame is the 44-point hit area, so the drawn size is no longer
+                // separately observable there.
+                .frame(width: CurtainGeometry.handleDiameter, height: CurtainGeometry.handleDiameter)
                 // The same reasoning as the line above: the outline gives the handle an edge
                 // against a bright photograph, where the shadow only helped against a dark one.
                 // Drawn as an overlay inside the existing 28-point frame, so the hit area the drag
