@@ -499,13 +499,23 @@ extended AC92.1, AC92.5 and AC92.6.
 - Introduced: #138 (closed 2026-08-30)
 - Migrated: 2026-08-30
 - Tests:
-  - ✅ RT-138.5: the Narrative and Institutional categories are present and non-empty
+  - ✅ RT-138.5: the Narrative and Institutional categories are present and non-empty in the catalogue
+  - ✅ RT-138.7: both are offered as chips in the filter list, and choosing Narrative narrows to its eight
   - ⏳ UT-74.1 re-offered: the grouping is judged with the names
 - Note: **the ticket estimated Narrative at 11 of the 22 and it is 8.** The final split is Narrative
   8, Institutional 4, Media 4, Material 3, and one each into Design, Print and Zeitgeist. The
   estimate was made by reading filenames before the transformation ran; the count above is from the
   headers as written. Recorded rather than quietly corrected because the ticket's reasoning about
   the primary surface was sized against the wrong number.
+- Note: **RT-138.7 closes a gap in this criterion's own test audit.** The criterion says the filter
+  list *groups by* the new categories, and the only test cited for it asserted they exist in the
+  *catalogue*, which is not the list. It happens that `FilterPanel.categories` derives its chips from
+  the loaded filters, so it passes without an application change --- but the criterion was untested
+  either way, and a later change that hardcoded the chip list would have satisfied everything #138
+  shipped with.
+- Note: **growing the corpus broke two GUI tests the audit never looked at.** RT-87.10 and RT-87.36
+  hardcoded 86. The count is asserted in three places across the suite and derived in none; the test
+  audit examined `PromptPackTests` and stopped there. Corrected to 108.
 - Note: adding categories changes how the *existing* filters are found, not only the new ones. Guide
   2.3 calls the filter list the primary surface, and its category list in guide 2.2 had also been
   missing `photo` before this ticket --- corrected there at guide 3.37.
@@ -2028,7 +2038,7 @@ extended AC92.1, AC92.5 and AC92.6.
 - Migrated: 2026-08-25
 - Tests:
   - ✅ RT-94.11: a scroll over the filter panel leaves the picture where it is
-  - ✅ RT-94.12: a scroll over the picture pans it
+  - ~~🚫 RT-94.12: a scroll over the picture pans it~~
   - ✅ RT-94.13: a scroll with no comparison on screen pans nothing
   - ✅ RT-94.17: a location inside the picture belongs to it and one outside does not, at any window size
   - ✅ RT-94.18: the comparison reports its pan as a value
@@ -2036,6 +2046,20 @@ extended AC92.1, AC92.5 and AC92.6.
   scrolling the filter category strip moved the photograph. A monitor is a global interception
   dressed as a view behaviour: it fires for the toolbar, the side panel, the lock chain and the
   status bar alike.
+- Note: **RT-94.12 is retired by #136 (2026-08-30), identifier not reused, and the assertion is
+  inverted rather than lost.** Inside the curtain, a scroll now moves the divider and a drag moves
+  the picture --- guide 2.3 carries the split and DECISION D-7 records why. **RT-136.7** asserts that
+  a scroll over the picture does *not* pan it, and **RT-136.5** that a drag still does, so the
+  property is more tightly constrained than before rather than less.
+- Note: **this criterion's own first clause is unchanged and is the reason #136 could not simply
+  reassign the gesture.** "Only while the pointer is over it" is about *where the pointer is*; #136
+  changed *what the scroll drives*. RT-94.11 and RT-136.6 both still stand over the original rule.
+- Note: **RT-94.13 caught a silent test-helper defect in the full run of 2026-08-30.**
+  `leaveComparison()` decided whether to click by reading the control's label, which worked while the
+  control renamed itself. #134 gave it one constant name, so the condition became permanently false
+  and the helper stopped doing anything at all --- not failing, simply never leaving the curtain. It
+  is behaviour-based now, as `enterComparison()` already was. **The same fix had been applied to the
+  twin helper and not looked for here**, which is the reusable part.
 
 ## The filterable minimum, and the curtain's geometry
 
@@ -2136,6 +2160,13 @@ extended AC92.1, AC92.5 and AC92.6.
   shape's edge and grows the drawn bounds by half its line width each side; the handle measured 29.5
   points against its declared 28. AC90.14's pointer mapping and AC96.4's shared-fraction rule both
   sit on those frames, and UT-90.1 failed on that geometry once already. `strokeBorder` draws inside.
+- Note: **RT-66.1 now measures 44, not 28, and that is #136 rather than a regression.** Since the hit
+  area was enlarged, the handle's accessible frame is the reachable circle and the drawn one is no
+  longer separately observable from the running application. **The guard this test exists for did not
+  go**: it moved to **RT-136.1**, which pins `CurtainGeometry.handleDiameter` at 28 --- and the view
+  now draws the circle from that constant rather than from a literal, which it did not before, so the
+  unit test genuinely stands over the paint. What RT-66.1 keeps is the half only the application can
+  show: the divider line is still 2 points, and the reachable handle is the enlarged one.
 
 ### AC96.5 - A returned picture whose shape differs from what was sent is identifiable as such, rather than silently presented as though the provider had preserved the framing.
 - Introduced: #96 (closed 2026-08-25)
