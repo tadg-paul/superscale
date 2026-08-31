@@ -116,15 +116,28 @@ labels and **whether the comparison curtain is switched on** are the user's and
 survive. The curtain in particular: 2.3 holds that the application never writes
 that setting, and a clear is not an exception to it.
 
-The MVP has no "generate from a prompt" entry, because the filter corpus is
-built for transformation: 82 of the 108 carry preserve clauses and 72 explicitly
-transform "the input image". Every MVP journey therefore starts from an image
-the user brings in.
+**Generating from a prompt alone is in the MVP as of #148**, brought forward at
+the author's request. On an empty canvas, typing into the prompt area and
+pressing Apply sends the prompt with no reference image.
 
-Generation from a named prompt is the **next version**, not a permanent
-exclusion. When it arrives it becomes an additional way to create a `source`
-asset, entering the same pipeline at the same point as an imported image, with
-filtering and upscaling unchanged downstream.
+The corpus remains built for transformation --- 82 of the 108 carry preserve
+clauses and 72 explicitly transform "the input image" --- so a filter chosen
+with no picture behind it may produce something odd. That is a property of the
+prompts rather than of the route, and the route is there for the user's own
+words.
+
+This section previously said the MVP had no such entry and that it was "the
+next version, not a permanent exclusion". **The prediction it made about the
+shape was right and is what was built**: it becomes an additional way to create
+a `source` asset, entering the same pipeline at the same point as an imported
+image, with filtering and upscaling unchanged downstream.
+
+Mechanically it is the same model without the `/edit` suffix. `FalRequestBuilder`
+already chose between the two endpoints on whether any reference was attached,
+so sending none selects the text endpoint and restores the sizing parameter that
+Grok's edit endpoint refuses. **No reference also means no upload**, so a
+from-scratch generation skips the two round trips #137 measured and is the
+fastest provider path in the application.
 
 ### 2.3 Choosing and applying a filter
 

@@ -81,6 +81,29 @@ public struct WorkspaceModel: Sendable {
         selection.canApply && workingImage?.hasWorkingImage == true && isGenerationConfigured
     }
 
+    /// Whether a prompt can be sent with no picture behind it (#148).
+    ///
+    /// Deliberately **not** a relaxation of `canApply`. That property means "there is something to
+    /// apply, and something to apply it to", and a great deal is gated on it; widening it would
+    /// quietly change every one of those. Generating from nothing is a different act with a
+    /// different request, so it gets its own question.
+    public var canGenerateFromNothing: Bool {
+        selection.canApply && workingImage?.hasWorkingImage != true && isGenerationConfigured
+    }
+
+    /// The request for a generation with no source image.
+    ///
+    /// No references, which is the whole of it: `FalRequestBuilder` decides between the edit and the
+    /// text endpoint on whether any reference is attached, so an empty list selects the model
+    /// without its `/edit` suffix — the author's own description of what this should do — and
+    /// restores the sizing parameter that Grok's edit endpoint refuses.
+    public func generateRequest(
+        modelID: String = FalGenerationRequest.defaultModelID
+    ) -> FalGenerationRequest? {
+        guard canGenerateFromNothing else { return nil }
+        return selection.request(modelID: modelID, referenceImageURLs: [])
+    }
+
     /// Whether the local half of the application is available, which does not depend on a key.
     public var canUpscale: Bool {
         workingImage?.hasWorkingImage == true

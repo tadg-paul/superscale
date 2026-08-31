@@ -673,12 +673,41 @@ struct MainView: View {
     /// the base lives, and the provider's storage is not the application's to reason about the
     /// lifetime of.
     @MainActor
+    /// Sends the prompt with no reference image, and lets the result arrive as an ordinary import.
+    ///
+    /// **No upload.** `FalRequestBuilder` chooses the edit endpoint or the text endpoint on whether
+    /// any reference is attached, so sending none reaches the model without its `/edit` suffix ---
+    /// the author's own description --- and skips the two round trips #137 measured. A from-scratch
+    /// generation is the fastest provider path in the application.
+    ///
+    /// The result becomes a **`source`**, not a `filtered` asset: it has no parent, it starts a
+    /// chain, and filtering, upscaling, locking and comparison are unchanged downstream. Guide 2.2
+    /// predicted that shape before the feature existed and it is what was built. Anything else would
+    /// make the first generation of a session a special case forever.
+    private func submitGenerationFromNothing() {
+        var request = WorkspaceModel(
+            filters: selection.filters,
+            workingImage: nil,
+            isGenerationConfigured: settingsState.isGenerationConfigured
+        )
+        request.selection = selection
+        guard let built = request.generateRequest() else { return }
+        generationCoordinator.start(built, apiKey: settingsState.generationKey)
+    }
+
     private func submitFilter() async {
         // The graph decides what a filter reads: the base, never the candidate and never the
         // upscaled rendering. Asking it rather than reaching for what is on screen is the whole
         // point of the graph being the state.
+        // **No picture at all? Then generate from the prompt alone (#148).**
+        //
+        // Taken before the graph is asked anything, because with an empty canvas there is no input
+        // for it to answer with — and the answer is not an error, it is a different request.
         guard let input = try? workspace.graph.input(for: .filter),
-              let asset = try? workspace.graph.asset(for: input) else { return }
+              let asset = try? workspace.graph.asset(for: input) else {
+            submitGenerationFromNothing()
+            return
+        }
 
         // Already paid for? Then do not pay again.
         //
@@ -741,6 +770,24 @@ struct MainView: View {
         // The coordinator's own input carries its attribution. Constructing one here from a
         // location would be attribution by timing, which #86 closed.
         guard let source = generationCoordinator.upscaleSource else { return }
+
+        // **A generation with nothing behind it arrives as a `source`, not as a candidate (#148).**
+        //
+        // `recordFilter` needs a base to hang a filtered asset from, and with an empty canvas there
+        // is none — so the result would be refused and a picture the user had just paid for would
+        // never appear. It enters through `importImage` instead, which is the same door a dragged
+        // file uses: it starts a chain by AC89.8, and filtering, upscaling, locking and comparison
+        // are unchanged downstream.
+        //
+        // Guide 2.2 predicted exactly this shape before the feature existed. Making the first
+        // generation a candidate of nothing would have made it a special case forever.
+        if workspace.graph.base == nil {
+            workspace.importImage(
+                fileURL: source.url, pixelSize: ImageDimensions.pixelSize(of: source.url))
+            viewModel.handleDrop(urls: [source.url])
+            return
+        }
+
         // What was sent, recorded alongside what came back. Grok raises a short edge under 1024 to
         // its working size and squares the result, so a 3:4 photograph returns 1:1; without both
         // sizes the application cannot say whether it or the provider changed the shape.

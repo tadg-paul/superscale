@@ -6154,4 +6154,57 @@ final class SuperscaleAppUITests: XCTestCase {
             (clearImageButton.value as? String) ?? "", "0 unsaved",
             "a pasted picture arrived with a chain behind it, so it was not treated as an import")
     }
+
+    // MARK: - #148: a picture from a prompt alone
+
+    // RT-148.3
+    //
+    // AC148.1 and AC148.3 as a journey: Apply is offered on an empty canvas with a prompt, and what
+    // comes back is an **ordinary picture** — the clear control appears, which renders only when a
+    // picture is loaded, and it reports nothing at stake because a generation with nothing behind it
+    // arrives as a `source` and starts a chain.
+    //
+    // `recordFilter` would have refused it: a filtered asset needs a base to hang from, and there
+    // was none. Guide 2.2 predicted this shape before the feature existed.
+    func test_aPromptAloneProducesAPictureOnAnEmptyCanvas_RT148_3() {
+        XCTAssertTrue(
+            element(identifier: "dropTarget").waitForExistence(timeout: 10),
+            "the canvas should start empty")
+        XCTAssertFalse(clearImageButton.exists, "the canvas should start empty")
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation from nothing at all")
+
+        let apply = app.buttons["applyFilterButton"]
+        XCTAssertTrue(apply.waitForExistence(timeout: 5), "there is no Apply control")
+        XCTAssertTrue(
+            apply.isEnabled,
+            "Apply is refused on an empty canvas, which is the state this feature is for")
+        apply.click()
+
+        XCTAssertTrue(
+            clearImageButton.waitForExistence(timeout: 60),
+            "the generated picture never reached the canvas")
+        XCTAssertEqual(
+            (clearImageButton.value as? String) ?? "", "0 unsaved",
+            "the generated picture arrived with a chain behind it, so it was not a source")
+    }
+
+    // RT-148.7
+    //
+    // AC148.4. Apply must not offer itself with nothing to say, or the empty canvas becomes a
+    // button that sends an empty prompt to a paid provider.
+    func test_applyIsRefusedOnAnEmptyCanvasWithNoPrompt_RT148_7() {
+        XCTAssertTrue(
+            element(identifier: "dropTarget").waitForExistence(timeout: 10),
+            "the canvas should start empty")
+
+        let apply = app.buttons["applyFilterButton"]
+        XCTAssertTrue(apply.waitForExistence(timeout: 5), "there is no Apply control")
+        XCTAssertFalse(
+            apply.isEnabled,
+            "Apply is offered with an empty canvas and an empty prompt")
+    }
 }

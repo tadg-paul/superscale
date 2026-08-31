@@ -284,6 +284,88 @@ final class WorkspaceModelTests: XCTestCase {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("WorkspaceModelTests-\(UUID().uuidString)", isDirectory: true)
     }
+    // MARK: - #148: generating from a prompt with no picture behind it
+
+    // RT-148.1
+    //
+    // The author's request, and his reading of its size was right: *"this should be a reasonably
+    // small tweak now... simply allow the user to type in to the prompt and click 'Apply' on an
+    // empty canvas."*
+    func test_aPromptWithNoPictureCanBeSent_RT148_1() throws {
+        var workspace = WorkspaceModel(
+            filters: [noir], workingImage: nil, isGenerationConfigured: true)
+        workspace.selection.text = "A harbour at dusk, long exposure."
+
+        XCTAssertTrue(
+            workspace.canGenerateFromNothing,
+            "a prompt with no picture behind it cannot be sent")
+        XCTAssertNotNil(workspace.generateRequest(), "no request was built")
+    }
+
+    // RT-148.2
+    //
+    // **No reference, which is the whole mechanism.** `FalRequestBuilder` chooses the edit endpoint
+    // or the text endpoint on whether any reference is attached, so an empty list reaches the model
+    // without its `/edit` suffix — which is exactly how the author described it.
+    func test_aGenerationFromNothingCarriesNoReference_RT148_2() throws {
+        var workspace = WorkspaceModel(
+            filters: [noir], workingImage: nil, isGenerationConfigured: true)
+        workspace.selection.text = "A harbour at dusk, long exposure."
+
+        let request = try XCTUnwrap(workspace.generateRequest())
+
+        XCTAssertTrue(
+            request.referenceImageURLs.isEmpty,
+            "a reference was attached, so this would reach the edit endpoint instead")
+        XCTAssertEqual(request.prompt, "A harbour at dusk, long exposure.")
+        XCTAssertEqual(request.modelID, FalGenerationRequest.defaultModelID)
+    }
+
+    // RT-148.4
+    //
+    // AC148.4. Apply must not offer itself with nothing to say.
+    func test_anEmptyPromptWithNoPictureCannotBeSent_RT148_4() {
+        let workspace = WorkspaceModel(
+            filters: [noir], workingImage: nil, isGenerationConfigured: true)
+
+        XCTAssertFalse(
+            workspace.canGenerateFromNothing,
+            "an empty prompt with no picture is offered as a generation")
+        XCTAssertNil(workspace.generateRequest())
+    }
+
+    // RT-148.6
+    //
+    // A key is still required. Widening the picture gate must not widen the credential one.
+    func test_aGenerationFromNothingStillNeedsAKey_RT148_6() {
+        var workspace = WorkspaceModel(
+            filters: [noir], workingImage: nil, isGenerationConfigured: false)
+        workspace.selection.text = "A harbour at dusk."
+
+        XCTAssertFalse(
+            workspace.canGenerateFromNothing,
+            "a generation is offered with no credential configured")
+    }
+
+    // RT-148.5
+    //
+    // **The anti-regression clause, and the most important test here.** This ticket widens a gate
+    // everything in the filter path depends on, so the edit route must be provably untouched: with a
+    // picture loaded, the request still carries its reference and still reaches the edit endpoint.
+    func test_theEditRouteIsUnchangedByTheNewOne_RT148_5() throws {
+        var workspace = WorkspaceModel(filters: [noir], workingImage: workingImage())
+        workspace.selection.choose(noir.id)
+        workspace.selection.text = "Relight it, keep the rain."
+
+        let request = try XCTUnwrap(workspace.applyRequest())
+
+        XCTAssertFalse(
+            request.referenceImageURLs.isEmpty,
+            "a filter of a loaded picture lost its reference")
+        XCTAssertFalse(
+            workspace.canGenerateFromNothing,
+            "a loaded picture is being offered the from-nothing route as well")
+    }
 }
 
 @MainActor

@@ -282,7 +282,14 @@ struct FilterPanel: View {
     }
 
     private var canApply: Bool {
-        selection.canApply && hasWorkingImage && isGenerationConfigured && !isApplying
+        // **`hasWorkingImage` is no longer required (#148).** On an empty canvas, Apply sends the
+        // prompt with no reference and the provider generates from the words alone — which is what
+        // the author asked for and, as he predicted, needed no new surface: the prompt area and the
+        // button were already here.
+        //
+        // What is still required is a prompt and a configured key, so Apply does not offer itself
+        // with nothing to say or nowhere to send it.
+        selection.canApply && isGenerationConfigured && !isApplying
     }
 
     private var categories: [String] {
