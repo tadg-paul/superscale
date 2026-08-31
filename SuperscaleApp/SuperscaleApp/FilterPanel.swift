@@ -23,6 +23,8 @@ struct FilterPanel: View {
 
     @State private var activeCategory: String?
     @State private var search = ""
+    /// Whether the search field has the keyboard, so entering it can widen the search (#141).
+    @FocusState private var searchIsFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -91,6 +93,7 @@ struct FilterPanel: View {
                 .font(.caption)
             TextField("Search filters", text: $search)
                 .textFieldStyle(.plain)
+                .focused($searchIsFocused)
                 .accessibilityIdentifier("filterSearchField")
             if !search.isEmpty {
                 Button {
@@ -105,6 +108,22 @@ struct FilterPanel: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        // **Entering the search field widens the search to everything (#141, his third raising).**
+        //
+        // With a chip active, `visibleFilters` ands the two narrowings, so searching only ever
+        // reached that chip's filters — with Lighting chosen, 4 of 108, and no sign of why a search
+        // for anything else came back empty.
+        //
+        // On **focus**, not on the first keystroke: he wrote *"clicking in the search box"*, and
+        // clearing on a keystroke would leave one keystroke's worth of results filtered by a chip
+        // that is about to disappear.
+        //
+        // The chip is **cleared**, not ignored. Leaving it lit while it no longer applied would be
+        // a worse interface than the defect: a control that says it is doing something it is not.
+        // The visible change is also the thing that tells him the search now covers all 108.
+        .onChange(of: searchIsFocused) { _, isFocused in
+            if isFocused { activeCategory = nil }
+        }
     }
 
     /// Category chips: one click narrows, the same click again widens.
@@ -149,6 +168,14 @@ struct FilterPanel: View {
                 .foregroundStyle(isOn ? Color.white : Color.primary)
         }
         .buttonStyle(.plain)
+        // **Whether a chip is narrowing was expressed as colour and nothing else**, so it reached
+        // neither VoiceOver nor a test — the same gap #95's credential badge had, and #109's, and
+        // the reason AC141.3 could not be asserted at all before this line.
+        //
+        // It matters here beyond accessibility: the cheap implementation of #141 is to make the
+        // search ignore the chip while leaving it lit, and the only way to catch that is to be able
+        // to ask the chip what it thinks it is doing.
+        .accessibilityValue(isOn ? "narrowing" : "not narrowing")
         .accessibilityIdentifier(identifier)
     }
 

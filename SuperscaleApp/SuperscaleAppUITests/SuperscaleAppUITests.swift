@@ -4566,14 +4566,34 @@ final class SuperscaleAppUITests: XCTestCase {
     }
 
     // RT-87.37: search reaches across categories, so nothing is behind a chip.
+    //
+    // **Widened by #141, and the widening is the point.** This asserted exactly the right criterion
+    // and ran from a starting state where it could not fail: no chip active, so "reaches across
+    // categories" was never tested against a category. The author reported the defect three times
+    // while this test stayed green.
+    //
+    // It now starts with a chip chosen — the state the claim is actually about.
     func test_searchReachesAcrossCategories_RT087_37() {
+        let lighting = element(identifier: "category-lighting")
+        XCTAssertTrue(lighting.waitForExistence(timeout: 5))
+        lighting.click()
+        XCTAssertEqual(
+            textContent(of: element(identifier: "filterCount")), "4",
+            "the chip should be narrowing before the search")
+
         let search = element(identifier: "filterSearchField")
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
         search.click()
         search.typeText("noir")
 
         XCTAssertTrue(element(identifier: "filter-image-lighting-film-noir").exists)
         XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "1")
+
+        // And the crossing itself, from the chipped state: a filter in a different category.
+        search.typeKey("a", modifierFlags: .command)
+        search.typeText("linocut")
+        XCTAssertTrue(
+            element(identifier: "filter-image-print-linocut").waitForExistence(timeout: 5),
+            "a Print filter is still behind the Lighting chip")
     }
 
     // RT-87.10: nothing is unreachable.
@@ -5446,4 +5466,114 @@ final class SuperscaleAppUITests: XCTestCase {
     // human to eyeball what an assertion proves exactly is how user tests lose their authority. He
     // has been asked to judge this application repeatedly across four rounds, and the ones that
     // reach him should be the ones that genuinely need judgement.
+
+    // MARK: - #141: entering the search field widens the search to the whole corpus
+
+    /// Whether a category chip says it is narrowing the list.
+    ///
+    /// The chip's state was colour only until this ticket, so this reads the value #141 added rather
+    /// than inferring selection from anything drawn.
+    private func chipIsNarrowing(_ category: String) -> Bool {
+        (element(identifier: "category-\(category)").value as? String) == "narrowing"
+    }
+
+    // RT-141.1
+    //
+    // The author's third raising. With a chip active, `visibleFilters` anded the two narrowings, so
+    // a search only ever reached that chip's filters.
+    //
+    // Focus, not the first keystroke: he wrote *"clicking in the search box"*.
+    func test_focusingTheSearchFieldClearsTheActiveCategory_RT141_1() {
+        let lighting = element(identifier: "category-lighting")
+        XCTAssertTrue(lighting.waitForExistence(timeout: 5))
+        lighting.click()
+        XCTAssertTrue(chipIsNarrowing("lighting"), "the chip should be narrowing before the search")
+
+        element(identifier: "filterSearchField").click()
+
+        XCTAssertFalse(
+            chipIsNarrowing("lighting"),
+            "entering the search box left the category chip narrowing the list")
+    }
+
+    // RT-141.2
+    //
+    // The consequence he actually cares about: the search reaches filters the chip was hiding.
+    // "noir" is in Lighting, so the query is made from a *different* category to prove the crossing.
+    func test_aSearchAfterAChipReachesAnotherCategory_RT141_2() {
+        element(identifier: "category-lighting").click()
+
+        let search = element(identifier: "filterSearchField")
+        search.click()
+        search.typeText("linocut")
+
+        XCTAssertTrue(
+            element(identifier: "filter-image-print-linocut").waitForExistence(timeout: 5),
+            "a Print filter is unreachable while Lighting was chosen")
+    }
+
+    // RT-141.3
+    func test_theCountReturnsToTheWholeCorpusWhenTheChipClears_RT141_3() {
+        element(identifier: "category-lighting").click()
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "4")
+
+        element(identifier: "filterSearchField").click()
+
+        XCTAssertEqual(
+            textContent(of: element(identifier: "filterCount")), "108",
+            "the list did not widen to the whole corpus")
+    }
+
+    // RT-141.4
+    //
+    // Bounds RT-141.1: clearing on any interaction with the panel would also pass that test.
+    func test_focusingTheSearchFieldWithNoCategoryChosenChangesNothing_RT141_4() {
+        XCTAssertTrue(element(identifier: "filterCount").waitForExistence(timeout: 5))
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "108")
+
+        element(identifier: "filterSearchField").click()
+
+        XCTAssertEqual(textContent(of: element(identifier: "filterCount")), "108")
+        XCTAssertFalse(chipIsNarrowing("lighting"))
+        XCTAssertFalse(chipIsNarrowing("print"))
+    }
+
+    // RT-141.6
+    //
+    // **AC141.3, and the test that blocks the cheaper wrong fix.** Making `visibleFilters` ignore
+    // `activeCategory` while a query is live satisfies every other test here in one line, and leaves
+    // a chip lit while it narrows nothing — a control that lies, which is worse than the defect.
+    func test_noChipClaimsToNarrowWhileTheWholeCorpusIsListed_RT141_6() {
+        element(identifier: "category-lighting").click()
+
+        let search = element(identifier: "filterSearchField")
+        search.click()
+        search.typeText("a")
+
+        // Whatever the query matches, no chip may claim to be narrowing: the chip was cleared.
+        for category in Self.allCategories {
+            XCTAssertFalse(
+                chipIsNarrowing(category),
+                "the \(category) chip says it is narrowing while the search runs over everything")
+        }
+    }
+
+    // RT-141.7
+    //
+    // A fix that reset the panel on focus would pass everything above and throw away what the user
+    // had already typed.
+    func test_textAlreadyTypedSurvivesTheChipClearing_RT141_7() {
+        let search = element(identifier: "filterSearchField")
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.click()
+        search.typeText("noir")
+
+        // Leave the field, choose a chip, come back.
+        element(identifier: "category-lighting").click()
+        search.click()
+
+        XCTAssertEqual(
+            textContent(of: search), "noir",
+            "returning to the search field discarded the query")
+    }
 }
