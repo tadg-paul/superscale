@@ -381,7 +381,18 @@ struct MainView: View {
         workspace.clear()
         loadedBaseImage = nil
         lastDisplayedURL = nil
-        selection = FilterSelection()
+        // **The catalogue is kept; only the choice goes (#140).**
+        //
+        // This was `FilterSelection()`, whose initialiser defaults `filters: []` — and the entire
+        // 108-filter corpus lives in that value. `FilterPanel` reads its rows from `selection`
+        // and derives its category chips from the same place, so clearing a picture emptied the
+        // filter panel for the rest of the session. The author reported it the day it shipped.
+        //
+        // The intention was right and the partition was not: the *chosen* filter and its edited
+        // prompt belong to the picture, and the *corpus* belongs to the application. One type
+        // carrying both is what let a correct intention empty the panel, and AC135.6's two-way
+        // split — the picture's settings and the user's — had no third place to put it.
+        selection = FilterSelection(filters: settingsState.promptPackCatalogue.packs)
     }
 
     private func adoptImportedImage(_ url: URL?) {
