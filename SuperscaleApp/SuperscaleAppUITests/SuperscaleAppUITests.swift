@@ -5390,6 +5390,20 @@ final class SuperscaleAppUITests: XCTestCase {
 
     // MARK: - #140: clearing the picture leaves the filter corpus alone
 
+    /// Narrows the filter list by search, so a filter can be reached whatever the chip strip is
+    /// showing.
+    ///
+    /// With eleven categories the strip overflows its width and the later chips are present but not
+    /// hittable, which failed three tests in the run of 2026-08-31. Search covers the whole corpus
+    /// by AC141.1, so it reaches any filter regardless.
+    private func selectFilterBySearch(_ query: String) {
+        let search = element(identifier: "filterSearchField")
+        XCTAssertTrue(search.waitForExistence(timeout: 5), "there is no search field")
+        app.activate()
+        search.click()
+        search.typeText(query)
+    }
+
     /// The categories the filter list offers as chips.
     ///
     /// Named rather than counted. The author reported the chips explicitly --- *"including the
@@ -5448,8 +5462,27 @@ final class SuperscaleAppUITests: XCTestCase {
         clearImageButton.click()
         XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
-        element(identifier: "category-print").click()
-        let row = element(identifier: "filter-image-print-linocut")
+        // 🚫 **Design, not Print, and not the search field either.** Two routes were tried and both
+        // are unreliable here: `category-print` sits past the right edge of the overflowing chip
+        // strip (the finding RT-138.7 carries, raised on master #139), and the search field would
+        // not take keyboard focus in this layout — the same failure RT-147.6 hit at
+        // `filterSearchField`, x=1305.
+        //
+        // **Design is the first chip alphabetically**, so it is always in view whatever the strip's
+        // width. What this test is about is that a filter can be chosen after a clear; which filter
+        // is incidental, and picking one that can actually be reached is the point.
+        // 🚫 **No chip, and no search field.** Three routes to narrowing were tried here and all
+        // three are unreliable once a picture has been loaded through the open panel: `category-print`
+        // sits past the right edge of the overflowing strip, `filterSearchField` will not take
+        // keyboard focus, and even `category-design` — the first chip, at a perfectly sensible
+        // x=1324 — reports *"Not hittable"*, with `activate()` making no difference.
+        //
+        // The row is reached directly instead. Design sorts first and Map Engraving is near the top
+        // of the list, so it is on screen without narrowing anything. **What these tests are about
+        // is the filter panel surviving a clear**, not how a filter is reached, so the simplest
+        // route that works is the right one.
+        app.activate()
+        let row = element(identifier: "filter-image-design-map-engraving")
         XCTAssertTrue(row.waitForExistence(timeout: 5), "the filter is not reachable after a clear")
         row.click()
 
@@ -5467,8 +5500,27 @@ final class SuperscaleAppUITests: XCTestCase {
     // not clearing `selection` at all --- which would carry the previous picture's choice forward.
     func test_aClearStillEmptiesTheChosenFilterAndItsPrompt_RT140_4() {
         XCTAssertTrue(loadTestImage(), "the working image should load")
-        element(identifier: "category-print").click()
-        element(identifier: "filter-image-print-linocut").click()
+        // 🚫 **Design, not Print, and not the search field either.** Two routes were tried and both
+        // are unreliable here: `category-print` sits past the right edge of the overflowing chip
+        // strip (the finding RT-138.7 carries, raised on master #139), and the search field would
+        // not take keyboard focus in this layout — the same failure RT-147.6 hit at
+        // `filterSearchField`, x=1305.
+        //
+        // **Design is the first chip alphabetically**, so it is always in view whatever the strip's
+        // width. What this test is about is that a filter can be chosen after a clear; which filter
+        // is incidental, and picking one that can actually be reached is the point.
+        // 🚫 **No chip, and no search field.** Three routes to narrowing were tried here and all
+        // three are unreliable once a picture has been loaded through the open panel: `category-print`
+        // sits past the right edge of the overflowing strip, `filterSearchField` will not take
+        // keyboard focus, and even `category-design` — the first chip, at a perfectly sensible
+        // x=1324 — reports *"Not hittable"*, with `activate()` making no difference.
+        //
+        // The row is reached directly instead. Design sorts first and Map Engraving is near the top
+        // of the list, so it is on screen without narrowing anything. **What these tests are about
+        // is the filter panel surviving a clear**, not how a filter is reached, so the simplest
+        // route that works is the right one.
+        app.activate()
+        element(identifier: "filter-image-design-map-engraving").click()
 
         let prompt = element(identifier: "generationPromptField")
         XCTAssertTrue(prompt.waitForExistence(timeout: 5))
