@@ -4937,6 +4937,27 @@ final class SuperscaleAppUITests: XCTestCase {
         app.buttons["clearImageButton"]
     }
 
+    /// Waits until the canvas is genuinely empty.
+    ///
+    /// 🚫 **Not `dropTarget`, and eighteen assertions in this suite were reading it that way.**
+    /// `DropTargetView` is *also* rendered behind a loaded picture at `opacity(0.01)` so it can
+    /// still receive a drop (`MainView.swift:446`) — so its identifier is in the tree whether or not
+    /// anything was cleared, and every "the canvas returned to the drop target" assertion was true
+    /// before the clear as well as after it.
+    ///
+    /// Found from RT-143.2, which failed reporting **"strip 5 of 5; clear control '5 unsaved';
+    /// dropTarget true"** — the lock chain intact and the drop target present at the same moment.
+    /// The application was right and the signal was meaningless. I had already blamed the alert's
+    /// placement and been wrong once before measuring.
+    ///
+    /// The clear control renders only when a picture is loaded, so its **absence** is sound.
+    private func waitUntilCanvasIsEmpty(timeout: TimeInterval = 10) -> Bool {
+        let empty = expectation(
+            for: NSPredicate { _, _ in !self.clearImageButton.exists },
+            evaluatedWith: app)
+        return XCTWaiter().wait(for: [empty], timeout: timeout) == .completed
+    }
+
     /// The File menu's Open Recent submenu.
     private var openRecentMenu: XCUIElement {
         app.menuBars.menuItems["Open Recent"]
@@ -4997,7 +5018,7 @@ final class SuperscaleAppUITests: XCTestCase {
         clearImageButton.click()
 
         XCTAssertTrue(
-            element(identifier: "dropTarget").waitForExistence(timeout: 10),
+            waitUntilCanvasIsEmpty(),
             "the canvas did not go back to the drop target")
         XCTAssertTrue(
             element(identifier: "fileChooser").exists,
@@ -5018,7 +5039,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(loadTestImage(), "the first picture should load")
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         let second = try writeFixture(width: 1600, height: 1200, named: "after-the-clear.png")
         XCTAssertTrue(loadTestImage(path: second), "a second picture will not load after a clear")
@@ -5038,7 +5059,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertGreaterThan(lockChainEntries.count, 1, "the chain should have been built")
 
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertEqual(
             lockChainEntries.count, 0,
@@ -5062,7 +5083,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(compareControl.waitForExistence(timeout: 10))
 
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertFalse(
             compareControl.exists,
@@ -5081,7 +5102,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(waitForUpscaleComplete(), "and settle before the clear")
 
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertFalse(
             someScaleIsInEffect,
@@ -5103,7 +5124,7 @@ final class SuperscaleAppUITests: XCTestCase {
         let before = picker.value as? String
 
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertEqual(
             picker.value as? String, before,
@@ -5160,6 +5181,17 @@ final class SuperscaleAppUITests: XCTestCase {
     // AC135.8. Nothing is interposed: the picture goes on the click. Asserted as the absence of a
     // sheet or dialogue rather than as speed, because "immediately" is about what stands in the
     // way, not about milliseconds.
+    // **Restated by #143, which amended the criterion this asserted.**
+    //
+    // AC135.8 said a clear always takes effect immediately with no confirmation. I wrote that after
+    // the author had already asked once to be warned about unsaved work, so the specification made
+    // his request read as contrary to it. AC143.1 and AC143.4 supersede it: the question is asked
+    // when locked iterations are unsaved, and **not otherwise**.
+    //
+    // This test still passes and still matters, but it is now about the *silent* half of the rule.
+    // It was passing before only because its fixture happens to build no lock chain — which is
+    // exactly the narrowness that let #141 and #142 survive multiple fixes, so the fixture is now
+    // the point rather than an accident, and RT-143.4 asserts the same property deliberately.
     func test_clearingAsksForNoConfirmation_RT135_10() {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
@@ -5167,7 +5199,7 @@ final class SuperscaleAppUITests: XCTestCase {
         clearImageButton.click()
 
         XCTAssertTrue(
-            element(identifier: "dropTarget").waitForExistence(timeout: 10),
+            waitUntilCanvasIsEmpty(),
             "the canvas did not clear on the click")
         XCTAssertEqual(
             app.sheets.count, 0, "a sheet was interposed between the user and the clear")
@@ -5367,7 +5399,7 @@ final class SuperscaleAppUITests: XCTestCase {
             "the corpus should be complete before the clear")
 
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertEqual(
             textContent(of: element(identifier: "filterCount")), "108",
@@ -5384,7 +5416,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
 
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         for category in Self.allCategories {
             XCTAssertTrue(
@@ -5401,7 +5433,7 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         element(identifier: "category-print").click()
         let row = element(identifier: "filter-image-print-linocut")
@@ -5431,7 +5463,7 @@ final class SuperscaleAppUITests: XCTestCase {
 
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertTrue(
             textContent(of: element(identifier: "generationPromptField")).isEmpty,
@@ -5446,13 +5478,13 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertTrue(loadTestImage(), "the working image should load")
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         let second = try writeFixture(width: 1600, height: 1200, named: "second-clear.png")
         XCTAssertTrue(loadTestImage(path: second), "a second picture should load")
         XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
         clearImageButton.click()
-        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+        XCTAssertTrue(waitUntilCanvasIsEmpty(), "the canvas did not clear")
 
         XCTAssertEqual(
             textContent(of: element(identifier: "filterCount")), "108",
@@ -5768,5 +5800,183 @@ final class SuperscaleAppUITests: XCTestCase {
         XCTAssertEqual(
             generationLabel.frame.minX, accountLabel.frame.minX, accuracy: 1,
             "the two credential rows are not aligned with each other")
+    }
+
+    // MARK: - #143, #145: nothing paid for is discarded without asking
+
+    /// The unsaved-work warning, however the platform chooses to present it.
+    ///
+    /// **Through `app.dialogs`/`app.sheets`, not by identifier**, which cost a run to learn — though
+    /// the suite already knew it: `failureAlert` carries the same note, that a SwiftUI `.alert` is a
+    /// dialog on some macOS releases and a sheet on others. Identifiers applied inside an `.alert`
+    /// do not survive into the `NSAlert` that presents it.
+    ///
+    /// The diagnostic that settled it is RT-143.8: with the warning apparently not firing, the clear
+    /// control reported "5 unsaved" and was enabled — so the application knew exactly what was at
+    /// stake and the alert was presenting. What was wrong was the way the test looked for it. **I
+    /// had already blamed the alert's placement and been wrong once**; measuring the application's
+    /// own state is what ended the guessing.
+    private var clearWarningAlert: XCUIElement {
+        let dialog = app.dialogs.firstMatch
+        return dialog.exists ? dialog : app.sheets.firstMatch
+    }
+
+    private func clearWarningButton(_ title: String) -> XCUIElement {
+        clearWarningAlert.buttons[title]
+    }
+
+    // RT-143.1
+    //
+    // The author's second raising: *"before we clear any images... we should warn the user any
+    // images not saved will be lost."* The chain is built and nothing is saved, so there is
+    // genuinely something to lose.
+    func test_clearingWithUnsavedIterationsAsksFirst_RT143_1() {
+        buildLockChain(of: 2)
+        let atStake = (clearImageButton.value as? String) ?? ""
+        XCTAssertFalse(atStake.hasPrefix("0"), "nothing was at stake, so this proves nothing")
+
+        clearImageButton.click()
+
+        XCTAssertTrue(
+            clearWarningAlert.waitForExistence(timeout: 5),
+            "the chain was discarded without asking; the control said '\(atStake)'")
+        XCTAssertTrue(
+            spokenText(of: clearWarningAlert).contains("not been saved"),
+            "the warning does not say what is wrong: '\(spokenText(of: clearWarningAlert))'")
+    }
+
+    // RT-143.2
+    //
+    // *"let them go back and cancel and save manually."* Cancel has to be genuinely inert — not a
+    // delayed clear, not a partial reset — because its whole purpose is to get back to the work.
+    func test_cancellingTheWarningLeavesEverythingAsItWas_RT143_2() {
+        buildLockChain(of: 2)
+        let entriesBefore = lockChainEntries.count
+
+        clearImageButton.click()
+        XCTAssertTrue(clearWarningAlert.waitForExistence(timeout: 5))
+
+        let cancel = clearWarningButton("Cancel")
+        XCTAssertTrue(
+            cancel.waitForExistence(timeout: 5),
+            "the warning offers no way back: \(spokenText(of: clearWarningAlert))")
+        cancel.click()
+
+        // Waited for, not read: the alert dismisses asynchronously and the canvas behind it is
+        // re-evaluated after that, so an immediate read races the dismissal.
+        let stillLoaded = expectation(
+            for: NSPredicate { _, _ in self.clearImageButton.exists },
+            evaluatedWith: app)
+        let diagnosis = """
+            clear control '\((clearImageButton.value as? String) ?? "<gone>")'; \
+            strip \(lockChainEntries.count) of \(entriesBefore)
+            """
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [stillLoaded], timeout: 5), .completed,
+            "cancelling cleared the picture anyway. \(diagnosis)")
+
+        XCTAssertTrue(
+            clearImageButton.waitForExistence(timeout: 5),
+            "the picture went anyway after cancelling")
+        XCTAssertEqual(
+            lockChainEntries.count, entriesBefore, "the chain lost entries after cancelling")
+    }
+
+    // RT-143.3
+    func test_confirmingTheWarningClears_RT143_3() {
+        buildLockChain(of: 2)
+
+        clearImageButton.click()
+        XCTAssertTrue(clearWarningAlert.waitForExistence(timeout: 5))
+        clearWarningButton("Continue Anyway").click()
+
+        XCTAssertTrue(
+            waitUntilCanvasIsEmpty(),
+            "confirming the warning did not clear the canvas")
+    }
+
+    // RT-143.4
+    //
+    // **The half that keeps this bearable.** *"if and only if there are any unsaved lock images"* —
+    // so a picture with no chain behind it clears silently, which is the commonest case by far. A
+    // warning that fires every time is a warning people learn to dismiss without reading.
+    func test_clearingWithNothingToLoseAsksNothing_RT143_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(
+            (clearImageButton.value as? String) ?? "", "0 unsaved",
+            "this fixture has work at stake, so it cannot prove the silent case")
+
+        clearImageButton.click()
+
+        XCTAssertTrue(
+            waitUntilCanvasIsEmpty(),
+            "the canvas did not clear")
+        XCTAssertFalse(clearWarningAlert.exists, "a warning was raised with nothing to lose")
+    }
+
+    // RT-143.5
+    //
+    // AC143.5. The author named Cmd+O and Cmd+N; the Clear control is the third door onto the same
+    // act and RT-143.1 covers it. **A warning that fires on some routes and not others teaches a
+    // habit that then fails**, which is worse than not warning at all.
+    func test_theWarningIsRaisedByCmdNAsWellAsTheControl_RT143_5() {
+        buildLockChain(of: 2)
+
+        app.typeKey("n", modifierFlags: .command)
+
+        XCTAssertTrue(
+            clearWarningAlert.waitForExistence(timeout: 5),
+            "Cmd+N discarded the chain without asking")
+        clearWarningButton("Cancel").click()
+    }
+
+    // RT-143.8
+    //
+    // What the application believes is at stake, published on the control itself. Kept as a test
+    // rather than removed as scaffolding: every other test in this group depends on this number
+    // being right, and when the warning appeared not to fire it was **this** that showed the state
+    // was correct and the test's locator was not.
+    func test_theClearControlReportsWhatAClearWouldCost_RT143_8() {
+        // 🚫 No `loadTestImage()` before this. `buildLockChain` loads its own picture, and
+        // `loadTestImage` drives the drop target's chooser — which only exists on an empty canvas.
+        // Loading twice failed the second time and read as "the working image should load", which
+        // is a test defect wearing the costume of an application one.
+        buildLockChain(of: 2)
+        let withChain = (clearImageButton.value as? String) ?? "<none>"
+        XCTAssertFalse(
+            withChain.hasPrefix("0"),
+            "a locked chain is not counted as at stake: '\(withChain)', strip=\(lockChainEntries.count)")
+    }
+
+    // RT-145.1, RT-145.2
+    //
+    // Cmd+N clears rather than opening a second window onto the same model. With nothing unsaved it
+    // is immediate, which is the same rule as the Clear control.
+    func test_cmdNClearsTheCanvasAndOpensNoWindow_RT145_1_and_RT145_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        let windowsBefore = app.windows.count
+
+        app.typeKey("n", modifierFlags: .command)
+
+        XCTAssertTrue(
+            waitUntilCanvasIsEmpty(),
+            "Cmd+N did not clear the canvas")
+        XCTAssertEqual(
+            app.windows.count, windowsBefore,
+            "Cmd+N opened a second window onto the same model")
+    }
+
+    // RT-145.6
+    //
+    // Discoverable without knowing the shortcut. The author found neither Open Image nor the clear
+    // control when they were menu-only and canvas-only respectively; a command nobody can see is a
+    // command nobody uses.
+    func test_theNewCommandIsNamedInTheFileMenu_RT145_6() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(
+            app.menuBars.menuItems["New"].waitForExistence(timeout: 5),
+            "the File menu does not offer the New command")
     }
 }

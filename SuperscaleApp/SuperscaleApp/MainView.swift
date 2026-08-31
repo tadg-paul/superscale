@@ -111,6 +111,29 @@ struct MainView: View {
             lockChainSection
             Divider()
             statusBar
+                // **The warning hangs here, not beside the failure alert (#143).**
+                //
+                // SwiftUI presents **one alert per view**. Both `.alert` modifiers were on this
+                // stack, so the second was silently ignored: the confirmation never appeared, the
+                // clear went ahead, and five tests failed reporting that the chain had been
+                // discarded without asking. The no-warning path passed throughout, which is what
+                // made it look like the unsaved check was wrong rather than the presentation.
+                //
+                // Attached to the status bar because it is a leaf that is always present, so the
+                // alert has a host whichever state the canvas is in.
+                .alert(
+                    "Unsaved iterations will be lost",
+                    isPresented: $isConfirmingClear,
+                    actions: {
+                        Button("Cancel", role: .cancel) {}
+                            .accessibilityIdentifier("clearWarningCancel")
+                        Button("Continue Anyway", role: .destructive) { performPendingAction() }
+                            .accessibilityIdentifier("clearWarningConfirm")
+                    },
+                    message: {
+                        Text(unsavedWarningText)
+                            .accessibilityIdentifier("clearWarningMessage")
+                    })
         }
         .navigationTitle(windowTitle)
         .onAppear(perform: loadDefaults)
@@ -153,15 +176,11 @@ struct MainView: View {
         // This reverses AC135.8, which I wrote as "a clear asks for no confirmation" **after he had
         // already raised the request once** — so the specification said his ask was wrong. The
         // criterion is amended rather than worked around.
-        .alert("Unsaved iterations will be lost", isPresented: $isConfirmingClear, actions: {
-            Button("Cancel", role: .cancel) {}
-                .accessibilityIdentifier("clearWarningCancel")
-            Button("Continue Anyway", role: .destructive) { performPendingAction() }
-                .accessibilityIdentifier("clearWarningConfirm")
-        }, message: {
-            Text(unsavedWarningText)
-                .accessibilityIdentifier("clearWarningMessage")
-        })
+        //
+        // 🚫 The warning itself is **not** attached here, beside the failure alert, though that is
+        // where it reads as belonging. SwiftUI presents one alert per view and silently ignores the
+        // second, so it never appeared. It hangs off the status bar instead; the note is left here
+        // because this is where the next person will try to put it.
     }
 
     /// The locked iterations that have not been written to disk this session.
@@ -912,6 +931,10 @@ struct MainView: View {
                 }
                 .disabled(viewModel.isProcessing || isSubmittingFilter)
                 .help("Put this picture away and go back to the drop target")
+                // How much a clear would cost, published rather than inferred. A test asking
+                // "should this have warned" otherwise has to reason about the graph from outside,
+                // which is how the first version of RT-143.1 failed without saying why.
+                .accessibilityValue("\(unsavedLockedIterations.count) unsaved")
                 .accessibilityIdentifier("clearImageButton")
             }
 
