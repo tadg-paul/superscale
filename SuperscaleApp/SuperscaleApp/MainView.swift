@@ -9,6 +9,8 @@ import SwiftUI
 struct MainView: View {
     @ObservedObject var viewModel: UpscaleViewModel
     @ObservedObject var settingsState: GenerationSettingsState
+    /// File-menu commands. This view owns the state they act on, so it owns the decision too.
+    @ObservedObject private var commands: AppCommands
     @StateObject private var generationCoordinator: GenerationCoordinator
     @State private var selection = FilterSelection()
     @State private var showAbout = false
@@ -31,6 +33,10 @@ struct MainView: View {
     /// in flight. The gap between the two is the raise and the upload, and it is where the second
     /// paid request came from (#122).
     @State private var isSubmittingFilter = false
+    /// Whether the "unsaved iterations will be lost" warning is up (#143).
+    @State private var isConfirmingClear = false
+    /// What that warning is standing in front of: a clear, or an open that would replace the picture.
+    @State private var pendingAction: PendingAction = .clear
     @State private var didLoadDefaults = false
     /// The workspace's state. The graph decides which asset is read and which is shown; the view
     /// model renders whichever one it is handed.
@@ -50,10 +56,12 @@ struct MainView: View {
         settingsState: GenerationSettingsState,
         storageRoots: StorageRoots,
         generationCoordinator: GenerationCoordinator? = nil,
-        sessionStore: GenerationSessionStore? = nil
+        sessionStore: GenerationSessionStore? = nil,
+        commands: AppCommands? = nil
     ) {
         self.viewModel = viewModel
         self.settingsState = settingsState
+        _commands = ObservedObject(wrappedValue: commands ?? AppCommands())
         _workspace = StateObject(
             wrappedValue: WorkspaceState(outputDirectory: storageRoots.generated)
         )
@@ -107,6 +115,11 @@ struct MainView: View {
         .navigationTitle(windowTitle)
         .onAppear(perform: loadDefaults)
         .onChange(of: viewModel.inputURL) { _, url in adoptImportedImage(url) }
+        // Cmd+N (#145) and Cmd+O (#143), arriving as requests because the menu cannot see the lock
+        // chain. Both go through `requestClear`, so all three routes to a clear ask the same
+        // question — which is the point of routing them here rather than letting the menu act.
+        .onChange(of: commands.clearRequests) { _, _ in requestClear() }
+        .onChange(of: commands.openRequests) { _, _ in requestOpen() }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
         .onChange(of: coordinatorFailureMessage) { _, message in reportFilterFailure(message) }
         .onChange(of: workspace.showsBase) { _, _ in displayChosenAsset() }
@@ -131,6 +144,90 @@ struct MainView: View {
             Text(viewModel.errorMessage ?? "")
                 .accessibilityIdentifier("failureAlertMessage")
         })
+        // **Asked before anything is lost (#143), and only when there is something to lose.**
+        //
+        // The author's rule, twice given: *"before we clear any images... we should warn the user
+        // any images not saved will be lost... let them go back and cancel and save manually"*, and
+        // *"if and only if there are any unsaved lock images"*.
+        //
+        // This reverses AC135.8, which I wrote as "a clear asks for no confirmation" **after he had
+        // already raised the request once** — so the specification said his ask was wrong. The
+        // criterion is amended rather than worked around.
+        .alert("Unsaved iterations will be lost", isPresented: $isConfirmingClear, actions: {
+            Button("Cancel", role: .cancel) {}
+                .accessibilityIdentifier("clearWarningCancel")
+            Button("Continue Anyway", role: .destructive) { performPendingAction() }
+                .accessibilityIdentifier("clearWarningConfirm")
+        }, message: {
+            Text(unsavedWarningText)
+                .accessibilityIdentifier("clearWarningMessage")
+        })
+    }
+
+    /// The locked iterations that have not been written to disk this session.
+    ///
+    /// The base itself is excluded: it is the user's own file and clearing does not touch it. What
+    /// is at stake is the work the provider was paid for.
+    private var unsavedLockedIterations: [Asset] {
+        workspace.lockedIterations.filter { !viewModel.savedSourceURLs.contains($0.fileURL) }
+    }
+
+    private var unsavedWarningText: String {
+        let count = unsavedLockedIterations.count
+        let noun = count == 1 ? "iteration" : "iterations"
+        return "\(count) locked \(noun) \(count == 1 ? "has" : "have") not been saved. "
+            + "Cancel to save \(count == 1 ? "it" : "them") first."
+    }
+
+    /// Clears, asking first when there is unsaved work (#143).
+    ///
+    /// **Every route to a clear comes through here** — the Clear Image control, Cmd+N and the open
+    /// panel. The author named two of the three; a warning that fires on some routes and not others
+    /// teaches a habit that then fails, which is worse than not warning at all.
+    private func requestClear() {
+        if unsavedLockedIterations.isEmpty {
+            performClear()
+        } else {
+            pendingAction = .clear
+            isConfirmingClear = true
+        }
+    }
+
+    /// Brings in another picture, asking first when there is unsaved work.
+    ///
+    /// The panel lives here rather than in the scene because opening replaces the working picture,
+    /// and whether that costs the user anything is a question only this view can answer.
+    private func requestOpen() {
+        if unsavedLockedIterations.isEmpty {
+            presentOpenPanel()
+        } else {
+            pendingAction = .open
+            isConfirmingClear = true
+        }
+    }
+
+    /// What the warning is standing in front of.
+    private enum PendingAction {
+        case clear
+        case open
+    }
+
+    private func performPendingAction() {
+        switch pendingAction {
+        case .clear: performClear()
+        case .open: presentOpenPanel()
+        }
+    }
+
+    private func presentOpenPanel() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.message = "Choose an image to upscale"
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        viewModel.handleDrop(urls: [url])
     }
 
     // MARK: - Canvas
@@ -376,7 +473,11 @@ struct MainView: View {
     /// `lastDisplayedURL` in particular: it is #111's guard against a displayed iteration being
     /// mistaken for an import. Left set across a clear, re-importing the very picture just cleared
     /// would be swallowed by that guard and nothing would appear.
-    private func clearPicture() {
+    /// Does the clearing, once it has been decided that clearing is what should happen.
+    ///
+    /// Separate from `requestClear()` so the warning has exactly one thing to confirm and the
+    /// three routes have exactly one thing to call.
+    private func performClear() {
         viewModel.clearPicture()
         workspace.clear()
         loadedBaseImage = nil
@@ -807,7 +908,7 @@ struct MainView: View {
             // emptied canvas would be a defect built on purpose.
             if viewModel.originalImage != nil {
                 Button("Clear Image") {
-                    clearPicture()
+                    requestClear()
                 }
                 .disabled(viewModel.isProcessing || isSubmittingFilter)
                 .help("Put this picture away and go back to the drop target")

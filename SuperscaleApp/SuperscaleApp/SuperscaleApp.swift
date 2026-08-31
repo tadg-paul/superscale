@@ -16,11 +16,43 @@ import SuperscaleUXCore
 // right direction and not far enough: application-level locations belong with neither a view nor
 // an entry point, but with the module that owns storage.
 
+/// The channel between the File menu and `MainView`.
+///
+/// **Why this exists.** `WorkspaceState` — the lock chain, the graph, everything a clear destroys —
+/// is owned by `MainView`, not by the scene. So a menu command declared here cannot see whether
+/// there is unsaved work, and cannot ask before discarding it.
+///
+/// The alternative was to hoist the workspace up to the scene so the menu could reach it directly.
+/// That is a change to who owns the application's state, made in service of a menu item, and it
+/// would put the decision about unsaved work in two places. **#143's rule is that every route to a
+/// clear asks the same question** — the author named two routes, and a warning that fires on some
+/// and not others teaches a habit that then fails. One owner, one decision; the menu sends a
+/// request rather than performing an action.
+///
+/// **Counters, not booleans.** A `Bool` set to `true` and read back to `false` cannot express "the
+/// user pressed Cmd+N twice": the second set is not a change, so `onChange` never fires. A
+/// monotonic counter always changes.
+///
+/// Declared here rather than in a file of its own because this target is not a synchronized folder,
+/// and hand-editing the project file to add one small type is a worse risk than the misfiling.
+@MainActor
+final class AppCommands: ObservableObject {
+    /// Incremented when the user asks for a new, empty canvas.
+    @Published private(set) var clearRequests = 0
+    /// Incremented when the user asks to bring in another picture.
+    @Published private(set) var openRequests = 0
+
+    func requestClear() { clearRequests += 1 }
+    func requestOpen() { openRequests += 1 }
+}
+
 @main
 struct SuperscaleApp: App {
     @StateObject private var viewModel: UpscaleViewModel
     @StateObject private var settingsState: GenerationSettingsState
     @StateObject private var generationCoordinator: GenerationCoordinator
+    /// File-menu commands, delivered to the view that owns the state they act on (#143, #145).
+    @StateObject private var commands = AppCommands()
     private let sessionStore: GenerationSessionStore
     /// Every directory the application writes to, resolved once in `init`.
     private let storageRoots: StorageRoots
@@ -129,7 +161,8 @@ struct SuperscaleApp: App {
                 settingsState: settingsState,
                 storageRoots: storageRoots,
                 generationCoordinator: generationCoordinator,
-                sessionStore: sessionStore
+                sessionStore: sessionStore,
+                commands: commands
             )
                 .frame(minWidth: 780, minHeight: 500)
         }
@@ -152,9 +185,31 @@ struct SuperscaleApp: App {
             // In the File menu rather than back on the canvas, because a canvas showing a
             // photograph is the wrong place for a button about a different photograph, and Cmd+O is
             // where a Mac user looks first.
+            // **Cmd+N clears rather than opening a second window (#145).**
+            //
+            // `replacing:`, not `after:`. Left alone, AppKit's own New Window survives and opens a
+            // second window onto the *same* `WorkspaceState` and `UpscaleViewModel` — two windows,
+            // one model, so whatever the second appears to show is the first one's state. The author
+            // saw that and chose this route over multi-window support, which would need a graph, a
+            // lock chain and a filter cache per window.
+            //
+            // It sends a request rather than clearing, because whether there is unsaved work to
+            // warn about is a question only `MainView` can answer.
+            CommandGroup(replacing: .newItem) {
+                Button("New") {
+                    commands.requestClear()
+                }
+                .keyboardShortcut("n", modifiers: [.command])
+                .accessibilityIdentifier("newCanvasCommand")
+            }
+            // The open panel, reachable whether or not a picture is already loaded.
+            //
+            // Also a request now, and for the same reason: the author asked to be warned *"before we
+            // clear any images with cmd+o (or cmd+n)"*, and this route replaces the working picture
+            // exactly as the other two do.
             CommandGroup(after: .newItem) {
                 Button("Open Image…") {
-                    openImage()
+                    commands.requestOpen()
                 }
                 .keyboardShortcut("o", modifiers: [.command])
                 .accessibilityIdentifier("openImageCommand")
@@ -198,17 +253,16 @@ struct SuperscaleApp: App {
     /// Bringing in a picture starts a new chain and releases the previous one's files (AC89.8).
     /// That is deliberate and unchanged — but it was previously unreachable without relaunching,
     /// which discarded the work anyway. It is reachable now, and the exposure is recorded on #130.
-    private func openImage() {
-        let panel = NSOpenPanel()
-        panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic]
-        panel.allowsMultipleSelection = false
-        panel.canChooseDirectories = false
-        panel.message = "Choose an image to upscale"
-
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        viewModel.handleDrop(urls: [url])
-    }
-
+    /// 🚫 Moved to `MainView.presentOpenPanel()` by #143, not deleted for tidiness.
+    ///
+    /// Opening replaces the working picture, and the author asked to be warned before that happens
+    /// *"with cmd+o (or cmd+n)"*. Whether there is unsaved work to warn about is a question about
+    /// the lock chain, which `MainView` owns and this scene cannot see — so the decision and the
+    /// panel had to travel together. The command here sends a request instead.
+    ///
+    /// The properties this carried still hold and now hold there: the same panel `DropTargetView`
+    /// presents, the same accepted types, and one path in through `viewModel.handleDrop` whichever
+    /// way the user reached it (AC89.8).
     private func recentTitle(_ session: GenerationSessionRecord) -> String {
         let prompt = session.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         let firstLine = prompt.split(separator: "\n").first.map(String.init) ?? prompt

@@ -121,6 +121,14 @@ final class UpscaleViewModel: ObservableObject {
     /// it against, so this setting can be left alone through an import or a released result.
     @Published var showComparison: Bool = true
 
+    /// The sources the user has written to disk during this session (#143).
+    ///
+    /// Conservative by construction: a locked iteration counts as saved only when it was the thing
+    /// being displayed at the moment a save succeeded. Recording more than that would mean warning
+    /// less, and a warning that fails to fire loses work the user has paid a provider for, where one
+    /// that fires unnecessarily only costs a click.
+    @Published private(set) var savedSourceURLs: Set<URL> = []
+
 
     // MARK: - Model list
 
@@ -584,6 +592,9 @@ final class UpscaleViewModel: ObservableObject {
         lastUpscaleModelName = nil
         lastUpscaleFaceCount = 0
         lastUpscaleWasAutoDetect = false
+        // The record belongs to the pictures that are going, not to the user. Carrying it across
+        // would make the next session's first locked iteration look already saved.
+        savedSourceURLs = []
     }
 
     /// Upscales an image that came from elsewhere in the application, such as a generation
@@ -637,6 +648,18 @@ final class UpscaleViewModel: ObservableObject {
 
         do {
             try imageData.write(to: url)
+            // **Recorded so a clear can tell paid work from disposable work (#143).**
+            //
+            // Keyed on the *source* being displayed rather than on the file just written, because
+            // the question later asked is "has this locked iteration been saved", and the iteration
+            // is identified by where it lives in the output directory, not by where the user chose
+            // to put a copy.
+            //
+            // `inputURL` is that source for both routes into this method. Displaying a locked
+            // iteration sets it — that is the whole of #111 — so saving while looking at an earlier
+            // iteration records that iteration, and the File menu's Save As records the same thing
+            // without needing the graph the scene cannot reach.
+            if let inputURL { savedSourceURLs.insert(inputURL) }
         } catch {
             report("Failed to write file: \(error.localizedDescription)")
         }
