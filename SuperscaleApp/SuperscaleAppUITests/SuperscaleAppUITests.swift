@@ -5979,4 +5979,103 @@ final class SuperscaleAppUITests: XCTestCase {
             app.menuBars.menuItems["New"].waitForExistence(timeout: 5),
             "the File menu does not offer the New command")
     }
+
+    // MARK: - #147: the scale and face toggles from the keyboard
+
+    // RT-147.1, RT-147.2
+    //
+    // The bindings the author accepted. They call `viewModel.choose(_:)`, the same method the
+    // buttons call, so the shortcut and the button cannot come to disagree — which is the point:
+    // the scale controls are a **toggle group** and pressing the active choice clears it (AC82.7).
+    //
+    // The obvious wrong implementation is `scaleSelection = .preset(2)`, which would set but never
+    // clear. RT-147.2 is what catches it.
+    func test_theScaleShortcutsToggleAndMoveTheSelection_RT147_1_and_RT147_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        clearScale()
+        XCTAssertFalse(someScaleIsInEffect, "the scale should start clear")
+
+        // RT-147.1: puts a scale in effect.
+        app.typeKey("2", modifierFlags: .command)
+        XCTAssertEqual(scaleInEffect, 2, "Cmd+2 did not put 2x in effect")
+
+        // RT-147.2: moves rather than adds.
+        app.typeKey("4", modifierFlags: .command)
+        XCTAssertEqual(scaleInEffect, 4, "Cmd+4 did not move the selection to 4x")
+
+        // RT-147.1 again, and the half a naive implementation fails: the same key clears it.
+        app.typeKey("4", modifierFlags: .command)
+        XCTAssertFalse(
+            someScaleIsInEffect,
+            "Cmd+4 on the active scale did not clear it, so the shortcut is not a toggle")
+    }
+
+    // RT-147.3
+    //
+    // Cmd+8, which the author did not name. Bound by symmetry with the two he did, and asserted so
+    // the assumption is visible rather than implicit.
+    func test_theEightTimesShortcutIsBoundToo_RT147_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        clearScale()
+
+        app.typeKey("8", modifierFlags: .command)
+
+        XCTAssertEqual(scaleInEffect, 8, "Cmd+8 did not put 8x in effect")
+    }
+
+    // RT-147.4
+    //
+    // AC147.4. The author has twice reported a feature missing that existed but could not be found
+    // — #130's Open Image and #135's clear. A shortcut with no menu entry is that mistake with no
+    // surface at all.
+    func test_theShortcutsAreNamedInAMenu_RT147_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+
+        for title in ["Upscale 2x", "Upscale 4x", "Upscale 8x", "Face Enhancement"] {
+            XCTAssertTrue(
+                app.menuBars.menuItems[title].waitForExistence(timeout: 5),
+                "'\(title)' is bound to a key but named nowhere")
+        }
+    }
+
+    // RT-147.5
+    //
+    // AC147.3's refusal half. Face enhancement is a stage of the upscale, so with no scale selected
+    // there is nothing for it to be a stage of (AC93.3) — and the canvas control is disabled in
+    // exactly that state. A shortcut that set the flag anyway would make the two disagree about one
+    // setting.
+    func test_theFaceShortcutIsRefusedWithNoScaleSelected_RT147_5() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        clearScale()
+        XCTAssertFalse(someScaleIsInEffect, "the scale should be off for this case")
+
+        let command = app.menuBars.menuItems["Face Enhancement"]
+        XCTAssertTrue(command.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            command.isEnabled,
+            "face enhancement is offered from the keyboard while its control on the canvas is not")
+    }
+
+    // RT-147.6
+    //
+    // AC147.5. Every binding carries Cmd precisely so that typing a digit into the prompt or the
+    // filter search cannot change the scale — which would make the feature hostile rather than
+    // convenient.
+    func test_typingADigitIntoAFieldDoesNotChangeTheScale_RT147_6() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+        clearScale()
+
+        let search = element(identifier: "filterSearchField")
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.click()
+        search.typeText("2481")
+
+        XCTAssertFalse(
+            someScaleIsInEffect,
+            "typing digits into the search field changed the scale")
+    }
 }

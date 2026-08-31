@@ -195,6 +195,49 @@ struct SuperscaleApp: App {
             //
             // It sends a request rather than clearing, because whether there is unsaved work to
             // warn about is a question only `MainView` can answer.
+            // **The scale and face shortcuts (#147), in a menu rather than bound invisibly.**
+            //
+            // The author asked for *"2x and 4x superscale toggle, maybe cmd+2 and cmd+4? and face
+            // model toggle choose a key binding"* and accepted Cmd+2, Cmd+4, Cmd+8 and Cmd+Shift+F.
+            //
+            // A menu because he has now twice reported a feature missing that existed but could not
+            // be found — #130's Open Image and #135's clear. A shortcut with no menu entry is the
+            // same mistake with no surface at all.
+            //
+            // **Cmd+8 is an assumption**, recorded for validation: he named 2x and 4x, and 8x is a
+            // third preset that would look arbitrary left unbound.
+            //
+            // **Cmd+Shift+F, not Cmd+F**, which is Find by universal convention and is the wrong
+            // thing to take in an application with a filter search field.
+            CommandMenu("Image") {
+                // Toggles, matching the buttons exactly: the scale controls are a toggle group and
+                // pressing the active choice clears it (AC82.7). A shortcut that only ever *set* a
+                // scale would be a different control wearing the same name.
+                Button("Upscale 2x") { viewModel.choose(.preset(2)) }
+                    .keyboardShortcut("2", modifiers: [.command])
+                    .disabled(viewModel.originalImage == nil)
+                    .accessibilityIdentifier("scale2xCommand")
+                Button("Upscale 4x") { viewModel.choose(.preset(4)) }
+                    .keyboardShortcut("4", modifiers: [.command])
+                    .disabled(viewModel.originalImage == nil)
+                    .accessibilityIdentifier("scale4xCommand")
+                Button("Upscale 8x") { viewModel.choose(.preset(8)) }
+                    .keyboardShortcut("8", modifiers: [.command])
+                    .disabled(viewModel.originalImage == nil)
+                    .accessibilityIdentifier("scale8xCommand")
+
+                Divider()
+
+                // Disabled on the same two conditions as the button on the canvas: face enhancement
+                // is a stage of the upscale, so with no scale selected there is nothing for it to be
+                // a stage of (AC93.3), and with the model absent there is nothing to enable. A
+                // shortcut that silently sets a flag the interface will not honour is worse than no
+                // shortcut.
+                Button("Face Enhancement") { viewModel.faceEnhance.toggle() }
+                    .keyboardShortcut("f", modifiers: [.command, .shift])
+                    .disabled(viewModel.scaleSelection.isOff || !FaceModelRegistry.isInstalled)
+                    .accessibilityIdentifier("faceEnhanceCommand")
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New") {
                     commands.requestClear()
