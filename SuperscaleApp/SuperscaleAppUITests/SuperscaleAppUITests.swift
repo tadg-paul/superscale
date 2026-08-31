@@ -5684,4 +5684,89 @@ final class SuperscaleAppUITests: XCTestCase {
             "the badge is \(Int(indicator.frame.height)) points against body text at "
                 + "\(Int(status.frame.height)); it is not reading as the thing happening")
     }
+
+    // MARK: - #146: Settings rows keep their shape while a key is typed
+
+    /// A FAL key of the length the author actually pastes, from his screenshots.
+    private static let longCredential = "b4c3c27f-1650-42a2-9b73-3daeb5d026ba:ceb939f1360f0e7fd9e83ff202b8f7b8"
+
+    /// Opens Settings and reports where everything in the credentials section sits.
+    private func credentialLayout() -> [String: CGRect] {
+        var frames: [String: CGRect] = [:]
+        for identifier in [
+            "generationKeyLabel", "generationKeyField", "saveGenerationKeyButton",
+            "removeGenerationKeyButton", "generationKeyStatusBadge",
+            "accountKeyLabel", "accountAdministrationKeyField", "accountKeyExplanation",
+        ] {
+            let candidate = element(identifier: identifier)
+            if candidate.exists { frames[identifier] = candidate.frame }
+        }
+        return frames
+    }
+
+    // RT-146.1, RT-146.2, RT-146.3
+    //
+    // The author's report: *"items jump about when you enter a long api key... the admin key has
+    // pushed to a new line and rearranged itself."* His two screenshots show the same row in two
+    // arrangements — label beside the field when empty, above it when filled.
+    //
+    // Everything in the section is measured before and after, so the test catches the label
+    // reflowing (RT-146.1), the field widening and pushing the controls beside it (RT-146.2), and
+    // the rows below moving (RT-146.3). #110 fixed one route into this and left another open, which
+    // is why all three are asserted at once rather than trusting a single proxy.
+    func test_theCredentialRowsKeepTheirShapeWhileAKeyIsTyped_RT146_1_and_RT146_2_and_RT146_3() {
+        _ = openSettings()
+        let field = element(identifier: "accountAdministrationKeyField")
+        XCTAssertTrue(field.waitForExistence(timeout: 5), "the admin key field should be reachable")
+
+        let before = credentialLayout()
+        XCTAssertFalse(before.isEmpty, "nothing in the credentials section was measurable")
+
+        field.click()
+        field.typeText(Self.longCredential)
+
+        let after = credentialLayout()
+        for (identifier, originalFrame) in before {
+            guard let movedFrame = after[identifier] else {
+                XCTFail("\(identifier) disappeared while a key was typed")
+                continue
+            }
+            XCTAssertEqual(
+                movedFrame.minY, originalFrame.minY, accuracy: 1,
+                "\(identifier) moved vertically: \(originalFrame) then \(movedFrame)")
+            XCTAssertEqual(
+                movedFrame.minX, originalFrame.minX, accuracy: 1,
+                "\(identifier) moved horizontally: \(originalFrame) then \(movedFrame)")
+        }
+    }
+
+    // RT-146.4
+    //
+    // AC146.4, and the state the author's screenshots were actually in: one row holding a long key,
+    // the other empty. They must look alike, which under the old `LabeledContent` they did not.
+    func test_bothCredentialRowsUseTheSameArrangement_RT146_4() {
+        _ = openSettings()
+        let generation = element(identifier: "generationKeyField")
+        let account = element(identifier: "accountAdministrationKeyField")
+        XCTAssertTrue(generation.waitForExistence(timeout: 5))
+        XCTAssertTrue(account.exists)
+
+        let generationLabel = element(identifier: "generationKeyLabel")
+        let accountLabel = element(identifier: "accountKeyLabel")
+        XCTAssertTrue(generationLabel.exists && accountLabel.exists, "both rows should be named")
+
+        // The label sits above its own field in both rows, rather than beside it in one and above in
+        // the other. Compared per row, so the assertion holds whichever row happens to be filled.
+        XCTAssertLessThan(
+            generationLabel.frame.maxY, generation.frame.midY,
+            "the generation label is beside its field rather than above it")
+        XCTAssertLessThan(
+            accountLabel.frame.maxY, account.frame.midY,
+            "the account label is beside its field rather than above it")
+
+        // And the two rows are laid out alike: their labels share a left edge.
+        XCTAssertEqual(
+            generationLabel.frame.minX, accountLabel.frame.minX, accuracy: 1,
+            "the two credential rows are not aligned with each other")
+    }
 }

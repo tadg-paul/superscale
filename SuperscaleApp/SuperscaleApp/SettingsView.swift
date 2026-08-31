@@ -186,7 +186,33 @@ struct SettingsView: View {
         save: @escaping () -> Void,
         clear: @escaping () -> Void
     ) -> some View {
-        LabeledContent {
+        // **The label sits above the field, always, and that is the whole of #146.**
+        //
+        // This was a `LabeledContent`, which on macOS puts the label in a leading column beside the
+        // content **until the content's ideal width will not fit** — and then reflows it above. A
+        // `TextField`'s ideal width follows its text, so typing a long FAL key pushed past the
+        // column and the row changed arrangement **mid-keystroke**, taking every row beneath it
+        // with it. The author reported it as *"items jump about when you enter a long api key"* and
+        // supplied two screenshots showing the same row in both arrangements.
+        //
+        // #110 already fought this and won half of it: its note on the status slot records that
+        // swapping a spinner for a badge *"made `LabeledContent` renegotiate the form's label column
+        // — and the whole form moved under the user's typing."* It pinned the slot and left the
+        // field free to do the same thing by a different route.
+        //
+        // A `VStack` has no arrangement to renegotiate. It is also what a populated row already
+        // looked like, so nothing moves when a key is pasted in, and it gives the field the full
+        // width — which suits a credential that is sixty characters long.
+        VStack(alignment: .leading, spacing: 4) {
+            // The row's own name, identified so a test can assert there is exactly one of it. The
+            // count would otherwise depend on how SwiftUI reports a hidden field label.
+            Text(title)
+                .accessibilityIdentifier(
+                    fieldIdentifier == "generationKeyField"
+                        ? "generationKeyLabel"
+                        : "accountKeyLabel"
+                )
+
             HStack(spacing: 8) {
                 // A `TextField`, not a `SecureField`. A FAL key is a bearer credential rather than
                 // a password recited from memory, and masking it prevents the one check anybody
@@ -194,7 +220,12 @@ struct SettingsView: View {
                 // Keychain — and so is the rule that it travels only in a request header.
                 TextField(title, text: text)
                     .textFieldStyle(.roundedBorder)
-                    .frame(minWidth: 260)
+                    // **Greedy, not content-sized.** `minWidth` alone leaves the field's ideal width
+                    // following its text, so a long key still widened it and pushed the save, remove
+                    // and status controls along the row — the same jump as the label reflow, one
+                    // level in. Taking all the space that is going means the width is the row's,
+                    // never the key's, and nothing beside it moves as characters arrive.
+                    .frame(minWidth: 260, maxWidth: .infinity)
                     // Hidden, not renamed. The field took `title` as its own label and macOS drew
                     // it beside the field, so every row said its name twice.
                     .labelsHidden()
@@ -247,15 +278,6 @@ struct SettingsView: View {
                 }
                 .frame(width: Self.statusSlotWidth)
             }
-        } label: {
-            // The row's own name, identified so a test can assert there is exactly one of it. The
-            // count would otherwise depend on how SwiftUI reports a hidden field label.
-            Text(title)
-                .accessibilityIdentifier(
-                    fieldIdentifier == "generationKeyField"
-                        ? "generationKeyLabel"
-                        : "accountKeyLabel"
-                )
         }
     }
 
