@@ -42,8 +42,15 @@ final class AppCommands: ObservableObject {
     /// Incremented when the user asks to bring in another picture.
     @Published private(set) var openRequests = 0
 
+    /// Incremented when the user asks to copy the picture on the canvas.
+    @Published private(set) var copyRequests = 0
+    /// Incremented when the user asks to paste a picture in.
+    @Published private(set) var pasteRequests = 0
+
     func requestClear() { clearRequests += 1 }
     func requestOpen() { openRequests += 1 }
+    func requestCopy() { copyRequests += 1 }
+    func requestPaste() { pasteRequests += 1 }
 }
 
 @main
@@ -209,6 +216,37 @@ struct SuperscaleApp: App {
             //
             // **Cmd+Shift+F, not Cmd+F**, which is Find by universal convention and is the wrong
             // thing to take in an application with a filter search field.
+            // **Copy and paste (#144), his second raising, with the guard he asked for.**
+            //
+            // *"cmd should only allow paste on blank canvas"*, and the reason he gave the first
+            // time: *"otherwise if we hit it by mistake, the existing image will be lost."* Cmd+V is
+            // hit by muscle memory, and the cost of getting it wrong is a lock chain paid for at a
+            // provider.
+            //
+            // **Refused rather than warned**, unlike #143's clear. A paste onto a working canvas is
+            // almost certainly a mistake, and the cheapest correct answer to a mistake is for
+            // nothing to happen — the menu item is simply disabled, so there is nothing to dismiss.
+            //
+            // Guide 2.2 has promised paste as one of three import routes since v2 was specified and
+            // it has never existed. This closes that too.
+            // **`after:`, not `replacing:`, and that distinction cost a run.** Replacing the
+            // pasteboard group removes the standard Cut, Copy, Paste and Select All *for every text
+            // field in the application* — including the open panel's "Go to folder" field, which the
+            // GUI suite types into. Two tests then failed with `loadTestImage` timing out at 133
+            // seconds, which reads as an unrelated harness problem rather than as a menu change.
+            //
+            // These are additional commands about the picture, not replacements for text editing.
+            CommandGroup(after: .pasteboard) {
+                Button("Copy Image") { commands.requestCopy() }
+                    .keyboardShortcut("c", modifiers: [.command])
+                    .disabled(viewModel.originalImage == nil)
+                    .accessibilityIdentifier("copyImageCommand")
+                Button("Paste Image") { commands.requestPaste() }
+                    .keyboardShortcut("v", modifiers: [.command])
+                    // The guard, stated where the user meets it. Enabled only on a blank canvas.
+                    .disabled(viewModel.originalImage != nil)
+                    .accessibilityIdentifier("pasteImageCommand")
+            }
             CommandMenu("Image") {
                 // Toggles, matching the buttons exactly: the scale controls are a toggle group and
                 // pressing the active choice clears it (AC82.7). A shortcut that only ever *set* a

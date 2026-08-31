@@ -6078,4 +6078,80 @@ final class SuperscaleAppUITests: XCTestCase {
             someScaleIsInEffect,
             "typing digits into the search field changed the scale")
     }
+
+    // MARK: - #144: copy the displayed picture, paste only onto a blank canvas
+
+    // RT-144.4, RT-144.6
+    //
+    // **The guard is the request.** *"cmd should only allow paste on blank canvas"*, because
+    // *"if we hit it by mistake, the existing image will be lost"* — and what would be lost is a
+    // lock chain paid for at a provider.
+    //
+    // Asserted through the menu's enabled state, which is where a user meets the refusal: a
+    // disabled item says why nothing happened, where a silently inert shortcut does not.
+    func test_pasteIsRefusedWithAPictureLoadedAndCopyWithout_RT144_4_and_RT144_6() {
+        // Blank canvas first: copy has nothing to offer, paste is available.
+        let paste = app.menuBars.menuItems["Paste Image"]
+        let copy = app.menuBars.menuItems["Copy Image"]
+        XCTAssertTrue(paste.waitForExistence(timeout: 5), "no paste command exists")
+        XCTAssertTrue(copy.exists, "no copy command exists")
+        XCTAssertFalse(copy.isEnabled, "copy is offered with nothing on the canvas")
+        XCTAssertTrue(paste.isEnabled, "paste is refused on a blank canvas, which is the one state it is for")
+
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        XCTAssertTrue(copy.isEnabled, "copy is refused with a picture on the canvas")
+        XCTAssertFalse(
+            paste.isEnabled,
+            "paste is offered over a loaded picture, so a mistyped Cmd+V destroys the chain")
+    }
+
+    // RT-144.1
+    //
+    // Copying puts something on the pasteboard. Driven through the menu rather than the shortcut so
+    // the assertion is about the command the user can find.
+    func test_copyingPutsTheDisplayedPictureOnThePasteboard_RT144_1() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(waitForUpscaleComplete())
+
+        let copy = app.menuBars.menuItems["Copy Image"]
+        XCTAssertTrue(copy.waitForExistence(timeout: 5))
+        XCTAssertTrue(copy.isEnabled)
+        copy.click()
+
+        // The pasteboard is the application's output here, and the test process shares it.
+        let pasted = NSImage(pasteboard: .general)
+        XCTAssertNotNil(pasted, "nothing reached the pasteboard")
+        XCTAssertGreaterThan(pasted?.size.width ?? 0, 0, "what reached the pasteboard is not a picture")
+    }
+
+    // RT-144.3, RT-144.5
+    //
+    // Paste brings a picture in, and it arrives as an ordinary import: the clear control appears,
+    // which renders only when a picture is loaded, and the filter panel is unaffected.
+    //
+    // The pasteboard is seeded from the test process, which is the only way to drive this without a
+    // second application.
+    func test_pastingBringsAPictureInOnABlankCanvas_RT144_3_and_RT144_5() throws {
+        let path = try writeFixture(width: 800, height: 600, named: "for-the-pasteboard.png")
+        guard let seed = NSImage(contentsOfFile: path) else {
+            XCTFail("the fixture could not be read")
+            return
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.writeObjects([seed])
+
+        let paste = app.menuBars.menuItems["Paste Image"]
+        XCTAssertTrue(paste.waitForExistence(timeout: 5))
+        XCTAssertTrue(paste.isEnabled, "paste should be available on a blank canvas")
+        paste.click()
+
+        XCTAssertTrue(
+            clearImageButton.waitForExistence(timeout: 15),
+            "the pasted picture never reached the canvas")
+        XCTAssertEqual(
+            (clearImageButton.value as? String) ?? "", "0 unsaved",
+            "a pasted picture arrived with a chain behind it, so it was not treated as an import")
+    }
 }

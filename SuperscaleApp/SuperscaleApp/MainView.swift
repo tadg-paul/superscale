@@ -11,6 +11,8 @@ struct MainView: View {
     @ObservedObject var settingsState: GenerationSettingsState
     /// File-menu commands. This view owns the state they act on, so it owns the decision too.
     @ObservedObject private var commands: AppCommands
+    /// Where a pasted picture is written before it enters the pipeline (#144).
+    private let storageRoots: StorageRoots
     @StateObject private var generationCoordinator: GenerationCoordinator
     @State private var selection = FilterSelection()
     @State private var showAbout = false
@@ -61,6 +63,7 @@ struct MainView: View {
     ) {
         self.viewModel = viewModel
         self.settingsState = settingsState
+        self.storageRoots = storageRoots
         _commands = ObservedObject(wrappedValue: commands ?? AppCommands())
         _workspace = StateObject(
             wrappedValue: WorkspaceState(outputDirectory: storageRoots.generated)
@@ -143,6 +146,8 @@ struct MainView: View {
         // question — which is the point of routing them here rather than letting the menu act.
         .onChange(of: commands.clearRequests) { _, _ in requestClear() }
         .onChange(of: commands.openRequests) { _, _ in requestOpen() }
+        .onChange(of: commands.copyRequests) { _, _ in copyDisplayedPicture() }
+        .onChange(of: commands.pasteRequests) { _, _ in pastePicture() }
         .onChange(of: coordinatorOutputPath) { _, _ in adoptFilterResult() }
         .onChange(of: coordinatorFailureMessage) { _, message in reportFilterFailure(message) }
         .onChange(of: workspace.showsBase) { _, _ in displayChosenAsset() }
@@ -235,6 +240,53 @@ struct MainView: View {
         switch pendingAction {
         case .clear: performClear()
         case .open: presentOpenPanel()
+        }
+    }
+
+    /// Puts the picture the canvas is showing on the pasteboard (#144).
+    ///
+    /// **`displayedImage`, not `viewModel.result`.** What the user means by "copy this" is what they
+    /// are looking at, which is the base when they have asked for the base and the derivation
+    /// otherwise. Binding to `result` alone is the mistake #112 fixed for the curtain: with the
+    /// scale off there is no result, and a filtered picture the user is looking at would copy
+    /// nothing.
+    private func copyDisplayedPicture() {
+        guard let image = displayedImage ?? viewModel.originalImage else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+    }
+
+    /// Brings a picture in from the pasteboard, onto a blank canvas only (#144).
+    ///
+    /// The guard is in two places on purpose. The menu item is disabled when a picture is loaded, so
+    /// the user never reaches this; and this refuses anyway, because a command routed through a
+    /// counter can in principle be delivered late. **The author's reason for the guard is that
+    /// Cmd+V is hit by accident**, so the defensive half is the point rather than belt and braces.
+    ///
+    /// Written to disk and brought in through `handleDrop`, so a pasted picture is an ordinary
+    /// import: it starts a new chain by AC89.8 and nothing downstream special-cases it. It goes to
+    /// the configured generated root rather than a scratch location, which is the rule #116
+    /// established --- one resolution for every directory the application writes to.
+    private func pastePicture() {
+        guard viewModel.originalImage == nil else { return }
+        guard let image = NSImage(pasteboard: .general) else { return }
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let data = bitmap.representation(using: .png, properties: [:]) else {
+            viewModel.report("The clipboard's contents could not be read as an image.")
+            return
+        }
+
+        let destination = storageRoots.generated
+            .appendingPathComponent("pasted-\(UUID().uuidString).png")
+        do {
+            try FileManager.default.createDirectory(
+                at: storageRoots.generated, withIntermediateDirectories: true)
+            try data.write(to: destination)
+            viewModel.handleDrop(urls: [destination])
+        } catch {
+            viewModel.report("The pasted image could not be saved: \(error.localizedDescription)")
         }
     }
 
