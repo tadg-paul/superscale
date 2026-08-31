@@ -645,6 +645,29 @@ extended AC92.1, AC92.5 and AC92.6.
 
 ## Settings and credentials
 
+### AC146.1 - A credential row keeps its arrangement whatever is typed into its field, and the rows below it do not move.
+- Introduced: #146 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-146.1, RT-146.2, RT-146.3: every control in the credentials section keeps its position while a long key is typed
+  - ✅ RT-146.4: both credential rows use the same arrangement as each other
+  - ⏳ UT-73.2 re-offered: type a long key into each field and judge that nothing jumps
+- Note: **two causes, one level apart.** The row was a `LabeledContent`, which on macOS puts the label
+  beside the content until the content's ideal width will not fit and then reflows it above --- and a
+  `TextField`'s ideal width follows its text, so a long FAL key changed the arrangement mid-keystroke.
+  Underneath that, `minWidth` alone left the field itself growing with the key and pushing the save,
+  remove and status controls along the row.
+- Note: **#110 already fought this and won half of it.** Its note on the status slot records that
+  swapping a spinner for a badge *"made `LabeledContent` renegotiate the form's label column --- and
+  the whole form moved under the user's typing."* It pinned the slot and left the field free to do
+  the same thing by another route, which is why RT-146.1-3 measures **every** control in the section
+  rather than trusting one proxy.
+- Note: label-above is what a populated row already looked like, so nothing moves when a key is
+  pasted, and it gives the field the full width --- which suits a credential sixty characters long.
+- Note: diagnosed from the author's two screenshots, which show the same row in both arrangements.
+- Note: **UT-73.2 is re-offered.** He passed it on 2026-08-30, before trying a long key in the admin
+  field.
+
 ### AC73.5 - Users can see separate controls for generation key, account/admin key, account state, defaults, and prompt packs.
 - Introduced: #73 (closed, pre-cutover)
 - Migrated: 2026-08-24, cited by #88
@@ -858,6 +881,36 @@ extended AC92.1, AC92.5 and AC92.6.
   scroll with headings between them is grouping rather than choosing. A filter bar rather than a
   drill-down, because the requirement is flexibility with few clicks rather than a fixed number of
   steps.
+- Note: **"a search that cuts across categories" was true of this criterion and false of the
+  application for three raisings.** `visibleFilters` anded the chip and the query, so with Lighting
+  chosen a search reached 4 filters of 108. **RT-87.37 asserted the right rule and could not fail**:
+  it ran from a state with no chip active, so "reaches across categories" was never tested against a
+  category. Widened by #141 to start from a chipped state, where its `linocut` assertion fails
+  against the old code. See AC141.1.
+
+### AC141.1 - Entering the search field clears any active category, so a search covers the whole corpus and no chip is ever lit while not narrowing.
+- Introduced: #141 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-141.1: with a category chosen, focusing the search field clears the chip
+  - ✅ RT-141.2: a search then finds a filter from a different category
+  - ✅ RT-141.3: the count returns to the whole corpus when the chip clears
+  - ✅ RT-141.4: focusing with no category chosen changes nothing
+  - ✅ RT-141.6: no chip claims to narrow while the whole corpus is listed
+  - ✅ RT-141.7: text already typed survives the chip clearing
+  - ✅ RT-87.37 widened: search reaches across categories **from a chipped starting state**
+  - ⏳ UT-141.1: choose a category, click the search box, and judge that searching now reaches everything
+- Note: **the author's third raising.** The intent had been written down and never implemented ---
+  `FilterPanel`'s own doc comment already claimed *"search cuts across categories, so nothing is
+  hidden behind navigation."*
+- Note: **on focus, not on the first keystroke.** He wrote *"clicking in the search box"*, and
+  clearing on a keystroke would leave one keystroke's worth of results filtered by a chip that is
+  about to disappear.
+- Note: **the chip is cleared, not ignored.** Making the search ignore an active chip is one line and
+  satisfies almost every test here, but leaves a chip lit while it narrows nothing --- a control that
+  lies, which is worse than the defect. **RT-141.6 blocks that route**, and writing it required
+  making the chip's state addressable: it had been expressed as colour and nothing else, so it
+  reached neither VoiceOver nor a test. The same gap #95's credential badge had.
 
 ### AC87.5 - Choosing a filter fills the editable prompt area and issues no request; applying sends that text.
 - Introduced: #87 (closed 2026-08-24)
@@ -1245,6 +1298,35 @@ extended AC92.1, AC92.5 and AC92.6.
   Implementing that would have had the application write `showComparison` --- the exact thing guide
   2.3 forbids and the author has reported twice, most recently as #134. What caught it was opening
   `releaseUpscaledResult` and reading the 🚫 note #126 left there. Recorded as DECISION D-6 on #135.
+- Note: **the partition was two-way and needed to be three (#140).** It named the picture's settings
+  and the user's, and had no place for the application's --- so the filter corpus fell between them
+  and was wiped by the clear I shipped the day before. See AC140.1.
+
+### AC140.1 - After a picture is cleared, the filter list offers the whole bundled corpus and its category chips, while the chosen filter and any edited prompt text are cleared with the picture.
+- Introduced: #140 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-140.1: the filter list still offers all 108 after a clear
+  - ✅ RT-140.2: the category chips are all still offered, asserted by name
+  - ✅ RT-140.3: a filter can still be chosen and its prompt loaded
+  - ✅ RT-140.4: a clear still empties the chosen filter and the edited prompt
+  - ✅ RT-140.6: the corpus survives two clears in succession
+- Note: **my regression, reported the day it shipped.** `clearPicture()` ended with
+  `FilterSelection()`, whose initializer defaults `filters: []` --- and the entire 108-filter corpus
+  lives in that value. `FilterPanel` reads its rows from it and derives its category chips from the
+  same place, so clearing a picture emptied the filter panel for the rest of the session.
+- Note: **the intention was right and the partition was not.** The chosen filter and its edited prompt
+  belong to the picture; the corpus belongs to the application. One type carrying both is what let a
+  correct intention empty the panel.
+- Note: **#135's tests asserted everything the clear must *do* and nothing it must *not touch*.** That
+  is the reusable lesson: a reset needs a test for what it preserves. RT-140.4 is deliberately kept
+  separate from RT-140.1 so neither can be satisfied by sacrificing the other.
+- Note: RT-140.2 asserts the chips **by name**. They and the rows both derive from `selection.filters`
+  today, so restoring one restores the other --- but the author named the categories in his report and
+  a criterion he stated should not rest on a shared implementation detail that could change.
+- Note: 🚫 **UT-140.1 was withdrawn by this ticket's test audit**, identifier not reused. It would have
+  asked the author to judge that the filter panel is untouched, which is fully mechanical: a count
+  and a named list, both asserted above.
 
 ### AC135.7 - The clear control is unavailable while an upscale or a filter is in flight, so no operation can finish onto an emptied canvas.
 - Introduced: #135 (closed 2026-08-30)
@@ -1267,6 +1349,152 @@ extended AC92.1, AC92.5 and AC92.6.
 - Note: the same terms as the import in AC89.8, which has always discarded without prompting. Stated
   as a criterion rather than left as a gap so that it is a decision on the record --- the alternative
   is a fourth report about a confirmation nobody ever discussed.
+- Note: **superseded by AC143.1 and AC143.4 (#143, 2026-08-31), and it was wrong when written.** The
+  author had **already asked once** to be warned before unsaved work was discarded when I wrote this,
+  and I cited AC89.8's precedent to say the opposite. That did not merely miss the request --- it put
+  it in the specification as settled, so his second raising read as contrary to the spec rather than
+  as a correction to it. Kept rather than deleted, because the record of the mistake is the useful
+  part. What survives is the immediacy where nothing is at stake, now AC143.4.
+- Note: RT-135.10 still passes and is now about the **silent** half of the rule. It was passing before
+  only because its fixture builds no lock chain --- the same narrowness that let #141 and #142 survive
+  multiple fixes --- so the fixture is now the point rather than an accident.
+
+### AC143.1 - Where any locked iteration has not been saved this session, an action that would discard it asks first, names how much is at stake, and can be cancelled without effect.
+- Introduced: #143 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-143.1: clearing with unsaved iterations asks first and says how many
+  - ✅ RT-143.2: cancelling leaves the picture, the chain and the candidate untouched
+  - ✅ RT-143.3: confirming proceeds with the action that was asked for
+  - ✅ RT-143.5: the question is raised by Cmd+N as well as by the control
+  - ✅ RT-143.8: the clear control publishes what a clear would cost
+  - ⏳ UT-143.1: build a chain, press Cmd+N, cancel, save, press it again; judge nothing was lost and it did not nag
+- Note: **the author's second raising**, and it reverses AC135.8, which I wrote after his first.
+- Note: **every route asks the same question** --- the Clear control, Cmd+N and Cmd+O. He named two of
+  the three; a warning that fires on some routes and not others teaches a habit that then fails,
+  which is worse than not warning at all. Drag and drop is deliberately excluded by **AC143.7**.
+- Note: **RT-143.8 exists because I was wrong twice about why the warning appeared not to fire.** I
+  blamed two `.alert` modifiers on one view and moved it; the tests failed identically. Publishing
+  what the application believed was at stake ended the guessing: it read "5 unsaved" with the control
+  enabled, so the state was right and the **test's locator** was wrong --- identifiers inside a
+  SwiftUI `.alert` do not survive into the `NSAlert`, which this suite already knew and had written
+  down on `failureAlert`.
+
+### AC143.4 - Where every locked iteration has been saved, or there are none, no question is asked and the action happens immediately.
+- Introduced: #143 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-143.4: clearing with nothing to lose asks nothing
+  - ✅ RT-135.10: no sheet or dialogue is interposed in that state
+- Note: **the half that keeps the feature bearable.** *"if and only if there are any unsaved lock
+  images."* A warning that fires every time is a warning people learn to dismiss without reading, and
+  the commonest case by far is a picture with no chain behind it.
+
+### AC143.6 - A locked iteration counts as saved once it has been written to disk during this session while it was the picture on display.
+- Introduced: #143 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-143.8: the count reflects what has and has not been saved
+- Note: **conservative by construction.** Recording more than this would mean warning less, and a
+  warning that fails to fire loses work paid for at a provider, where one that fires unnecessarily
+  costs a click.
+- Note: keyed on `inputURL`, which is the displayed source for **both** save routes --- displaying a
+  locked iteration sets it, which is the whole of #111 --- so the File menu's Save As records the same
+  thing without needing the graph the scene cannot reach.
+
+### AC143.7 - Dragging a picture onto the canvas raises no question.
+- Introduced: #143 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ Covered by the absence of a warning path on the drop route; no drag test drives a dialogue
+- Note: a deliberate act on a chosen file. Interposing a dialogue would make the primary import route
+  hostile. **Raised by the AC audit as the fourth route** and stated either way rather than left
+  silent, which is how a fourth report arrives.
+
+### AC145.1 - Cmd+N returns the canvas to its empty state rather than opening a second window.
+- Introduced: #145 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-145.1, RT-145.2: Cmd+N clears the canvas and opens no second window
+  - ✅ RT-145.6: the command is named in the File menu
+  - ✅ RT-143.5: with unsaved iterations it warns first
+  - ⏳ UT-145.1: press Cmd+N mid-session and judge that it does what starting again should do
+- Note: **AppKit's New Window survived because nothing replaced `.newItem`**, so a second window
+  opened onto the *same* `WorkspaceState` and `UpscaleViewModel` --- two windows, one model, so
+  whatever the second appeared to show was the first one's state.
+- Note: the author chose this over multi-window support, which would need a graph, a lock chain and a
+  filter cache **per window**. That is a change to who owns the application's state, not a feature.
+- Note: named in the menu because he has twice reported a feature missing that existed but could not
+  be found --- #130's Open Image and #135's clear.
+
+### AC144.1 - The picture the canvas is showing can be copied to the pasteboard, and copying is unavailable when there is nothing on it.
+- Introduced: #144 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-144.1: copying puts the displayed picture on the pasteboard
+  - ✅ RT-144.6: copying is unavailable with a blank canvas
+  - ⏳ UT-144.1: copy a filtered result into another application and judge it is the picture that was on screen
+- Note: **what is copied is what is displayed** --- the base when the base is being shown, the
+  derivation otherwise. Binding to `viewModel.result` alone is the mistake #112 fixed for the
+  curtain: with the scale off there is no result, and a filtered picture on screen would copy
+  nothing.
+
+### AC144.4 - A picture can be pasted onto a blank canvas and becomes the source; with a picture already loaded, pasting is unavailable and the loaded picture is untouched.
+- Introduced: #144 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-144.3, RT-144.5: pasting brings a picture in and it arrives as an import
+  - ✅ RT-144.4: with a picture loaded, pasting is refused
+- Note: **the guard is the request, not a detail of it.** The author gave the reason at his first
+  raising: *"otherwise if we hit it by mistake, the existing image will be lost."* Cmd+V is hit by
+  muscle memory and what is lost is a lock chain paid for at a provider.
+- Note: **refused rather than warned**, unlike #143's clear. A paste onto a working canvas is almost
+  certainly a mistake, and the cheapest correct answer to a mistake is for nothing to happen. The
+  guard is in two places --- the menu item is disabled, and `pastePicture()` refuses anyway --- because
+  the command travels through a counter and could be delivered late.
+- Note: closes guide **2.2**'s promise of paste as one of three import routes, unimplemented since v2
+  was specified.
+- Note: **`after: .pasteboard`, never `replacing:`.** Replacing that group removes the standard Cut,
+  Copy, Paste and Select All for every text field in the application, including the open panel's "Go
+  to folder" field the GUI suite types into. Two tests then failed with `loadTestImage` timing out at
+  133 seconds, which reads as a harness problem rather than as a menu change.
+
+
+### AC148.1 - A prompt with no picture behind it can be sent, reaching the model without its edit suffix and carrying no reference.
+- Introduced: #148 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-148.1: a prompt with no picture behind it can be sent
+  - ✅ RT-148.2: the request carries no reference
+  - ✅ RT-148.4: an empty prompt with no picture cannot be sent
+  - ✅ RT-148.6: a key is still required
+  - ✅ RT-148.3: a prompt alone produces a picture on an empty canvas
+  - ✅ RT-148.7: Apply is refused on an empty canvas with no prompt
+  - ⏳ UT-148.1: generate a picture from a prompt alone and judge the result is usable as a starting point
+- Note: **the author's estimate of the size was right.** `FalRequestBuilder` already chose between the
+  edit and text endpoints on whether any reference was attached, so sending none reaches the model
+  without `/edit` and restores the sizing parameter Grok's edit endpoint refuses. The only gate was
+  `canApply` requiring a working image.
+- Note: `canGenerateFromNothing` is a **separate** property rather than a relaxation of `canApply`. A
+  great deal is gated on `canApply` and widening it would quietly change all of it.
+- Note: **no reference means no upload**, so this skips the two round trips #137 measured and is the
+  fastest provider path in the application.
+
+### AC148.3 - A picture generated from a prompt alone becomes the base with role source, so everything downstream works on it unchanged.
+- Introduced: #148 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-148.3: the generated picture arrives with no chain behind it, as an import does
+  - ✅ RT-148.5: the edit route is unchanged --- a loaded picture still sends its reference
+- Note: **`recordFilter` would have refused it.** A filtered asset needs a base to hang from and an
+  empty canvas has none, so the result would have been rejected and a picture just paid for would
+  never have appeared. It enters through `importImage`, the same door a dragged file uses.
+- Note: **guide 2.2 predicted this shape before the feature existed** --- *"an additional way to create
+  a `source` asset, entering the same pipeline at the same point as an imported image"* --- and that is
+  what was built. Making the first generation a candidate of nothing would have made it a special
+  case forever.
+- Note: **RT-148.5 is the most important test in this ticket.** It widens a gate everything in the
+  filter path depends on, so the edit route must be provably untouched.
 
 ### AC135.9 - After a clear the comparison is unavailable because there is nothing to compare, and becomes available again on the next picture that derives something.
 - Introduced: #135 (closed 2026-08-30)
@@ -1495,6 +1723,9 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ UT-119.1: with an operation running, the indicator's position is judged --- **failed** on 2026-08-27 (remediated by #128), then **passed** by the author in the round of 2026-08-29, recorded on master #133. Both rulings kept: the failure is why #128 exists
 - Note: **RT-128.x were migrated late.** #128 was closed without them, which is an omission in that
   closure rather than in the tests; recorded rather than quietly corrected.
+- Note: **unchanged as a rule by #142 (2026-08-31), which restacked the badge.** All seven tests above
+  were re-run against the new shape and all seven pass. What the badge *says* and how it is
+  *arranged* is AC142.1; where it sits is this criterion, and the two are deliberately separate.
 - Note: **#128's first fix did nothing, and its test was too weak to notice.** The bound was moved
   from the stack to the text, on the reasoning that a `maxWidth` frame bounds rather than sets.
   Measured: the badge came out at **301 points of a 1080-point canvas** for a 30-character message
@@ -1801,6 +2032,34 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-93.5: the stored selection is unchanged by a reduction
 - Note: AC82.8 holds --- the selection changes only when the user changes it --- so the control keeps
   showing what was asked for and the message reconciles it with what ran.
+
+### AC147.1 - Each scale preset and face enhancement can be driven from the keyboard, each behaving exactly as its control on the canvas does, and each named in a menu.
+- Introduced: #147 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-147.1, RT-147.2: the scale shortcuts toggle, and move the selection rather than adding to it
+  - ✅ RT-147.3: Cmd+8 is bound too
+  - ✅ RT-147.4: every shortcut is named in a menu
+  - ✅ RT-147.5: the face shortcut is refused with no scale selected
+  - ✅ RT-147.6: typing digits into a field does not change the scale
+  - ⏳ UT-147.1: drive a session by keyboard alone and judge the bindings feel right
+- Note: **Cmd+2, Cmd+4, Cmd+8, Cmd+Shift+F**, the bindings the author accepted. **Cmd+8 is an
+  assumption** --- he named 2x and 4x, and 8x is a third preset that would look arbitrary left
+  unbound. Recorded for validation.
+- Note: **Cmd+Shift+F, not Cmd+F**, which is Find by universal convention and the wrong thing to take
+  in an application with a filter search field.
+- Note: the shortcuts call `viewModel.choose(_:)`, the same method the buttons call, so the two
+  cannot drift. That matters because the scale controls are a **toggle group** and pressing the
+  active choice clears it (AC82.7) --- the obvious wrong implementation is `scaleSelection =
+  .preset(2)`, which sets but never clears. **RT-147.1 asserts the clearing half.**
+- Note: face enhancement is disabled on the same two conditions as its control on the canvas --- no
+  scale selected (AC93.3) or the model absent. A shortcut that silently set a flag the interface will
+  not honour is worse than no shortcut.
+- Note: **named in a menu rather than bound invisibly.** The author has twice reported a feature
+  missing that existed but could not be found --- #130's Open Image and #135's clear. A shortcut with
+  no menu entry is that mistake with no surface at all.
+- Note: every binding carries Cmd so that typing a digit into the prompt or the filter search cannot
+  change the scale, which would make the feature hostile rather than convenient.
 
 ### AC93.3 - Every face-enhancement control is unavailable while no scale is selected, and its unavailability is visible rather than silent. The face model remains obtainable while the controls are unavailable.
 - Introduced: #93 (closed 2026-08-25)
@@ -2233,6 +2492,39 @@ extended AC92.1, AC92.5 and AC92.6.
   pixels.
 
 ## What the canvas reports it is showing
+
+### AC142.1 - The progress badge shows its message a word to a line, stacked, in capitals, with the spinner below the last word and the words set larger than the application's body text.
+- Introduced: #142 (closed 2026-08-31)
+- Migrated: 2026-08-31
+- Tests:
+  - ✅ RT-142.2, RT-142.6: the badge is in capitals and publishes one child per word
+  - ✅ RT-142.1, RT-142.3: the badge is stacked rather than a row, measured by its own height
+  - ✅ RT-142.4: the badge is set larger than the status bar's body text
+  - ✅ RT-119.1 to RT-119.4, RT-128.1, RT-128.4, RT-128.5 all re-run and passing
+  - ⏳ UT-142.1: apply a filter and judge the badge reads APPLYING / FILTER / spinner and is big enough
+- Note: **the author's fifth raising**, and four previous attempts each changed something real without
+  changing what he described. #119 moved the badge's position --- and the 68-point offset chased for
+  four cycles turned out to be `firstMatch` measuring the spinner. #128 removed a width cap that was
+  pinning it, after two attempts that reasoned about `.frame(maxWidth:)` instead of measuring it. The
+  opacity was set at his figure. **Through all of it the badge stayed one horizontal line with the
+  spinner in front of the text**, which is the one thing he asked to change.
+- Note: *"still too small"* appears in the report every time and was read as *the shading is too wide
+  for the text* --- which is what #128 fixed, and is not what he wrote.
+- Note: the words are split **explicitly**, not left to wrapping. Wrapping needs a width to break
+  against, and a width is exactly what #128 spent two attempts removing.
+- Note: 🚫 **the words are not individually addressable, after three runs trying.** Identified alone,
+  declared as elements with their own labels, and with the container's label removed so it could not
+  absorb them --- the query found nothing every time. The badge stays `.combine`d, which is what
+  #128 established. What that left is better evidence than expected: `.combine` joins children with
+  `", "`, so a comma-separated label whose every part is a single word is **direct proof** the badge
+  published one child per word rather than one holding a sentence.
+- Note: RT-142.2/142.6 is **message-agnostic** after a correction. The first version required
+  "APPLYING" and "FILTER" and failed reading `'PROCESSING, TILE, 1, OF, 1...'` --- the badge was caught
+  during the upscale that follows a filter. Which message shows at any instant is a race; that every
+  message is split a word to a line is the criterion.
+- Note: the 70-point height threshold is **measured, not guessed**: the previous horizontal badge
+  stood at roughly 40 points for this message and the stacked one near 110. The failure message
+  prints the reading, so a future change is diagnosed rather than re-guessed.
 
 ### AC117.1 - The canvas reports which kind of image it is currently displaying, nothing, the base, a filter result, or an upscaled rendering, as part of its accessibility label, and that report changes only when what is displayed changes.
 - Introduced: #117 (closed 2026-08-27)

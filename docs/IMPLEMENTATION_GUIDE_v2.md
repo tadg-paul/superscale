@@ -1,4 +1,4 @@
-<!-- Version: 3.38 | Last updated: 2026-08-30 -->
+<!-- Version: 3.39 | Last updated: 2026-08-31 -->
 
 # Superscale v2: Solution Design and Implementation Guide
 
@@ -1579,6 +1579,16 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.39 (2026-08-31):** Section 2.2 gains **generation from a prompt alone**, brought into the MVP
+  at the author's request (#148) --- the section had said there was no such entry and that it was
+  "the next version", and **the prediction it made about the shape was exactly right**, so the
+  amendment records that rather than replacing it. Mechanically it is the same model without the
+  `/edit` suffix, which `FalRequestBuilder` already selected on whether a reference was attached.
+  The same section gains **clipboard import and export** (#144), closing a promise of paste it has
+  carried since v2 was specified, and **Cmd+N as a route to the empty canvas** (#145). The rule that
+  a clear asks nothing is **reversed** (#143): it now warns when locked iterations are unsaved, on
+  every route that would discard them, which corrects a criterion written after the author had
+  already asked once for the opposite.
 - **3.38 (2026-08-30):** Section 2.3 gains **the gesture split inside the curtain**, because two
   consumers wanting the same gestures over the same rectangle is a design question and not a
   modifier. Scroll moves the divider along whichever axis dominates --- a wheel mouse reports only
