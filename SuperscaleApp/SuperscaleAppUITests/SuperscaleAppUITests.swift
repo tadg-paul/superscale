@@ -5322,4 +5322,128 @@ final class SuperscaleAppUITests: XCTestCase {
             "scrolling the filter strip moved the comparison divider")
         XCTAssertEqual(panOffset, before, "and it moved the photograph")
     }
+
+    // MARK: - #140: clearing the picture leaves the filter corpus alone
+
+    /// The categories the filter list offers as chips.
+    ///
+    /// Named rather than counted. The author reported the chips explicitly --- *"including the
+    /// category names"* --- and a count would pass on the wrong eleven.
+    private static let allCategories = [
+        "design", "illustration", "institutional", "lighting", "material",
+        "media", "narrative", "photo", "print", "sketch", "zeitgeist",
+    ]
+
+    // RT-140.1
+    //
+    // The regression itself. `clearPicture()` ended with `FilterSelection()`, whose initialiser
+    // defaults `filters: []` --- and the whole corpus lives in that value, so clearing a picture
+    // emptied the filter panel for the rest of the session.
+    func test_theFilterListSurvivesAClear_RT140_1() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        XCTAssertEqual(
+            textContent(of: element(identifier: "filterCount")), "108",
+            "the corpus should be complete before the clear")
+
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertEqual(
+            textContent(of: element(identifier: "filterCount")), "108",
+            "clearing the picture emptied the filter list")
+    }
+
+    // RT-140.2
+    //
+    // AC140.1's other half, and the author's own words. The chips and the rows both derive from
+    // `selection.filters` today, so restoring one restores the other --- but he named the categories
+    // and a criterion he stated should not rest on a shared implementation detail that could change.
+    func test_theCategoryChipsSurviveAClear_RT140_2() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        for category in Self.allCategories {
+            XCTAssertTrue(
+                element(identifier: "category-\(category)").exists,
+                "the \(category) chip went with the picture")
+        }
+    }
+
+    // RT-140.3
+    //
+    // Populated is not the same as working. A list restored from a stale value could render rows
+    // that select nothing.
+    func test_aFilterCanStillBeChosenAfterAClear_RT140_3() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        element(identifier: "category-print").click()
+        let row = element(identifier: "filter-image-print-linocut")
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "the filter is not reachable after a clear")
+        row.click()
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        XCTAssertFalse(
+            textContent(of: prompt).isEmpty,
+            "choosing a filter after a clear loaded no prompt")
+    }
+
+    // RT-140.4
+    //
+    // **The half that was right, and that must stay right.** The chosen filter and its edited prompt
+    // belong to the picture and do go with it. Without this, the fix for RT-140.1 is satisfied by
+    // not clearing `selection` at all --- which would carry the previous picture's choice forward.
+    func test_aClearStillEmptiesTheChosenFilterAndItsPrompt_RT140_4() {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        element(identifier: "category-print").click()
+        element(identifier: "filter-image-print-linocut").click()
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        XCTAssertFalse(textContent(of: prompt).isEmpty, "a filter should be chosen before the clear")
+
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertTrue(
+            textContent(of: element(identifier: "generationPromptField")).isEmpty,
+            "the previous picture's filter is still loaded after the clear")
+    }
+
+    // RT-140.6
+    //
+    // The cheapest guard against a fix that restores the corpus from a value which is itself being
+    // progressively emptied: that would pass RT-140.1 once and fail on the second clear.
+    func test_theCorpusSurvivesTwoClearsInSuccession_RT140_6() throws {
+        XCTAssertTrue(loadTestImage(), "the working image should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        let second = try writeFixture(width: 1600, height: 1200, named: "second-clear.png")
+        XCTAssertTrue(loadTestImage(path: second), "a second picture should load")
+        XCTAssertTrue(clearImageButton.waitForExistence(timeout: 10))
+        clearImageButton.click()
+        XCTAssertTrue(element(identifier: "dropTarget").waitForExistence(timeout: 10))
+
+        XCTAssertEqual(
+            textContent(of: element(identifier: "filterCount")), "108",
+            "the corpus is being emptied a little at a time rather than preserved")
+    }
+
+    // 🚫 UT-140.1 is **withdrawn** by this ticket's test audit, identifier not reused.
+    //
+    // It would have asked the author to judge that "the filter panel is untouched" after a clear ---
+    // which is fully mechanical: a count and a named list of chips, both asserted above. Asking a
+    // human to eyeball what an assertion proves exactly is how user tests lose their authority. He
+    // has been asked to judge this application repeatedly across four rounds, and the ones that
+    // reach him should be the ones that genuinely need judgement.
 }
