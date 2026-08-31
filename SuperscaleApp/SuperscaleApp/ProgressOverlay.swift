@@ -47,6 +47,20 @@ struct ProgressOverlay: View {
                     .font(.title3.weight(.semibold))
                     .tracking(0.5)
                     .foregroundStyle(.primary)
+                    // Identified so the *arrangement* is assertable, not merely the text. A test
+                    // reading the combined label cannot tell a stack from a row — the words join
+                    // the same way either way — and arrangement is the whole of what was asked for
+                    // five times.
+                    // 🚫 **No per-word identifier, after three runs trying to get one.** I wanted the
+                    // words individually addressable so a test could assert the arrangement from
+                    // their frames. They would not enter the accessibility tree: identified alone,
+                    // declared as elements, and with the container's label removed — the query found
+                    // nothing every time, and the container kept absorbing them.
+                    //
+                    // The badge stays `.combine`d, which is what #128 established and what the seven
+                    // existing indicator tests were written against. The arrangement is asserted from
+                    // **the badge's own height** instead, which is a real measurement of the thing
+                    // that changed, and the capitals and word order from its combined label.
             }
 
             ProgressView()
@@ -90,9 +104,19 @@ struct ProgressOverlay: View {
         // 68 points left of the picture: the badge was centred and the measurement was not of the
         // badge. **More words now means more children, so this matters more than it did.**
         //
+        // **`.contain` with an explicit label, rather than `.combine`.**
+        //
+        // `.combine` was chosen by #128 so the badge would say something to VoiceOver rather than
+        // nothing, and that reason still holds — which is why the label is stated here explicitly
+        // instead of being inherited. What `.combine` also did was **absorb the children**, and with
+        // the badge now a stack, the children's frames are the only evidence of the arrangement the
+        // author asked for. A test that can read only the joined label cannot tell a stack from a
+        // row.
+        //
         // Combined rather than declared bare, so the message stays readable: `.combine` keeps the
         // children's text as this element's label, where `.ignore` would leave a badge that says
-        // nothing to VoiceOver.
+        // nothing to VoiceOver. **Unchanged from #128**, after an attempt to switch to `.contain`
+        // for the sake of a test was abandoned: see the note in the stack above.
         .accessibilityElement(children: .combine)
     }
 }

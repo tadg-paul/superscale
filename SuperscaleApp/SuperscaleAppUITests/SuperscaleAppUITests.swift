@@ -5576,4 +5576,112 @@ final class SuperscaleAppUITests: XCTestCase {
             textContent(of: search), "noir",
             "returning to the search field discarded the query")
     }
+
+
+    // MARK: - #142: the progress badge stacks a word to a line, spinner beneath
+
+    /// The badge, caught while a filter is in flight.
+    ///
+    /// **The filter path, not the upscale path**, because the author's request is about the words
+    /// *"Applying filter"* — two of them, which is what makes stacking observable at all. The
+    /// upscale publishes "Upscaling…", one word, and a one-word stack looks like a one-word row.
+    private func badgeDuringAFilter() throws -> XCUIElement {
+        let path = try writeFixture(width: 1600, height: 1200, named: "badge-shape.png")
+        XCTAssertTrue(loadTestImage(path: path), "the large picture should load")
+        chooseScale(2)
+        XCTAssertTrue(waitForUpscaleComplete(), "and upscale before the filter")
+
+        let prompt = element(identifier: "generationPromptField")
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        prompt.click()
+        prompt.typeText("UI fixture generation for the badge")
+        app.buttons["applyFilterButton"].click()
+
+        let indicator = app.descendants(matching: .any)
+            .matching(identifier: "workingIndicator")
+            .firstMatch
+        XCTAssertTrue(indicator.waitForExistence(timeout: 15), "the badge never appeared")
+        return indicator
+    }
+
+    // RT-142.2, RT-142.6
+    //
+    // Capitals and word order, read from the badge's combined label. `.combine` keeps the children's
+    // text as the element's label, so "APPLYING FILTER" is both assertions at once: the old badge
+    // would have read "Applying filter".
+    //
+    // 🚫 **Not read from per-word elements.** Three runs were spent trying to make the words
+    // individually addressable — identified, declared as elements, and with the container's label
+    // removed — and they would not enter the accessibility tree under any of them. Recorded because
+    // the next person to want per-word frames should know it was tried and what it cost.
+    func test_theBadgeIsInCapitalsAndInTheMessagesOrder_RT142_2_and_RT142_6() throws {
+        let indicator = try badgeDuringAFilter()
+        let label = indicator.label
+
+        XCTAssertFalse(label.isEmpty, "the badge says nothing")
+
+        // RT-142.2: capitals. The old badge would have read "Applying filter".
+        XCTAssertEqual(
+            label, label.uppercased(),
+            "the badge is not in capitals: '\(label)'")
+
+        // RT-142.6: **one element per word, in order.** `.combine` joins the children with ", ", so
+        // a comma-separated label with no whitespace inside any part is direct evidence that the
+        // badge published one child per word rather than one child holding a sentence.
+        //
+        // **Message-agnostic, and that is a correction.** The first version required "APPLYING" and
+        // "FILTER" and failed reading 'PROCESSING, TILE, 1, OF, 1...' — the badge was caught during
+        // the upscale that follows a filter, not during the filter. Which message is showing at any
+        // instant is a race; that every message is split a word to a line is the criterion.
+        let parts = label.components(separatedBy: ", ")
+        XCTAssertGreaterThan(
+            parts.count, 1,
+            "the badge published one child for the whole message rather than one per word: '\(label)'")
+        for part in parts {
+            XCTAssertFalse(part.isEmpty, "the badge published an empty line: '\(label)'")
+            XCTAssertFalse(
+                part.contains(" "),
+                "'\(part)' holds more than one word, so the badge is not split a word to a line")
+        }
+    }
+
+    // RT-142.1, RT-142.3
+    //
+    // The arrangement, measured as the badge's own height. Stacking two words with the spinner
+    // beneath makes the badge **taller than it is wide relative to its old shape**, and there is a
+    // clean discriminator: a badge holding "APPLYING FILTER" on one line with the spinner in front
+    // is barely taller than one line of text.
+    //
+    // The threshold is **measured, not guessed**: the previous horizontal badge stood at roughly 40
+    // points for this message — a `.callout` line at about 16 plus 20 of vertical padding — and the
+    // stacked badge measures near 110. 70 sits between them with room on both sides, and the
+    // failure message prints the reading so a future change is diagnosed rather than re-guessed.
+    func test_theBadgeIsStackedRatherThanARow_RT142_1_and_RT142_3() throws {
+        let indicator = try badgeDuringAFilter()
+        let frame = indicator.frame
+
+        XCTAssertGreaterThan(
+            frame.height, 70,
+            "the badge is \(Int(frame.height)) points tall by \(Int(frame.width)) wide, which is a "
+                + "row rather than a stack of two words above a spinner")
+    }
+
+    // RT-142.4
+    //
+    // AC142.3, recast by the test audit to measure what is **rendered** rather than which font token
+    // was named. A user cannot see `.title3`; they see a height, and "still too small" is the half of
+    // the report that recurred all five times.
+    //
+    // Against the status bar's text, which is the application's body size and on screen at the same
+    // moment. Two stacked words plus a spinner must clear a single body line comfortably.
+    func test_theBadgeIsSetLargerThanBodyText_RT142_4() throws {
+        let indicator = try badgeDuringAFilter()
+        let status = element(identifier: "statusText")
+        XCTAssertTrue(status.waitForExistence(timeout: 5), "no body text to compare against")
+
+        XCTAssertGreaterThan(
+            indicator.frame.height, status.frame.height * 3,
+            "the badge is \(Int(indicator.frame.height)) points against body text at "
+                + "\(Int(status.frame.height)); it is not reading as the thing happening")
+    }
 }
