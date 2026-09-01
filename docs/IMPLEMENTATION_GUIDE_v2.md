@@ -116,6 +116,40 @@ labels and **whether the comparison curtain is switched on** are the user's and
 survive. The curtain in particular: 2.3 holds that the application never writes
 that setting, and a clear is not an exception to it.
 
+**Four routes reach the empty canvas**, and all of them ask the same question
+before discarding anything. The Clear Image control on the canvas, `Cmd+N`, and
+`Cmd+O` each warn when a locked iteration has not been saved this session, name
+how many are at stake, and can be cancelled without effect. Drag and drop does
+not warn: it is a deliberate act on a chosen file, and interposing a dialogue
+would make the primary import route hostile.
+
+Where nothing is unsaved, or nothing has been locked, the clear is immediate. A
+warning that fires every time is one people learn to dismiss without reading.
+
+`Cmd+N` clears rather than opening a second window. A second window would show a
+second view of the *same* lock chain, graph and filter cache, because those are
+owned once; giving each window its own is a change to who owns the application's
+state rather than a feature, and it is not in this version.
+
+**The clipboard is the third import route, and the one 2.2 has promised since v2
+was specified.** `Cmd+C` copies the picture the canvas is currently showing ---
+the base when the base is being shown, the derivation otherwise. `Cmd+V` pastes,
+**and only onto a blank canvas**: with a picture loaded the command is disabled
+rather than warned about, because a mistyped `Cmd+V` is almost certainly an
+accident and the cheapest correct answer to an accident is that nothing happens.
+A pasted picture enters as an import does and starts a new chain.
+
+**Keyboard access to the scale and the face toggle.** `Cmd+2`, `Cmd+4` and
+`Cmd+8` toggle their scale presets, behaving exactly as the buttons do --- the
+scale controls are a toggle group, so the same shortcut twice clears the
+selection rather than reasserting it. `Cmd+Shift+F` toggles face enhancement,
+and is unavailable on the same two conditions as its control on the canvas: no
+scale selected, or the face model absent. Not `Cmd+F`, which is Find.
+
+Every one of these commands is named in a menu. A shortcut with no menu entry is
+undiscoverable, and two features have already been reported missing when they
+existed but could not be found.
+
 **Generating from a prompt alone is in the MVP as of #148**, brought forward at
 the author's request. On an empty canvas, typing into the prompt area and
 pressing Apply sends the prompt with no reference image.
