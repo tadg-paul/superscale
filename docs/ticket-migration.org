@@ -1,74 +1,105 @@
 #+TITLE: Legacy ticket migration
 #+DATE: 2026-09-03
+#+OPTIONS: toc:2
 
-* Migration evidence
+* Migration state and evidence
 
 ** Current phase
 
-- Phase: closure batch recorded; awaiting operator assessment of Spec Kit readiness.
-- Completed range: the immutable archive and evidence classification cover tickets #1 through #149.
-- Next unfinished ticket record: none; dispositions for #1 through #149 are now transcribed below.
-- Next action: none within this migration; the operator decides whether to invoke =sdlc-project-init=.
+- *Phase:* Closure batch recorded; awaiting operator assessment of Spec Kit readiness.
+- *Completed tickets:* All 149 archived tickets.
+- *Next unfinished ticket:* None; every archived ticket has a recorded disposition below.
+- *Next action:* None within this migration. The operator decides whether to invoke =sdlc-project-init=.
 
 ** Archive
 
-- Snapshot: =docs/archive/migrated-tickets/= at =2026-09-03T02:04:45Z=.
-- Manifest: =docs/archive/migrated-tickets/manifest.json=.
-- Coverage: 149 issues, 566 comments and 2,001 timeline events.
-- Snapshot states: 18 open and 131 closed.
-- Baseline exception: #149, /Pre-migration baseline: orphan maintained CLI regression tests/, was created, retrieved and archived once.
-- Verification: every archived issue file contains its source title, URL, exact body and every exact comment body; pagination and file counts agree with the manifest.
+- *Repository:* =tigger-developer/superscale=.
+- *Snapshot:* =docs/archive/migrated-tickets/= at =2026-09-03T02:04:45Z=.
+- *Manifest:* =docs/archive/migrated-tickets/manifest.json=.
+- *Coverage:* 149 issues, 566 comments and 2,001 timeline events; 18 open and 131 closed at snapshot time.
+- *Baseline exception:* [[file:archive/migrated-tickets/149.md][#149 - Pre-migration baseline: orphan maintained CLI regression tests]] was created, retrieved and archived once.
+- *Verification:* Every archived issue file contains its source title, URL, exact body and every exact comment body. Pagination and file counts agree with the manifest.
 
 ** Suite evidence
 
-- Result: current passing =make test= evidence supplied by the operator on 2026-09-03.
-- Execution: not rerun under the operator's explicit authority.
-- Safety boundary: no =make test=, =swift test=, =make test-gui=, XCUITest, application launch or input-capturing command is permitted in this migration.
+- *Command:* =make test=.
+- *Result:* Current passing evidence supplied by the operator on 2026-09-03.
+- *Evidence source:* Operator authority; the command was not rerun.
+- *Safety boundary:* No =make test=, =swift test=, =make test-gui=, XCUITest, application launch or input-capturing command is permitted in this migration.
 
 ** Live RT map
 
-- Maintained harness: 596 test definitions in =make test=, containing 549 distinct RT identifiers.
-- Before reconciliation: 411 RT identifiers mapped to =docs/ACs.md=; 138 unresolved.
-- Archived provenance: 120 of the 138 unresolved identifiers map directly to archived ACs.
-- Traceability repairs: RT-86.1 through RT-86.6 map to AC77.2; RT-88.5 maps to AC1.5; RT-127.1 through RT-127.5 map to AC96.3; RT-129.2 through RT-129.4 map to AC85.10.
-- Explicit relationships added for maintained identifiers hidden by legacy grouped or superseded notation: RT-049 maps to AC25.2; RT-89.16 through RT-89.19 map individually to AC89.6; RT-90.34 maps to AC96.3; RT-90.35 maps to AC96.4.
-- Baseline recovery: orphan RT-002, RT-003 and RT-004 map to minimal observable AC149.1, AC149.2 and AC149.3.
-- Reconciled checksum: 549 mapped and zero unresolved after the ledger edit.
+- *Maintained harness:* 596 test definitions in =make test=, containing 549 distinct RT identifiers.
+- *Before reconciliation:* 411 RT identifiers mapped to =docs/ACs.md=; 138 unresolved. Archived provenance mapped 120 of those 138 identifiers directly to archived ACs.
+- *Traceability repairs:* =RT-86.1 through RT-86.6= (generated-session linkage checks) map to =AC77.2= (generated-image upscale linkage); =RT-88.5= (GFPGAN exclusion check) maps to =AC1.5= (GFPGAN distribution exclusion); =RT-127.1 through RT-127.5= (curtain geometry checks) map to =AC96.3= (proportion-preserving curtain geometry); =RT-129.2 through RT-129.4= (filter-mark state checks) map to =AC85.10= (filter-mark derivation).
+- *Explicit relationships:* =RT-049= (photograph model-selection check) maps to =AC25.2= (photograph classification); =RT-89.16 through RT-89.19= (base and candidate reachability checks) map to =AC89.6= (independent scale and filter controls); =RT-90.34= (equal-aspect curtain-frame check) maps to =AC96.3= (proportion-preserving curtain geometry); =RT-90.35= (shared curtain-position check) maps to =AC96.4= (shared divider fraction).
+- *Baseline recovery:* =RT-002= (CLI help succeeds) maps to =AC149.1= (help exits successfully); =RT-003= (model listing succeeds) maps to =AC149.2= (model listing includes the default); =RT-004= (missing input fails) maps to =AC149.3= (invocation without input exits non-zero).
+- *Reconciled checksum:* 549 mapped and zero unresolved after the ledger edit.
 
 ** Ledger and documentation reconciliation
 
-- Canonical ledger: =docs/ACs.md= now contains 411 unique acceptance-criterion identifiers with no duplicate identifiers.
-- Legacy additions: 250 criteria were recovered from delivered tickets or the #149 regression baseline; defined but undelivered scope was excluded.
-- Heuristic markings: 11 ACs carry the migration-heuristic footnote; independently recorded passing evidence is not marked.
-- Formatting reconciliation: rereading only archived ticket #73 resolved a malformed multi-test row; AC73.3 retains removed RT-73.5 and RT-73.6, while AC73.4 retains RT-73.7 and UT-73.1 as superseded by RT-73.8 and UT-73.2.
-- Product lineage: v1 established local upscaling through the command-line tool and native Mac application. V2 is recorded as a substantial UX change and architectural extension that combines explicit cloud generation and transformation with the local Core ML pipeline in one native workspace.
-- Primary documents: =README.md=, =docs/VISION.md= and =docs/ARCHITECTURE.md= already make the v1 foundation and v2 extension clear, so they require no migration edit.
-- Stale status correction: =docs/IMPLEMENTATION_GUIDE_v2.md= now points current work to this index and the canonical ledger while preserving its 2026-08-25 issue-based handover as dated delivery history.
-- Implementation-plan archival: =docs/implementation_plan.md= does not exist. The pre-existing =docs/v1/implementation-plan.md= remains in its existing historical location; no move was required by the migration rule.
+- *Canonical ledger:* =docs/ACs.md= contains 411 unique acceptance-criterion identifiers with no duplicate identifiers.
+- *Legacy additions:* 250 criteria were recovered from delivered tickets or the pre-migration regression baseline. Defined but undelivered scope was excluded.
+- *Heuristic markings:* 11 ACs carry the migration-heuristic footnote. Independently recorded passing evidence is not marked.
+- *Formatting reconciliation:* Rereading [[file:archive/migrated-tickets/73.md][#73 - v2: add Keychain credentials and GUI settings]] resolved a malformed multi-test row. =AC73.3= (readable pix configuration import) retains =RT-73.5= (non-shell key import) and =RT-73.6= (command-resolver exclusion) as removed; =AC73.4= (visible Settings controls) retains =RT-73.7= (Settings controls) and =UT-73.1= (Settings layout review) as superseded by =RT-73.8= (current Settings controls) and =UT-73.2= (current Settings layout review).
+- *Documentation changes:* V1 is recorded as the local-upscaling foundation. V2 is recorded as a substantial UX change and architectural extension combining explicit cloud generation and transformation with the local Core ML pipeline in one native workspace. =README.md=, =docs/VISION.md= and =docs/ARCHITECTURE.md= already reflected this lineage. =docs/IMPLEMENTATION_GUIDE_v2.md= now points current work to this index and the canonical ledger while preserving its 2026-08-25 issue-based handover as dated delivery history.
+- *Implementation-plan archival:* =docs/implementation_plan.md= does not exist. The pre-existing =docs/v1/implementation-plan.md= remains in its historical location; no move was required.
 
 ** Classification checkpoint
 
-- Recorded totals: 136 delivered tickets, nine tickets with defined but undelivered scope, and four abandoned tickets.
-- Open defects without delivery evidence: none.
-- Heuristic tickets: #1, #19, #28, #29, #34, #37, #38, #39, #42, #50, #51 and #62.
-- Heuristic rule: inferred migration status only, not a contemporaneous test result. Each listed ticket had implementation evidence and no failed test, with no more than two unresolved UTs or OTs after the completed evidence pass.
-- Human-review classifications: none recorded.
+- *Delivered:* 136 tickets.
+- *Open defects:* None without delivery evidence.
+- *Defined but undelivered:* Nine tickets.
+- *Abandoned:* Four tickets.
+- *Requires human review:* None.
+- *Heuristic ticket:* [[file:archive/migrated-tickets/1.md][#1 - feat: optional GFPGAN face enhancement model download]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/19.md][#19 - fix: coremltools 7+ rejects scale!=1.0 on output ImageType]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/28.md][#28 - --download-face-model fails with cryptic error and doesn't unzip]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/29.md][#29 - feat: require interactive terminal for --download-face-model, drop --accept-licence]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/34.md][#34 - feat: SSIM comparison against PyTorch reference for quality regression testing]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/37.md][#37 - feat: add realesr-general-wdn-x4v3 denoising model]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/38.md][#38 - feat: target resolution with --width/--height and floating-point --scale]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/39.md][#39 - Help text expansion]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/42.md][#42 - Small image upscaling produces corrupted image files]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/50.md][#50 - refactor: Phase 8 — migrate GUI to Xcode project]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/51.md][#51 - refactor: move model descriptions into ModelInfo for shared CLI/GUI use]].
+- *Heuristic ticket:* [[file:archive/migrated-tickets/62.md][#62 - bug: face enhance toggle on transparent image produces black background]].
+- *Heuristic rule:* Inferred migration status only, not a contemporaneous test result. Each listed ticket had implementation evidence and no failed test, with no more than two unresolved UTs or OTs after the completed evidence pass.
 
 ** Closure record
 
-- Archive commit before closure: =2a7c372=.
-- Closure date: 2026-09-03.
-- Snapshot-open issues attempted once: 18.
-- Closed as not planned: eight --- #14, #15, #16, #17, #46, #47, #48 and #55.
-- Closed as completed: ten --- #57, #69, #79, #99, #114, #120, #133, #137, #139 and #149.
-- Total closed by the migration batch: 18.
-- Closure failures: none.
-- Ticket comments added: none.
-- Post-closure refetch: not performed.
+- *Archive commit:* =2a7c372=.
+- *Closure date:* 2026-09-03.
+- *Tickets attempted:* 18 snapshot-open issues, each attempted once.
+- *Tickets closed:* 18; eight as not planned and ten as completed.
+- *Not planned:* [[file:archive/migrated-tickets/14.md][#14 - feat: Phase 8 — macOS SwiftUI GUI]].
+- *Not planned:* [[file:archive/migrated-tickets/15.md][#15 - feat: Phase 9 — macOS App Store distribution]].
+- *Not planned:* [[file:archive/migrated-tickets/16.md][#16 - feat: Phase 10 — iOS app]].
+- *Not planned:* [[file:archive/migrated-tickets/17.md][#17 - feat: Phase 11 — iOS App Store distribution]].
+- *Not planned:* [[file:archive/migrated-tickets/46.md][#46 - feat: Phase 8d — batch processing queue]].
+- *Not planned:* [[file:archive/migrated-tickets/47.md][#47 - feat: Phase 8e — settings panel]].
+- *Not planned:* [[file:archive/migrated-tickets/48.md][#48 - feat: Phase 8f — app icon and distribution]].
+- *Not planned:* [[file:archive/migrated-tickets/55.md][#55 - feat: Developer ID code signing and notarization for GUI app]].
+- *Completed:* [[file:archive/migrated-tickets/57.md][#57 - feat: XCUITest infrastructure for GUI automated testing]].
+- *Completed:* [[file:archive/migrated-tickets/69.md][#69 - Convert source licence to Apache-2.0 and document trademark]].
+- *Completed:* [[file:archive/migrated-tickets/79.md][#79 - v2 MVP delivery: filter-first single workspace with native upscaling]].
+- *Completed:* [[file:archive/migrated-tickets/99.md][#99 - Close the residual risks recorded at the v2 MVP delivery gate]].
+- *Completed:* [[file:archive/migrated-tickets/114.md][#114 - Delivery: discharge the owed post-MVP verification and clear the open v2 defect tickets]].
+- *Completed:* [[file:archive/migrated-tickets/120.md][#120 - Delivery: bring the build onto the design of record and clear the 2026-08-27 user-test round]].
+- *Completed:* [[file:archive/migrated-tickets/133.md][#133 - Delivery: the 2026-08-29 user-test round — repeat defects, curtain ergonomics, and the prompt corpus]].
+- *Completed:* [[file:archive/migrated-tickets/137.md][#137 - Investigation: why grok filters feel slower than pix, and what would change it]].
+- *Completed:* [[file:archive/migrated-tickets/139.md][#139 - Delivery master: the user-test round of 2026-08-31]].
+- *Completed:* [[file:archive/migrated-tickets/149.md][#149 - Pre-migration baseline: orphan maintained CLI regression tests]].
+- *Closure failures:* None.
+- *Closure-record commit:* =d57ace7=.
+- *Ticket comments:* None added.
+- *Post-closure refetch:* Not performed.
 
 * Open defects at migration
 
-- None. Every open defect in the snapshot had delivery evidence.
+- None.
+
+Every open defect in the snapshot had delivery evidence.
 
 * Defined but undelivered features
 
@@ -76,127 +107,351 @@ Closed no-evidence scope is abandoned; open no-evidence scope is undelivered. An
 
 ** [[file:archive/migrated-tickets/11.md][#11 - feat: Phase 3 — CLI implementation (tracking issue)]]
 
-- Snapshot state: closed.
-- Evidence: no standalone AC, maintained-RT relationship or ticket-linked code commit was recorded on this tracking shell.
-- Disposition: abandoned tracking record; its child tickets are classified independently.
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Closed.
+
+*** Evidence
+
+No standalone AC, maintained-RT relationship or ticket-linked code commit was recorded on this tracking shell.
+
+*** Disposition
+
+Abandoned tracking record. Its child tickets are classified independently.
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/13.md][#13 - feat: Phase 6 — on-demand model download]]
 
-- Snapshot state: closed.
-- Evidence: the archive explicitly closes this proposal as redundant because models are bundled; model provisioning was folded into #12.
-- Disposition: abandoned and superseded; its criteria are not migrated.
-- Relevant legacy criteria:
-  - AC13.1 - Given \`--download-models\`, the CLI downloads all models from the manifest URLs to \`~/Library/Application Support/superscale/models/\`
-  - AC13.2 - Downloaded models are verified against their SHA256 hash in the manifest; a corrupted download is rejected
-  - AC13.3 - After a Homebrew install, all six models are present with no additional download required
-  - AC13.4 - Given a model name that is not locally installed and an interactive terminal, the CLI offers to download it before processing
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Closed.
+
+*** Evidence
+
+The archive explicitly closes this proposal as redundant because models are bundled. Model provisioning was folded into [[file:archive/migrated-tickets/12.md][#12 - feat: Phase 5 — Homebrew distribution]].
+
+*** Disposition
+
+Abandoned and superseded. Its criteria are not migrated.
+
+*** Relevant legacy criteria
+
+**** AC13.1 - Download all manifest models
+
+Given =--download-models=, the CLI downloads all models from the manifest URLs to =~/Library/Application Support/superscale/models/=
+
+**** AC13.2 - Verify downloaded models
+
+Downloaded models are verified against their SHA256 hash in the manifest; a corrupted download is rejected
+
+**** AC13.3 - Bundle all models with Homebrew
+
+After a Homebrew install, all six models are present with no additional download required
+
+**** AC13.4 - Offer an interactive missing-model download
+
+Given a model name that is not locally installed and an interactive terminal, the CLI offers to download it before processing
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/14.md][#14 - feat: Phase 8 — macOS SwiftUI GUI]]
 
-- Snapshot state: open.
-- Evidence: AC14.1 through AC14.3 are recorded passing and are migrated; AC14.4 through AC14.6 remain pending with no delivery evidence.
-- Disposition: batch queue, persistent settings and signed/notarized distribution remain undelivered.
-- Relevant legacy criteria:
-  - AC14.4 - The app supports batch processing of multiple images with a visible queue.
-  - AC14.5 - User preferences for model, output format, and output directory persist across launches.
-  - AC14.6 - The app is distributable as a signed, notarized DMG and via Homebrew Cask.
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+=AC14.1 through AC14.3= (shared library, GUI upscaling, and comparison delivery) are recorded passing and are migrated. =AC14.4 through AC14.6= (batch queue, persistent preferences, and signed distribution) remain pending with no delivery evidence.
+
+*** Disposition
+
+Batch queue, persistent settings and signed/notarized distribution remain undelivered.
+
+*** Relevant legacy criteria
+
+**** AC14.4 - Visible batch-processing queue
+
+The app supports batch processing of multiple images with a visible queue.
+
+**** AC14.5 - Persistent user preferences
+
+User preferences for model, output format, and output directory persist across launches.
+
+**** AC14.6 - Signed and notarized distribution
+
+The app is distributable as a signed, notarized DMG and via Homebrew Cask.
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/15.md][#15 - feat: Phase 9 — macOS App Store distribution]]
 
-- Snapshot state: open.
-- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: macOS App Store distribution remains undelivered.
-- Relevant legacy criteria:
-  - AC15.1 - The app passes App Store review and is listed on the Mac App Store
-  - AC15.2 - The app operates correctly within App Store sandbox constraints (file access, model loading)
-  - AC15.3 - The app description, screenshots, and privacy policy meet App Store requirements
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+No delivered AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+macOS App Store distribution remains undelivered.
+
+*** Relevant legacy criteria
+
+**** AC15.1 - Mac App Store listing
+
+The app passes App Store review and is listed on the Mac App Store
+
+**** AC15.2 - App Store sandbox operation
+
+The app operates correctly within App Store sandbox constraints (file access, model loading)
+
+**** AC15.3 - App Store listing materials
+
+The app description, screenshots, and privacy policy meet App Store requirements
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/16.md][#16 - feat: Phase 10 — iOS app]]
 
-- Snapshot state: open.
-- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: the iOS application remains undelivered.
-- Relevant legacy criteria:
-  - AC16.1 - The app runs on iPhone and produces upscaled output identical to the Mac version for the same input
-  - AC16.2 - Memory usage stays within iOS constraints during upscaling (no OOM crashes)
-  - AC16.3 - The app integrates with the iOS Photos picker and share sheet
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+No delivered AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+The iOS application remains undelivered.
+
+*** Relevant legacy criteria
+
+**** AC16.1 - iPhone upscaling parity
+
+The app runs on iPhone and produces upscaled output identical to the Mac version for the same input
+
+**** AC16.2 - iOS memory constraints
+
+Memory usage stays within iOS constraints during upscaling (no OOM crashes)
+
+**** AC16.3 - iOS Photos and share-sheet integration
+
+The app integrates with the iOS Photos picker and share sheet
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/17.md][#17 - feat: Phase 11 — iOS App Store distribution]]
 
-- Snapshot state: open.
-- Evidence: both ACs are explicitly pending and depend on the undelivered iOS application; the recorded timeline reference does not establish delivery of this scope.
-- Disposition: iOS App Store distribution remains undelivered.
-- Relevant legacy criteria:
-  - AC17.1 - The iOS app passes App Store review and is listed on the iOS App Store
-  - AC17.2 - Model files are delivered via on-demand resources, keeping the initial download size reasonable
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+Both ACs are explicitly pending and depend on the undelivered iOS application. The recorded timeline reference does not establish delivery of this scope.
+
+*** Disposition
+
+iOS App Store distribution remains undelivered.
+
+*** Relevant legacy criteria
+
+**** AC17.1 - iOS App Store listing
+
+The iOS app passes App Store review and is listed on the iOS App Store
+
+**** AC17.2 - On-demand iOS model resources
+
+Model files are delivered via on-demand resources, keeping the initial download size reasonable
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/18.md][#18 - feat: model artefact management (local storage, sync, release)]]
 
-- Snapshot state: closed.
-- Evidence: AC18.1, AC18.3 and AC18.5 are recorded passing and are migrated; AC18.2 and AC18.4 are explicitly pending and described as not implemented.
-- Disposition: automatic model sync and the remaining release automation are abandoned legacy scope.
-- Relevant legacy criteria:
-  - AC18.2 - `make sync` does not attempt to commit or upload `.mlpackage` files, and warns if local models differ from the manifest
-  - AC18.4 - `make release` does not include model files in the version release
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Closed.
+
+*** Evidence
+
+=AC18.1= (model manifest), =AC18.3= (model-release automation), and =AC18.5= (Homebrew model resource) are recorded passing and are migrated. =AC18.2= (safe model synchronization) and =AC18.4= (version-release model exclusion) are explicitly pending and described as not implemented.
+
+*** Disposition
+
+Automatic model sync and the remaining release automation are abandoned legacy scope.
+
+*** Relevant legacy criteria
+
+**** AC18.2 - Safe model synchronization
+
+=make sync= does not attempt to commit or upload =.mlpackage= files, and warns if local models differ from the manifest
+
+**** AC18.4 - Exclude models from version releases
+
+=make release= does not include model files in the version release
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/20.md][#20 - feat: interactive model download when model not found]]
 
-- Snapshot state: closed.
-- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: abandoned.
-- Relevant legacy criteria:
-  - AC20.1 - Given a missing model and an interactive terminal, the CLI prompts the user to download
-  - AC20.2 - Given a missing model and no TTY (piped/scripted), the CLI exits with code 1 and a descriptive error without prompting
-  - AC20.3 - After the user confirms download, the model is fetched, SHA256-verified, extracted, and the upscale proceeds
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Closed.
+
+*** Evidence
+
+No delivered AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+Abandoned.
+
+*** Relevant legacy criteria
+
+**** AC20.1 - Prompt interactively for a missing model
+
+Given a missing model and an interactive terminal, the CLI prompts the user to download
+
+**** AC20.2 - Reject non-interactive missing-model requests
+
+Given a missing model and no TTY (piped/scripted), the CLI exits with code 1 and a descriptive error without prompting
+
+**** AC20.3 - Download, verify, and continue
+
+After the user confirms download, the model is fetched, SHA256-verified, extracted, and the upscale proceeds
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/30.md][#30 - docs: add licence notice to face model release asset]]
 
-- Snapshot state: closed.
-- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: abandoned.
-- Relevant legacy criteria:
-  - AC30.1 - The `models-v1` release description includes a licence notice for the GFPGAN model stating: converted weights from GFPGAN/StyleGAN2, CC BY-NC-SA 4.0 + NVIDIA Source Code Licence, non-commercial use only, licence applies to weights not output images
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Closed.
+
+*** Evidence
+
+No delivered AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+Abandoned.
+
+*** Relevant legacy criteria
+
+**** AC30.1 - GFPGAN release licence notice
+
+The =models-v1= release description includes a licence notice for the GFPGAN model stating: converted weights from GFPGAN/StyleGAN2, CC BY-NC-SA 4.0 + NVIDIA Source Code Licence, non-commercial use only, licence applies to weights not output images
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/46.md][#46 - feat: Phase 8d — batch processing queue]]
 
-- Snapshot state: open.
-- Evidence: no AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: the visible batch-processing queue remains undelivered.
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+No AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+The visible batch-processing queue remains undelivered.
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/47.md][#47 - feat: Phase 8e — settings panel]]
 
-- Snapshot state: open.
-- Evidence: no AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: the proposed persistent settings panel remains undelivered.
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+No AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+The proposed persistent settings panel remains undelivered.
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/48.md][#48 - feat: Phase 8f — app icon and distribution]]
 
-- Snapshot state: open.
-- Evidence: no AC, maintained RT or ticket-linked code commit was recorded.
-- Disposition: the legacy app-icon and distribution scope remains undelivered.
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+No AC, maintained RT or ticket-linked code commit was recorded.
+
+*** Disposition
+
+The legacy app-icon and distribution scope remains undelivered.
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 ** [[file:archive/migrated-tickets/55.md][#55 - feat: Developer ID code signing and notarization for GUI app]]
 
-- Snapshot state: open.
-- Evidence: all three criteria are pending and no delivery evidence was recorded.
-- Disposition: Developer ID signing and notarization remain undelivered.
-- Relevant legacy criteria:
-  - AC55.1 - The released \`.app\` is signed with a Developer ID certificate, not ad-hoc.
-  - AC55.2 - The released \`.app\` is notarized and the ticket is stapled.
-  - AC55.3 - A fresh download of the DMG opens the app without Gatekeeper warnings.
-- Revival rule: a new Spec Kit specification is required.
+*** Snapshot state
+
+Open.
+
+*** Evidence
+
+All three criteria are pending and no delivery evidence was recorded.
+
+*** Disposition
+
+Developer ID signing and notarization remain undelivered.
+
+*** Relevant legacy criteria
+
+**** AC55.1 - Developer ID signing
+
+The released =.app= is signed with a Developer ID certificate, not ad-hoc.
+
+**** AC55.2 - Notarization and stapling
+
+The released =.app= is notarized and the ticket is stapled.
+
+**** AC55.3 - Gatekeeper-clean DMG launch
+
+A fresh download of the DMG opens the app without Gatekeeper warnings.
+
+*** Revival rule
+
+A new Spec Kit specification is required.
 
 * Delivered tickets
 
@@ -303,7 +558,7 @@ Closed no-evidence scope is abandoned; open no-evidence scope is undelivered. An
 - [[file:archive/migrated-tickets/114.md][#114 - Delivery: discharge the owed post-MVP verification and clear the open v2 defect tickets]]
 - [[file:archive/migrated-tickets/115.md][#115 - Bug: the asset graph allocates output locations in a directory nothing creates, so every raise fails when the coordinator has not made it first]]
 - [[file:archive/migrated-tickets/116.md][#116 - Bug: UI tests write the workspace's assets into the user's real Application Support, because the asset graph ignores the test root]]
-- [[file:archive/migrated-tickets/117.md][#117 - The GUI suite's upscale-complete signal is a control whose meaning #112 is about to widen]]
+- [[file:archive/migrated-tickets/117.md][#117 - The GUI suite's upscale-complete signal is a control whose meaning #112 is about to widen]] (embedded reference: [[file:archive/migrated-tickets/112.md][#112 - Bug: a FAL filter result offers no curtain, so the user cannot compare it against the picture it was made from]])
 - [[file:archive/migrated-tickets/118.md][#118 - The GUI suite intermittently fails to give the prompt field keyboard focus, and three tests fail together when it does]]
 - [[file:archive/migrated-tickets/119.md][#119 - The progress indicator sits at the top of the canvas and should be centred over the picture]]
 - [[file:archive/migrated-tickets/120.md][#120 - Delivery: bring the build onto the design of record and clear the 2026-08-27 user-test round]]
