@@ -1,17 +1,1673 @@
 # Acceptance Criteria
 
-This is the canonical spec. ACs introduced from 2026-08-21 onward live here.
-Pre-cutover ACs remain in their originating issues until cited or migrated.
+This is the canonical specification of delivered system behaviour. It retains the v1 product
+lineage and records the current v2 product in the same ledger.
 
-Last migrated: AC117.1 from #117, and the test rows from #108 and #111 onto the criteria they
-cite, all on 2026-08-27. Before those: AC82.9, AC82.10 from #115 (backfilled onto the #82 stage
-family) and AC116.1 from #116, both on 2026-08-26. Before those: AC100.1, AC100.2 from #100; AC101.1 from #101;
-AC103.1, AC103.2 from #103, all on 2026-08-25. #102 introduced no criteria of its own and
-extended AC92.1, AC92.5 and AC92.6.
+V1 established local upscaling through the command-line tool and native Mac application. V2 is a
+substantial UX change and architectural extension: the Mac application combines explicit cloud
+image generation and transformation with the local Core ML pipeline in one native workspace,
+while the command-line tool remains a local-upscaling interface.
+
+The 2026-09-03 migration retired GitHub issues as the acceptance-criteria store. Legacy criteria
+are preserved below with their identifiers, provenance, test evidence and supersession lineage.
+Defined but undelivered scope is recorded in `ticket-migration.org` and is not accepted here.
+
+---
+
+## Legacy v1 CLI, packaging and model criteria
+
+### AC1.1 - Given `--download-face-model`, the CLI downloads GFPGAN weights and stores them in `~/Library/Application Support/superscale/models/`
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-039: Run CLI with `--download-face-model --accept-licence` → assert model file exists at expected path
+
+### AC1.2 - Given `--download-face-model` in an interactive terminal, the CLI displays the licence notice and requires confirmation before downloading [^migration-heuristic]
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-009 (assumed pass[^migration-heuristic]): Run `--download-face-model` in a terminal → assert licence notice is displayed and download waits for confirmation
+
+### AC1.3 - Given the face model is present, face enhancement runs automatically after upscaling on images containing faces
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-052: Run FaceEnhancer on image with detected faces → assert face region pixels are modified
+
+### AC1.4 - Given `--no-face-enhance`, face enhancement is skipped even when the model is present
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-041: Run CLI with `--no-face-enhance` and face model installed → assert no face enhancement occurs
+
+### AC1.5 - The GFPGAN weights are excluded from git, Homebrew formula, and all distribution artefacts
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-042: Assert .gitignore excludes GFPGAN patterns, formula has no GFPGAN resource, model not in tracked files
+  - ✅ RT-88.5: no GFPGAN model weight is tracked
+
+### AC1.6 - Face detection uses Apple's Vision framework (`VNDetectFaceRectanglesRequest`), not a bundled detector
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-043: Run face detection on a test image → assert faces are detected using Vision framework
+
+### AC1.7 - Given the face model is not present, face enhancement is silently skipped (no error)
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-041: Run pipeline without face model and without `--no-face-enhance` → assert successful upscale with no face enhancement error
+
+### AC1.8 - The GFPGAN PyTorch model is converted to CoreML and the `.mlpackage` zip is uploaded to the `models-v1` GitHub release
+- Introduced: [#1](archive/migrated-tickets/1.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-018: Run `superscale --download-face-model --accept-licence` → model downloads, unzips, and installs successfully
+
+### AC2.1 - The default model is available immediately after `brew install` with no network required
+- Introduced: [#2](archive/migrated-tickets/2.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-005: Install via Homebrew, run `superscale photo.png` in airplane mode → produces upscaled output
+
+### AC2.2 - Non-default models are discoverable via `--list-models` with download status indicated
+- Introduced: [#2](archive/migrated-tickets/2.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-006: Run `superscale --list-models` → output shows model names with installed/available labels
+
+### AC2.3 - Downloaded models are stored in `~/Library/Application Support/superscale/models/`
+- Introduced: [#2](archive/migrated-tickets/2.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-007: Download a model via `--download-models`, verify file exists at expected path
+
+### AC3.1 - Given the RealESRGAN_x4plus.pth checkpoint, the conversion script produces a `.mlpackage` file that is loadable by CoreML
+- Introduced: [#3](archive/migrated-tickets/3.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-008: Run `convert_model.py` on x4plus checkpoint → assert `.mlpackage` file exists and `coremltools.models.MLModel()` loads it without error
+
+### AC3.2 - Given all six supported model checkpoints, the conversion script produces a valid `.mlpackage` for each
+- Introduced: [#3](archive/migrated-tickets/3.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-009: Run `convert_model.py` on each of the six models → assert all six `.mlpackage` files exist and load
+
+### AC3.3 - The conversion process is documented with reproducible steps (venv setup, dependencies, commands)
+- Introduced: [#3](archive/migrated-tickets/3.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-001: Follow the documented steps on a clean machine → all six models convert successfully
+
+### AC4.1 - Given a converted `.mlpackage` and a test image, Swift code produces an upscaled output image with dimensions equal to input × scale factor
+- Introduced: [#4](archive/migrated-tickets/4.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-010: Load x4plus model, feed 64×64 test image → assert output is 256×256
+
+### AC4.2 - Given a 1024×1024 input image at 4× scale, inference completes in under 30 seconds on Apple Silicon
+- Introduced: [#4](archive/migrated-tickets/4.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-011: Time the inference of a 1024×1024 image on Apple Silicon → assert elapsed < 30s
+
+### AC4.3 - The upscaled output is visually sharp with no artefacts, colour shifts, or corruption
+- Introduced: [#4](archive/migrated-tickets/4.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-002: `make test-visual` upscales all test images in `Tests/images/` (remy1.png, remy2.jpg, roundwood.jpg, toby.jpg, vance-wilson.jpg), saves originals (prefixed `original_`) and upscaled output to `Tests/visual_output/`. User inspects the before/after images for sharp detail, no block artefacts, no colour shifts.
+
+### AC5.1 - The `LICENSE` file contains the chosen project licence with correct copyright holder
+- Introduced: [#5](archive/migrated-tickets/5.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-003: Read `LICENSE` → confirms chosen licence text and "Copyright Taḋg Paul"
+
+### AC5.2 - `THIRD_PARTY_LICENSES` contains BSD-3-Clause attribution for all six bundled Real-ESRGAN model weights
+- Introduced: [#5](archive/migrated-tickets/5.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-027: Parse `THIRD_PARTY_LICENSES` → assert it contains "BSD-3-Clause", "Xintao Wang", and "2021"
+
+### AC5.3 - GFPGAN model weights are absent from all tracked files and `.gitignore` excludes them
+- Introduced: [#5](archive/migrated-tickets/5.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-028: Assert no `.pth` or `.mlpackage` file matching `*GFPGAN*` or `*gfpgan*` is tracked by git; assert `.gitignore` contains a GFPGAN exclusion pattern
+
+### AC6.1 - Given PNG, JPEG, TIFF, and HEIC input files, ImageLoader produces a CGImage with correct width and height for each
+- Introduced: [#6](archive/migrated-tickets/6.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-012: Load one test image per format → assert dimensions match expected values
+
+### AC6.2 - Given an input image with an embedded colour profile, ImageWriter preserves that profile in the output
+- Introduced: [#6](archive/migrated-tickets/6.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-013: Load image with sRGB profile, write output, reload → assert colour profile name matches
+
+### AC6.3 - Given an input image with an alpha channel, the alpha is separated before processing and correctly recombined in the output
+- Introduced: [#6](archive/migrated-tickets/6.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-014: Load RGBA test image, round-trip through separate/recombine → assert output has alpha and pixel values are preserved
+
+### AC7.1 - Given an image larger than the tile size, the Tiler produces overlapping tiles that collectively cover the entire input
+- Introduced: [#7](archive/migrated-tickets/7.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-015: Split a 256×256 image with tile size 128 and overlap 16 → assert tiles cover full image with correct overlap
+
+### AC7.2 - Given a set of upscaled tiles with overlap metadata, the Tiler produces a single stitched output with no visible seams in the overlap regions
+- Introduced: [#7](archive/migrated-tickets/7.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-016: Split a test image, apply identity transform to tiles, stitch → assert output is pixel-identical to input (within blending tolerance)
+
+### AC7.3 - The tile size is configurable via the `--tile-size` CLI flag
+- Introduced: [#7](archive/migrated-tickets/7.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-017: Run CLI with `--tile-size 256` → assert tiles are 256×256 (verify via progress output or internal hook)
+
+### AC8.1 - Given a loaded `.mlpackage` model and a single image tile, CoreMLInference produces an upscaled tile with dimensions equal to input tile × scale factor
+- Introduced: [#8](archive/migrated-tickets/8.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-018: Load x4plus model, feed 64×64 tile → assert output is 256×256
+
+### AC8.2 - ModelRegistry returns correct metadata (name, scale, filename) for all six supported models
+- Introduced: [#8](archive/migrated-tickets/8.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-019: Query registry for each of the six model names → assert scale and filename match expected values
+
+### AC8.3 - Given a CLI model name, model resolution locates the corresponding `.mlpackage` file in the expected directory
+- Introduced: [#8](archive/migrated-tickets/8.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-020: Place a test `.mlpackage` in the expected path, query by CLI name → assert returned path is correct
+
+### AC9.1 - Given a valid input image, the full pipeline produces an output image at the correct scale with no corruption
+- Introduced: [#9](archive/migrated-tickets/9.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-021: Run pipeline on 128×128 test image with x4 model → assert output is 512×512 and visually correct
+
+### AC9.2 - During multi-tile processing, progress information appears on stderr
+- Introduced: [#9](archive/migrated-tickets/9.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-022: Run pipeline on an image requiring multiple tiles, capture stderr → assert output contains tile progress messages
+
+### AC9.3 - Given a non-existent input path, the pipeline writes a descriptive error to stderr and exits with code 1
+- Introduced: [#9](archive/migrated-tickets/9.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-023: Run CLI with `/nonexistent/path.png` → assert exit code 1 and stderr contains "not found" or similar
+
+### AC10.1 - Given multiple input file arguments, the CLI processes each and writes a corresponding output file
+- Introduced: [#10](archive/migrated-tickets/10.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-024: Run CLI with three test images → assert three output files exist with correct dimensions
+
+### AC10.2 - Given `-o` with a directory path that does not exist, the CLI creates the directory and writes output there
+- Introduced: [#10](archive/migrated-tickets/10.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-025: Run CLI with `-o /tmp/test_output_dir/` (non-existent) → assert directory is created and output file exists
+
+### AC10.3 - Given `-s 2`, the output image has dimensions equal to 2× the input (not the default 4×)
+- Introduced: [#10](archive/migrated-tickets/10.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-026: Run CLI with `-s 2` on a 128×128 image → assert output is 256×256
+
+### AC12.1 - Given `brew tap tigger04/tap && brew install superscale` on a clean system, the install completes without error
+- Introduced: [#12](archive/migrated-tickets/12.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-004: Run the full install on a machine with no prior superscale install → assert exit code 0
+
+### AC12.2 - Given `make release VERSION=x.y.z`, a tagged GitHub release is created, the binary is built, and the Homebrew formula is updated with correct SHA256s
+- Introduced: [#12](archive/migrated-tickets/12.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-005: Run `make release VERSION=x.y.z SKIP_TESTS=1` → assert GitHub release exists, formula SHA matches
+
+### AC12.3 - Given a fresh Homebrew install, `superscale photo.png` produces an upscaled image with no additional network required
+- Introduced: [#12](archive/migrated-tickets/12.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-006: Install via Homebrew in airplane mode, run on a test image → assert output file is created at correct dimensions
+
+### AC12.4 - Given a Homebrew install, all six models are present and show as `[installed]`
+- Introduced: [#12](archive/migrated-tickets/12.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-012: Fresh `brew install superscale` → run `superscale --list-models` → assert all six show `[installed]`
+
+### AC12.5 - Given a release that adds or updates a model, `brew upgrade superscale` installs the new/updated model
+- Introduced: [#12](archive/migrated-tickets/12.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-013: Release with a new model resource → `brew upgrade superscale` → assert new model shows as `[installed]`
+
+### AC12.6 - Given `make build` or `make install` from a clean source checkout, all models are downloaded and available
+- Introduced: [#12](archive/migrated-tickets/12.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-046: Run `make build` with empty `models/` dir → assert all six `.mlpackage` directories exist
+
+### AC14.1 - The shared pipeline code is extracted into a `SuperscaleKit` library target usable by both CLI and GUI.
+- Introduced: [#14](archive/migrated-tickets/14.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests: See #43 ACs.
+- Note: only AC14.1 through AC14.3 were delivered; AC14.4 through AC14.6 remain in the migration index as undelivered scope.
+
+### AC14.2 - The app upscales dropped image files and displays the result with model and scale selection.
+- Introduced: [#14](archive/migrated-tickets/14.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests: See #44 ACs.
+- Note: only AC14.1 through AC14.3 were delivered; AC14.4 through AC14.6 remain in the migration index as undelivered scope.
+
+### AC14.3 - The app provides a before/after comparison view with synchronised zoom.
+- Introduced: [#14](archive/migrated-tickets/14.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests: See #45 ACs.
+- Note: only AC14.1 through AC14.3 were delivered; AC14.4 through AC14.6 remain in the migration index as undelivered scope.
+
+### AC18.1 - A `models/manifest.json` file exists in the repository, tracking model metadata, SHA256 hashes, and download URLs
+- Introduced: [#18](archive/migrated-tickets/18.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-032: Parse `models/manifest.json` → assert it contains entries for all six models with name, sha256, and url fields
+- Note: only AC18.1, AC18.3 and AC18.5 were delivered; AC18.2 and AC18.4 remain in the migration index as abandoned scope.
+
+### AC18.3 - `make release-models` uploads all model files to a GitHub Release and updates the manifest with correct SHA256 hashes and URLs
+- Introduced: [#18](archive/migrated-tickets/18.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ OT-001: Run `make release-models` after a conversion → verify GitHub Release contains all model assets and manifest SHA256 values match (issue #18)
+- Note: only AC18.1, AC18.3 and AC18.5 were delivered; AC18.2 and AC18.4 remain in the migration index as abandoned scope.
+
+### AC18.5 - The Homebrew formula's `resource` block references the correct models release URL and SHA256 for the default model
+- Introduced: [#18](archive/migrated-tickets/18.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ OT-002: Inspect the generated formula → confirm resource URL points to the models release and SHA256 matches manifest (issue #18)
+- Note: only AC18.1, AC18.3 and AC18.5 were delivered; AC18.2 and AC18.4 remain in the migration index as abandoned scope.
+
+### AC19.1 - `make convert-models` completes without errors for all 6 models
+- Introduced: [#19](archive/migrated-tickets/19.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-035: run conversion and verify all 6 .mlpackage dirs exist
+
+### AC19.2 - Converted models produce output in [0, 255] pixel range [^migration-heuristic]
+- Introduced: [#19](archive/migrated-tickets/19.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-009 (assumed pass[^migration-heuristic]): visual inspection of upscaled test image
+
+### AC21.1 - After `make install`, `superscale --list-models` shows all models as `[installed]` when run from any directory
+- Introduced: [#21](archive/migrated-tickets/21.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-006: (existing) covers `--list-models` output
+
+### AC22.1 - Given an anime/illustration image and no explicit `-m` flag, the pipeline selects the anime model
+- Introduced: [#22](archive/migrated-tickets/22.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-035: Run pipeline on a test anime image with no model flag → assert selected model is anime-6b
+
+### AC22.2 - Given a photograph and no explicit `-m` flag, the pipeline selects the default photo model
+- Introduced: [#22](archive/migrated-tickets/22.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-036: Run pipeline on a photo with no model flag → assert selected model is x4plus
+
+### AC22.3 - Given an explicit `-m` flag, auto-detection is bypassed and the specified model is used regardless of content type
+- Introduced: [#22](archive/migrated-tickets/22.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-037: Run pipeline with `-m realesrnet-x4plus` on an anime image → assert realesrnet-x4plus is used
+
+### AC22.4 - The detected content type and chosen model are reported in progress output
+- Introduced: [#22](archive/migrated-tickets/22.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-038: Run pipeline with auto-detection → assert progress output contains "Detected:" and model name
+
+### AC23.1 - README Homebrew install uses the one-liner `brew install tigger04/tap/superscale`
+- Introduced: [#23](archive/migrated-tickets/23.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-014: Visual inspection of README → one-liner present
+
+### AC23.2 - README highlights Apple Silicon Neural Engine as the USP
+- Introduced: [#23](archive/migrated-tickets/23.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-015: Visual inspection → Neural Engine / Apple Silicon hardware mentioned prominently
+
+### AC23.3 - README mentions auto-detect content type feature
+- Introduced: [#23](archive/migrated-tickets/23.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-016: Visual inspection → auto-detect described in features or usage
+
+### AC25.1 - Given a pencil/ink sketch image, the auto-detector classifies it as illustration content.
+- Introduced: [#25](archive/migrated-tickets/25.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-047: Run `ContentDetector.detect()` on a sketch image → returns `.illustration`.
+
+### AC25.2 - Given a photograph, the auto-detector continues to classify it as photo content (no regression).
+- Introduced: [#25](archive/migrated-tickets/25.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-036: Run `ContentDetector.detect()` on remy2.jpg → returns `.photo`.
+  - ✅ RT-049: detecting a photograph selects the photo model.
+
+### AC26.1 - The `--help` output for the `-m` option tells users how to discover available model names.
+- Introduced: [#26](archive/migrated-tickets/26.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-048: Run `superscale --help` → `-m` help text contains "list-models".
+
+### AC28.1 - Given a network/HTTP error during download, the CLI reports a clear, actionable error message (not "The file couldn't be opened").
+- Introduced: [#28](archive/migrated-tickets/28.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-050: Run `--download-face-model --accept-licence` with an unreachable URL → stderr contains "Download failed" with HTTP status or network error detail.
+
+### AC28.2 - Given a successful download of a zip archive, the CLI unzips it and installs the `.mlpackage` directory to the correct location. [^migration-heuristic]
+- Introduced: [#28](archive/migrated-tickets/28.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-017 (assumed pass[^migration-heuristic]): Manually run `--download-face-model` with a valid model URL → `.mlpackage` directory exists at the expected path and CoreML can load it.
+
+### AC28.3 - Given a download that is interrupted or fails mid-transfer, no partial files are left behind.
+- Introduced: [#28](archive/migrated-tickets/28.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-051: Simulate a failed download → assert no `.mlpackage` or `.zip` files remain in the destination directory.
+
+### AC29.1 - Given `--download-face-model` in an interactive terminal, the CLI prints the full licence notice and waits for `y/N` confirmation before downloading [^migration-heuristic]
+- Introduced: [#29](archive/migrated-tickets/29.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-017 (assumed pass[^migration-heuristic]): Run `superscale --download-face-model` in a terminal → licence text is displayed, download waits for confirmation
+
+### AC29.2 - Given `--download-face-model` in a non-interactive context (piped stdin, no TTY), the CLI exits with a non-zero status and prints an error to stderr explaining that an interactive terminal is required
+- Introduced: [#29](archive/migrated-tickets/29.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-053: Run CLI with `--download-face-model` with stdin redirected from `/dev/null` → assert exit code != 0 and stderr contains "interactive terminal"
+
+### AC29.3 - The `--accept-licence` flag is removed from the CLI
+- Introduced: [#29](archive/migrated-tickets/29.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-054: Run CLI with `--accept-licence` → assert exit code != 0 and error mentions unknown option
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC31.1 - Given `brew install tigger04/tap/superscale`, the formula stages all six model resources without error
+- Introduced: [#31](archive/migrated-tickets/31.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ OT-003: Run `brew install superscale` after formula fix → assert install completes with exit code 0 and all six `.mlpackage` directories exist under `$(brew --prefix)/opt/superscale/models/` (issue #31)
+
+### AC32.1 - Given an image containing human faces, the upscaled output preserves face regions without corruption or black squares
+- Introduced: [#32](archive/migrated-tickets/32.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-055: Run GFPGAN inference on 512×512 face input → assert enhanced face pixels have mean brightness > 20.
+  - ✅ UT-017: Visual inspection of upscaled `vance-wilson.jpg` for natural face appearance.
+
+### AC32.2 - Images without faces continue to upscale correctly (no regression)
+- Introduced: [#32](archive/migrated-tickets/32.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-056: Upscale `roundwood.jpg` through full pipeline with face enhancement enabled → assert output dimensions correct and mean brightness > 20
+
+### AC33.1 - Given a model that has been loaded once, subsequent loads of the same model skip `compileModel` and use the cached `.mlmodelc`.
+- Introduced: [#33](archive/migrated-tickets/33.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-057: Load a model twice in sequence; assert the second load does not invoke `compileModel` (measure time: second load < 1s).
+
+### AC33.2 - Given a cached `.mlmodelc` whose source `.mlpackage` has changed, the system recompiles and updates the cache.
+- Introduced: [#33](archive/migrated-tickets/33.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-058: Modify the cache key file, reload model → assert recompilation occurs and cache key is updated.
+
+### AC33.3 - Given the `--clear-cache` flag, all cached `.mlmodelc` files are removed and the next load recompiles.
+- Introduced: [#33](archive/migrated-tickets/33.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-059: Run CLI with `--clear-cache` → assert cache directory is empty; next model load recompiles.
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC33.4 - Cached models are stored under `~/Library/Application Support/superscale/compiled/`.
+- Introduced: [#33](archive/migrated-tickets/33.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-060: After first model load, assert `.mlmodelc` exists at the expected path.
+
+### AC33.5 - Inference output from a cached model is identical to output from a freshly compiled model.
+- Introduced: [#33](archive/migrated-tickets/33.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-061: Upscale the same image via fresh compile and via cache; assert pixel-identical output.
+
+### AC34.1 - PyTorch reference images exist for all test images under the default model.
+- Introduced: [#34](archive/migrated-tickets/34.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-062: Assert all 7 reference images exist at expected paths and each has dimensions equal to (input width × 4, input height × 4). Run by `make test`.
+
+### AC34.2 - Given a CoreML-upscaled image and its PyTorch reference, the system computes an SSIM score.
+- Introduced: [#34](archive/migrated-tickets/34.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-063: Compute SSIM between identical images (expect 1.0), completely different images (expect significantly < 1.0), and similar images (expect mid-range). Three sub-tests. Run by `make test`.
+
+### AC34.3 - CoreML output for the default model achieves SSIM ≥ 0.90 against the PyTorch reference for all test images.
+- Introduced: [#34](archive/migrated-tickets/34.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-064: Upscale all 7 test inputs via CoreML, compare each against its stored reference; assert SSIM ≥ 0.90. Run by `make test-ssim` (release-time quality gate, ~2.5 min). Any score below 0.90 blocks `make release`.
+
+### AC34.4 - The testing documentation describes the SSIM quality validation approach as an active automated check, including the test-ssim separation and release gating. [^migration-heuristic]
+- Introduced: [#34](archive/migrated-tickets/34.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-018 (assumed pass[^migration-heuristic]): Verify `docs/testing.md` documents the SSIM quality validation approach with threshold, reference image locations, regeneration instructions, test/test-ssim split, and release gating.
+
+### AC35.1 - Given the face model is installed, `--list-models` output includes the face model name and `[installed]` status.
+- Introduced: [#35](archive/migrated-tickets/35.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-065: Run `--list-models` with face model present → assert output contains face model entry with `installed` status.
+
+### AC35.2 - Given the face model is not installed, `--list-models` output includes the face model name with `[not installed]` and a hint to use `--download-face-model`.
+- Introduced: [#35](archive/migrated-tickets/35.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-066: Run `--list-models` without face model → assert output contains face model entry with `not installed` and download hint.
+
+### AC35.3 - The face model is listed in a visually distinct section from the upscaling models.
+- Introduced: [#35](archive/migrated-tickets/35.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-067: Assert `--list-models` output separates upscaling and face enhancement models (separate heading or blank line).
+
+### AC36.1 - `--version` output matches the format `v{semver} Superscale by Taḋg Paul`.
+- Introduced: [#36](archive/migrated-tickets/36.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-068: Run `--version` → assert output matches pattern `^v\d+\.\d+\.\d+ Superscale by Taḋg Paul`.
+
+### AC36.2 - The existing RT-001 version test continues to pass (semver is still present in output).
+- Introduced: [#36](archive/migrated-tickets/36.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-001: existing test.
+
+### AC37.1 - `realesr-general-wdn-x4v3.mlpackage` exists in the models directory after `make build`.
+- Introduced: [#37](archive/migrated-tickets/37.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-069: Assert model file exists after build.
+
+### AC37.2 - `--list-models` includes `realesr-general-wdn-x4v3` with `[installed]` status.
+- Introduced: [#37](archive/migrated-tickets/37.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-070: Run `--list-models` → assert output contains `realesr-general-wdn-x4v3` with `installed`.
+
+### AC37.3 - Given a noisy input image and `-m realesr-general-wdn-x4v3`, the output is upscaled at 4× with reduced noise compared to the non-wdn model. [^migration-heuristic]
+- Introduced: [#37](archive/migrated-tickets/37.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-019 (assumed pass[^migration-heuristic]): Upscale a noisy test image with both `realesr-general-x4v3` and `realesr-general-wdn-x4v3`, compare outputs visually. The wdn output should show less grain.
+
+### AC37.4 - README documents the wdn model with guidance on when to use it. [^migration-heuristic]
+- Introduced: [#37](archive/migrated-tickets/37.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-020 (assumed pass[^migration-heuristic]): Verify README models table includes `realesr-general-wdn-x4v3` with note about noisy/old images.
+
+### AC38.1 - `--scale` accepts positive floating-point values and produces output at the specified scale.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-071: Run with `--scale 2.4` on a 100×100 test image → assert output is 240×240.
+
+### AC38.2 - `--width` alone scales output proportionally to match the target width.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-072: Run with `--width 800` on a 100×200 image → assert output is 800×1600.
+
+### AC38.3 - `--height` alone scales output proportionally to match the target height.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-073: Run with `--height 800` on a 100×200 image → assert output is 400×800.
+
+### AC38.4 - Given both `--width` and `--height`, output fits within the bounding box preserving aspect ratio.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-074: Run with `--width 2000 --height 2000` on a 100×200 image → assert output is 1000×2000.
+
+### AC38.5 - Given `--width`, `--height`, and `--stretch`, output matches exact target dimensions.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-075: Run with `--width 2000 --height 2000 --stretch` on a 100×200 image → assert output is 2000×2000.
+
+### AC38.6 - Specifying both `--scale` and `--width`/`--height` produces a validation error.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-076: Run with `--scale 2 --width 800` → assert non-zero exit and error message.
+
+### AC38.7 - When the effective target scale exceeds the model's native scale, a warning is emitted to stderr but processing completes.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-077: Run with `--scale 6` on a test image with a 4× model → assert warning on stderr containing "exceeds" and output file is produced.
+
+### AC38.8 - `--stretch` without both `--width` and `--height` produces a validation error.
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-078: Run with `--stretch --width 800` → assert non-zero exit and error message.
+
+### AC38.9 - The resize step preserves image quality using high-quality interpolation. [^migration-heuristic]
+- Introduced: [#38](archive/migrated-tickets/38.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-021 (assumed pass[^migration-heuristic]): Visually compare a 512×512 image upscaled to 4096×4096 via Superscale vs. pure ImageMagick resize. Superscale output should show noticeably less pixellation.
+
+### AC39.1 - The help text is structured with NAME, USAGE, DESCRIPTION, ARGUMENTS, OPTIONS, EXAMPLES, INSTALLED MODELS, MODEL DETAILS, FACE ENHANCEMENT, REQUIREMENTS, LICENSE, and SEE ALSO sections, in that order.
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-079: Capture `--help` output (piped) → section headers appear in the specified order. Also verify `-h` produces identical output.
+
+### AC39.2 - The help text includes ANSI formatting (bold headers, underlined placeholders) when stdout is a terminal, NO_COLOR is unset, and TERM is not `dumb`. [^migration-heuristic]
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-022 (assumed pass[^migration-heuristic]): Run `superscale --help` in an interactive terminal → confirm bold section headers and underlined argument names are visually rendered.
+
+### AC39.3 - The help text is plain text with no ANSI escape sequences when stdout is not a terminal, or when NO_COLOR is set, or when TERM is `dumb`.
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-080: Capture `--help` output via pipe → assert no bytes matching `\x1b\[` appear in output.
+
+### AC39.4 - The pager is resolved from MANPAGER (first), then PAGER, then `less` in PATH, with fallback to direct stdout output.
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-081: Run with `MANPAGER=cat` → verify output reaches stdout (cat passes through); run with `PAGER=cat MANPAGER=` → verify PAGER is used.
+
+### AC39.5 - The models section lists all registered models with their name, scale, description, and installation status.
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-082: Capture `--help` output → assert all seven model CLI names and "installed"/"not installed" status appear.
+
+### AC39.6 - The `-h` short flag and the `--help` long flag both produce the same enhanced help text.
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-079: (above): Also verifies `-h` produces identical output to `--help`.
+
+### AC39.7 - The pager is invoked only when stdout is connected to a terminal, the session is interactive, and the process is not running in a subshell.
+- Introduced: [#39](archive/migrated-tickets/39.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-083: Capture `--help` output via pipe with a 5-second timeout → assert output is written directly to stdout without blocking.
+  - ✅ UT-023 (assumed pass[^migration-heuristic]): Run `superscale --help` in an interactive terminal session → confirm pager activates and output is paged.
+
+### AC40.1 - A single-tile image (input smaller than tile size) produces output with uniform pixel content and no edge fading.
+- Introduced: [#40](archive/migrated-tickets/40.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-084: Upscale a 64×64 solid-colour test image with tileSize=512. Assert all output pixels match the expected upscaled colour (no fade to black at edges).
+
+### AC40.2 - Multi-tile images still blend overlapping regions smoothly (no regression in seam handling).
+- Introduced: [#40](archive/migrated-tickets/40.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-085: Upscale a 1024×1024 test image (produces multiple tiles). Assert output dimensions are correct and no visible seam artefacts at tile boundaries (compare overlap-zone pixels against expected values).
+
+### AC41.1 - Given an interactive terminal with a pager configured and `NO_COLOR` not set, `superscale --help` output is displayed through the pager with ANSI colour formatting — colour-coded headings, options, and syntax elements, not only bold/underline.
+- Introduced: [#41](archive/migrated-tickets/41.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-024: In terminal with `MANPAGER=less` and `LESS="-RiF"`, run `superscale --help`. Verify help text displays with colour formatting (not just bold/underline), is scrollable, and `q` exits cleanly.
+
+### AC41.2 - Given an interactive terminal, `superscale --help` displays help text through the pager and terminates without hanging when the user quits the pager.
+- Introduced: [#41](archive/migrated-tickets/41.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-024: Same manual terminal test as AC41.1 — pager launches and `q` exits cleanly.
+
+### AC41.3 - Given a non-interactive environment (piped stdout), `superscale --help` prints plain help text directly to stdout with no pager and no ANSI escape codes.
+- Introduced: [#41](archive/migrated-tickets/41.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-083: Run `superscale --help` via Process with piped stdout, verify output contains help text, completes within 5s, and contains no ANSI escape sequences.
+  - ✅ UT-028: In terminal, run `superscale -h \
+
+### AC41.4 - Given `NO_COLOR` is set in the environment, `superscale --help` output contains no ANSI escape sequences regardless of terminal interactivity.
+- Introduced: [#41](archive/migrated-tickets/41.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-090: Invoke `superscale --help` with `NO_COLOR=1` via piped Process, verify no ANSI escape sequences are present.
+
+### AC41.5 - The help text is static — the MODELS section lists all eight models (seven default-install plus GFPGAN) by name and description with no runtime installation-status indicators.
+- Introduced: [#41](archive/migrated-tickets/41.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-079: Pipe `superscale --help`, verify section headings appear in order and heading is "MODELS" not "INSTALLED MODELS".
+  - ✅ RT-082: Verify all eight model names appear and no `[installed]`/`[not installed]` markers are present.
+
+### AC42.1 - Given an opaque image with dimensions smaller than the model's tile size, the system's upscaled output has dimensions equal to (input width × scale) by (input height × scale) and the spatial arrangement of content matches the original — no regions are stretched, cropped, inverted, or rearranged.
+- Introduced: [#42](archive/migrated-tickets/42.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-087: Upscale a synthetic 100×50 opaque split-colour image (left red, right blue) at 4×. Verify output is 400×200, right edge is blue (not red from stretch), left edge is red.
+  - ✅ UT-025: Upscale a real sub-tile-size opaque image at default settings. Visually verify full content is preserved at correct dimensions with no stretching or cropping.
+
+### AC42.2 - Given a transparent (RGBA) image with dimensions smaller than tile size, the system's upscaled output has dimensions equal to (input width × scale) by (input height × scale), the RGB content is correctly oriented (matching the original, not vertically inverted), and the alpha channel is aligned pixel-for-pixel with the RGB — no offset, flip, or inversion between channels.
+- Introduced: [#42](archive/migrated-tickets/42.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-088: Upscale a synthetic 100×50 RGBA image (top transparent, bottom opaque blue) at 4×. Verify output is 400×200, bottom centre is opaque blue (not black), top centre is transparent.
+  - ✅ UT-026: Upscale `icon3.png` (transparent, sub-tile-size) at default settings. Visually verify content is correctly oriented (not upside down), transparency is preserved, and RGB aligns with alpha.
+
+### AC42.3 - Given an image equal to or larger than tile size, the system's upscaled output matches the pre-fix baseline in dimensions and content — no regression from the padding change.
+- Introduced: [#42](archive/migrated-tickets/42.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-089: Upscale `remy2.jpg` (1024×1024, multi-tile) at 4×. Verify output dimensions are 4096×4096.
+  - ✅ UT-027 (assumed pass[^migration-heuristic]): Upscale a multi-tile image (≥1024×1024) at default settings. Visually compare output against pre-fix baseline — content, colour, and orientation identical.
+
+---
+
+## Legacy v1 macOS application criteria
+
+### AC43.1 - `Package.swift` defines a `SuperscaleKit` library target containing all pipeline and model management types.
+- Introduced: [#43](archive/migrated-tickets/43.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-092: build succeeds and all existing regression tests pass after extraction.
+
+### AC43.2 - The `superscale` CLI executable depends on `SuperscaleKit` and contains only argument parsing and orchestration code.
+- Introduced: [#43](archive/migrated-tickets/43.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-092: (same — CLI behaviour unchanged).
+
+### AC43.3 - `SuperscaleKit` exposes `Pipeline`, `ModelRegistry`, `ImageLoader`, `ImageWriter`, `Tiler`, `CoreMLInference`, `ContentDetector`, `FaceEnhancer`, `FaceDetector`, `FaceModelRegistry`, `ModelCache`, and `SSIM` as public API.
+- Introduced: [#43](archive/migrated-tickets/43.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-093: a test target importing `SuperscaleKit` can access all listed public types.
+
+### AC44.1 - The app presents a drag-and-drop target area on launch.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-029: launch app, verify drag-and-drop target is visible.
+  - ✅ RT-107: XCUITest verifies drop target text visible on launch.
+
+### AC44.2 - The app upscales dropped image files and displays the result in the main window.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-030: drop a PNG onto the app, verify upscaled image appears.
+  - ✅ RT-139: XCUITest loads image via file chooser, verifies result element appears.
+
+### AC44.3 - The model is selectable from all models registered in `ModelRegistry`.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-031: open model picker, verify all 7 models plus auto-detect are listed.
+  - ✅ RT-122: XCUITest opens model sheet, verifies 8 model entries present.
+
+### AC44.4 - The scale indicator displays the native scale factor of the selected model.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-032: select different models, verify scale indicator updates to match (4× for 4× models, 2× for 2× model).
+  - ✅ RT-123: XCUITest selects 2× model, verifies scale text changes.
+
+### AC44.5 - A progress indicator is visible while the pipeline processes an image.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-033: drop a large image, verify progress indicator appears and updates.
+  - ✅ RT-140: XCUITest loads image, verifies progress element exists during processing.
+
+### AC44.6 - The upscaled image is saveable to a user-chosen location.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-034: use File > Save As, verify output is written to chosen location.
+
+### AC44.7 - The model picker opens as a modal sheet listing all 7 models plus auto-detect, each with CLI model name and an ⓘ button that expands the full model description.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-049: click model button, verify modal sheet with all models, CLI names, and expandable descriptions.
+  - ✅ RT-124: XCUITest opens model sheet, verifies CLI name text and info elements.
+
+### AC44.8 - The model picker sheet includes a face enhancement toggle (when GFPGAN is installed) with ⓘ showing description and non-commercial licence notice.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-050: a: open model picker with GFPGAN installed — verify "Auto-enhance faces" toggle is present and functional.
+  - ✅ UT-050: b: click ⓘ next to face enhancement — verify description text explains the face enhancement behaviour.
+  - ✅ UT-050: c: expand face enhancement info — verify non-commercial licence notice is visible, naming NVIDIA Source Code Licence and CC BY-NC-SA 4.0. Blocked by #52 for uninstalled state.
+
+### AC44.9 - The model picker button in the toolbar has hover text explaining its purpose.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-051: hover over model button — verify tooltip appears.
+  - ✅ RT-125: XCUITest checks accessibility help property on modelPicker.
+
+### AC44.10 - The window title shows the filename of the loaded image.
+- Introduced: [#44](archive/migrated-tickets/44.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-052: drop an image — verify title bar shows "Superscale — filename".
+  - ✅ RT-126: XCUITest loads image via file chooser, verifies window title contains filename.
+
+### AC45.1 - The comparison view displays original and upscaled images side by side with a movable vertical divider.
+- Introduced: [#45](archive/migrated-tickets/45.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-035: after upscaling, switch to comparison view — verify slider and both images are visible.
+  - ✅ RT-141: XCUITest loads image, clicks compareButton, verifies comparison elements.
+
+### AC45.2 - The divider position determines the visible boundary between original and upscaled regions.
+- Introduced: [#45](archive/migrated-tickets/45.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-036: drag slider left and right — verify boundary moves correspondingly.
+
+### AC45.3 - Zoom and pan are synchronised between both sides of the comparison.
+- Introduced: [#45](archive/migrated-tickets/45.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-037: use +/− buttons to zoom — verify both sides show the same region at the same zoom level.
+
+### AC45.4 - The view is toggleable between comparison mode and full upscaled view.
+- Introduced: [#45](archive/migrated-tickets/45.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-038: toggle between comparison and full view — verify mode switches correctly.
+  - ✅ RT-142: XCUITest clicks compareButton twice, verifies mode toggles.
+
+### AC49.1 - The scale picker defaults to the selected model's native scale factor.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-035: Select different models, verify default scale matches native (4× for 4× models, 2× for 2× model).
+
+### AC49.2 - Preset scale options (2×, 4×, 8×) and a Custom option are available, and each preset displays the target resolution for the current input image.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-036: Drop an image, open scale picker, verify all 3 presets show correct target dimensions and Custom option is present.
+
+### AC49.3 - In custom resolution mode, the last-clicked dimension field is the defining dimension; the other field shows the aspect-ratio-preserving value dimmed.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-037: a: Select custom, click width, type 800 — verify height auto-populates dimmed.
+  - ✅ UT-037: b: Click height, type 600 — verify width auto-populates dimmed and height is now the defining dimension.
+
+### AC49.4 - In custom resolution mode without stretch, only the defining dimension is passed to the pipeline.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-038: Click width, enter 800, upscale — verify output has width 800 with aspect-ratio-preserving height.
+
+### AC49.5 - The stretch checkbox makes both dimension fields fully editable (not dimmed) and passes both values with the stretch flag to the pipeline.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-039: Enable stretch, enter both dimensions, upscale — verify output matches exact width × height (ignoring aspect ratio).
+  - ✅ RT-143: XCUITest sets stretch + dimensions, loads image, verifies result.
+
+### AC49.6 - Clicking Custom reveals the resolution fields but does not activate custom mode until a valid non-zero number is entered.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-040: a: Click Custom with no values entered, drop an image — verify it upscales at the preset scale.
+  - ✅ UT-040: b: Type a width value — verify custom mode activates.
+  - ✅ RT-144: XCUITest clicks Custom with no value, loads image, verifies preset used.
+
+### AC49.7 - Zero and non-numeric values are rejected; invalid custom values fall back to the model's native scale.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-041: a: Enter 0 in width, drop image — verify fallback to native scale.
+  - ✅ UT-041: b: Attempt to type letters — verify only digits are accepted.
+  - ✅ RT-145: XCUITest types 0 and letters, verifies rejection.
+
+### AC49.8 - Unchecking stretch preserves the last-edited dimension as defining and recalculates the other.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-042: In stretch mode, enter width 800 and height 600. Uncheck stretch — verify the last-edited field stays, other recalculates or clears.
+  - ✅ RT-146: XCUITest enters stretch dims, unchecks, verifies field behaviour.
+
+### AC49.9 - If stretch is enabled but only one dimension has a valid value, stretch is programmatically disabled and the single dimension is used for aspect-ratio-preserving resize.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-043: Enable stretch, enter only width, drop image — verify stretch is unchecked and output preserves aspect ratio.
+  - ✅ RT-147: XCUITest enters stretch with one dim, loads image, verifies stretch deselected.
+
+### AC49.10 - Custom dimension fields are editable before an image is loaded; without an image, the non-defining field clears rather than computing an aspect-ratio value.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-044: a: Click Custom before dropping an image, type 800 in width — verify height clears (not computed).
+  - ✅ UT-044: b: Drop an image — verify height auto-populates from aspect ratio.
+  - ✅ RT-148: XCUITest types custom width, loads image, verifies height populates.
+
+### AC49.11 - Clicking Custom places the text cursor in the width field.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-045: Click Custom — verify cursor is active in the width field.
+
+### AC49.12 - Custom dimension changes on a loaded image trigger re-upscale after a 1.5-second debounce, not per-keystroke.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-046: Drop an image, click Custom, type "900" in width — verify upscale does not start until 1.5 seconds after last keystroke.
+
+### AC49.13 - Changing the model or preset scale on a loaded image triggers an immediate re-upscale from the original source file.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-047: Drop and upscale an image, then change model — verify re-upscale runs from original (not from the displayed result).
+
+### AC49.14 - Changing the model hides custom resolution fields and clears custom dimension values.
+- Introduced: [#49](archive/migrated-tickets/49.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-081: Set custom width to 500, change model — verify custom fields are hidden and values cleared, preset scale button is selected.
+  - ✅ RT-131: XCUITest sets custom width, changes model, verifies fields cleared.
+
+### AC50.1 - An Xcode project exists that builds a macOS `.app` bundle importing `SuperscaleKit` as a local package dependency.
+- Introduced: [#50](archive/migrated-tickets/50.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-040: open project in Xcode, build succeeds, app launches with Dock icon and menu bar.
+
+### AC50.2 - All existing GUI functionality works: drag-and-drop, model picker, scale indicator, progress, upscale, save.
+- Introduced: [#50](archive/migrated-tickets/50.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-041: repeat
+  - ✅ UT-029: through
+  - ✅ UT-034: against the Xcode-built app.
+
+### AC50.3 - SwiftUI previews render in Xcode for the main views. [^migration-heuristic]
+- Introduced: [#50](archive/migrated-tickets/50.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-042 (assumed pass[^migration-heuristic]): open MainView.swift in Xcode, verify preview canvas renders.
+
+### AC50.4 - `make gui` builds and launches the app via the Xcode project.
+- Introduced: [#50](archive/migrated-tickets/50.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-043: run `make gui`, verify app builds and launches.
+
+### AC50.5 - The `SuperscaleApp` executable target is removed from `Package.swift` — CLI and tests are unaffected.
+- Introduced: [#50](archive/migrated-tickets/50.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-092: `make test` passes after removal.
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC51.1 - `ModelInfo` contains short and detailed description properties for all models.
+- Introduced: [#51](archive/migrated-tickets/51.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-111: Assert all models have non-empty `shortDescription`.
+  - ✅ RT-112: Assert all models have non-empty `detailedDescription`.
+
+### AC51.2 - The GUI model picker reads descriptions from `ModelInfo` rather than a local dictionary. [^migration-heuristic]
+- Introduced: [#51](archive/migrated-tickets/51.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-075 (assumed pass[^migration-heuristic]): Open model picker, verify descriptions match ModelRegistry.
+
+### AC51.3 - The CLI help text reads model descriptions from the same source as the GUI.
+- Introduced: [#51](archive/migrated-tickets/51.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-113: Assert `HelpText.plain` contains each model's `shortDescription` from ModelRegistry.
+
+### AC52.1 - When the face model is not installed, clicking the face icon triggers a download flow presenting the full text of both licences in succession, each requiring separate acceptance.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-045: Click face icon without model — verify NVIDIA licence full text shown with "I Agree".
+  - ✅ UT-075: Click "I Agree" on NVIDIA licence — verify CC BY-NC-SA 4.0 full text shown with "I Agree".
+
+### AC52.2 - The download does not begin until the user explicitly accepts both licences.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-046: Cancel at NVIDIA licence stage — verify no download.
+  - ✅ UT-076: Cancel at CC licence stage — verify no download.
+
+### AC52.3 - After successful download, the face icon switches to its active state and face enhancement is enabled.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-047: Complete the full download flow — verify icon is filled/active and subsequent upscales include face enhancement.
+
+### AC52.4 - When the face model is installed, the face icon is a simple on/off toggle defaulting to enabled.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-048: Launch app with face model installed — verify icon is active by default and clicking toggles on/off without prompts.
+  - ✅ RT-149: XCUITest verifies faceEnhanceButton state and toggle.
+
+### AC52.5 - The face icon has hover text describing face enhancement.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-049: Hover over face icon — verify tooltip describes face enhancement.
+
+### AC52.6 - The downloaded licence text files match their canonical SHA-256 hashes; a hash mismatch causes a test failure requiring human review.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-117: Assert SHA-256 of LICENCE_NVIDIA.txt matches canonical hash.
+  - ✅ RT-118: Assert SHA-256 of LICENCE_CC_BY_NC_SA.txt matches canonical hash.
+
+### AC52.7 - Toggling face enhancement on a loaded image regenerates the output with the new setting; cached versions are used when available for instant switching.
+- Introduced: [#52](archive/migrated-tickets/52.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-077: Load and upscale image with face enhance on, toggle off — verify image regenerates without face enhancement.
+  - ✅ UT-078: Toggle face enhance back on — verify image switches back instantly (from cache, no re-processing).
+  - ✅ RT-151: XCUITest toggles face off/on, verifies image changes.
+  - ✅ UT-082: Upscale with face enhance off, then toggle on — verify full re-upscale runs with face enhancement.
+  - ✅ RT-152: XCUITest upscales without face, toggles on, verifies re-upscale.
+  - ✅ UT-083: Set custom width 500, upscale, toggle face enhance — verify re-upscale uses the same custom width 500, not native scale.
+  - ✅ RT-153: XCUITest sets custom width, upscales, toggles face, verifies custom scale preserved.
+
+### AC53.1 - A translucent info panel is visible below the toolbar, showing a summary of the current model and scale settings.
+- Introduced: [#53](archive/migrated-tickets/53.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-054: Launch app — verify translucent panel is visible below the toolbar.
+  - ✅ UT-055: Verify panel displays the current model name.
+  - ✅ UT-056: Verify panel displays the current scale factor.
+  - ✅ RT-136: XCUITest verifies info panel text contains model and scale on launch.
+
+### AC53.2 - The panel content updates dynamically when model, scale, stretch, or face enhancement settings change.
+- Introduced: [#53](archive/migrated-tickets/53.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-057: Change model — verify panel text updates to reflect new model.
+  - ✅ UT-058: Change scale preset — verify panel text updates.
+  - ✅ UT-059: Toggle stretch — verify stretch status appears/disappears in panel.
+  - ✅ UT-060: Toggle face enhancement — verify face enhance status appears/disappears in panel.
+  - ✅ RT-156: XCUITest changes model/scale/stretch/face, verifies panel text updates.
+
+### AC53.3 - The panel is dismissable with a × button, auto-hides in Compare mode, and reappears when settings change.
+- Introduced: [#53](archive/migrated-tickets/53.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-061: Click × — verify panel is hidden.
+  - ✅ UT-062: Enter Compare mode — verify panel is hidden.
+  - ✅ UT-063: With panel dismissed, change a setting — verify panel reappears.
+  - ✅ RT-137: XCUITest dismisses panel, changes setting, verifies panel reappears.
+
+### AC53.4 - After upscaling, the panel shows a summary of the transformation performed, including input dimensions, output dimensions, and model used.
+- Introduced: [#53](archive/migrated-tickets/53.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-064: Upscale an image — verify panel shows input dimensions.
+  - ✅ UT-065: Verify panel shows output dimensions.
+  - ✅ UT-066: Verify panel shows the model name used.
+  - ✅ RT-157: XCUITest upscales image, verifies info panel shows dims and model.
+
+### AC54.1 - `make release-gui` builds a release `.app` bundle that does not contain bundled models.
+- Introduced: [#54](archive/migrated-tickets/54.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-094: Run `make release-gui` — verify `.app` bundle exists without models in Contents/MacOS/models/.
+  - ✅ RT-095: Launch the `.app` with models in `~/Library/Application Support/superscale/models/` — verify it upscales successfully.
+
+### AC54.2 - `make release-gui` packages the `.app` as a DMG and uploads it to a GitHub release.
+- Introduced: [#54](archive/migrated-tickets/54.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-096: After `make release-gui`, verify DMG file exists.
+  - ✅ RT-097: Verify DMG is uploaded to the GitHub release for the current version tag.
+
+### AC54.3 - A Homebrew cask exists in the tap that installs the GUI app from the DMG and places models in the shared Application Support directory if not already present.
+- Introduced: [#54](archive/migrated-tickets/54.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-098: Run `brew install --cask tigger04/tap/superscale-gui` — verify Superscale.app is installed to /Applications.
+  - ✅ RT-099: On a clean system (no CLI), verify models are placed in `~/Library/Application Support/superscale/models/` by the cask postflight.
+
+### AC54.4 - `make release` continues to distribute the CLI only, with no changes to its behaviour.
+- Introduced: [#54](archive/migrated-tickets/54.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-100: Run `make release` — verify it builds and distributes the CLI binary only, with no GUI artefacts.
+
+### AC54.5 - When both CLI and GUI are installed, models are not duplicated — both resolve from the same location.
+- Introduced: [#54](archive/migrated-tickets/54.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-101: Install CLI via Homebrew and GUI via cask — verify only one copy of models exists and both products function.
+
+### AC56.1 - The drop target area includes a clickable "choose a file" prompt that opens an NSOpenPanel filtered to supported image types.
+- Introduced: [#56](archive/migrated-tickets/56.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-068: Launch app, click "choose a file" text — verify file picker opens filtered to image types.
+
+### AC56.2 - A file selected via the file chooser is loaded and upscaled identically to a dropped file.
+- Introduced: [#56](archive/migrated-tickets/56.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-069: Select a file via file chooser — verify it is upscaled and displayed in the main window.
+  - ✅ RT-150: XCUITest opens file chooser, selects test image, verifies result displayed.
+
+### AC57.1 - An XCUITest target exists in the Xcode project and runs via `make test-gui`.
+- Introduced: [#57](archive/migrated-tickets/57.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-105: make test-gui runs and UI tests execute and report results.
+
+### AC57.2 - Key SwiftUI views have accessibility identifiers suitable for XCUITest element queries.
+- Introduced: [#57](archive/migrated-tickets/57.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-106: A UI test can locate the drop target, model picker, and scale buttons by accessibility identifier.
+
+### AC57.3 - Automated UI tests cover the core launch state: drop target visible, model picker accessible, scale buttons present.
+- Introduced: [#57](archive/migrated-tickets/57.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-107: UI test verifies drop target text is visible on launch.
+  - ✅ RT-108: UI test verifies model picker button exists.
+  - ✅ RT-109: UI test verifies scale buttons (2×, 4×, 8×, Custom) are present.
+
+### AC57.4 - An automated UI test exercises the file chooser → upscale → result displayed flow using a small test image.
+- Introduced: [#57](archive/migrated-tickets/57.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-110: UI test opens file chooser, selects an 8×8 test image, waits for processing, verifies result image is displayed.
+
+### AC57.5 - Adding the UI test target does not break `make gui`, `make test`, or `make release`.
+- Introduced: [#57](archive/migrated-tickets/57.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-120: make gui builds and launches.
+  - ✅ RT-121: make test regression tests pass.
+
+### AC57.6 - XCUITests are implemented for all allocated RTs (RT-122 through RT-158) and pass via `make test-gui`.
+- Introduced: [#57](archive/migrated-tickets/57.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ OT-004: GUI scaffold tests (RT-122 through RT-126, RT-139 and RT-140).
+  - ✅ OT-005: comparison-view tests (RT-141 and RT-142).
+  - ✅ OT-006: scale-picker tests (RT-131 and RT-143 through RT-148).
+  - ✅ OT-007: face-enhancement tests (RT-149 and RT-151 through RT-153).
+  - ✅ OT-008: info-panel tests (RT-136, RT-137, RT-156 and RT-157).
+  - ✅ OT-009: file-chooser test (RT-150).
+  - ✅ OT-010: About-panel tests (RT-127 through RT-130).
+  - ✅ OT-011: dimension-cap tests (RT-138, RT-154 and RT-155).
+  - ✅ OT-012: UX-improvement tests (RT-132 through RT-134 and RT-158).
+  - ✅ OT-013: info-panel restore-button test (RT-135).
+
+### AC58.1 - An About button in the top-right of the toolbar opens a panel displaying app name, version, author, all installed models with their licences, and a link to the project repository.
+- Introduced: [#58](archive/migrated-tickets/58.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-070: Launch app, open About panel — verify app name, version, and author are shown.
+  - ✅ UT-071: Verify all 7 Real-ESRGAN models listed with CLI names, scales, and BSD-3-Clause licence.
+  - ✅ UT-072: Verify GFPGAN shows installed/not-installed status with non-commercial licence notice.
+  - ✅ UT-073: Verify GitHub repository link is present and clickable.
+  - ✅ RT-127: XCUITest opens About, verifies app name, icon, and button exist.
+  - ✅ RT-128: XCUITest verifies version string present.
+  - ✅ RT-129: XCUITest verifies version matches expected format.
+  - ✅ RT-130: XCUITest verifies author text present.
+
+### AC58.2 - The About panel version string matches the CLI `--version` output.
+- Introduced: [#58](archive/migrated-tickets/58.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-074: Compare About panel version with `superscale --version` output — verify they match.
+
+### AC59.1 - The CLI help text contains a single MODELS section with both the summary line and detailed description for each model, and no separate MODEL DETAILS heading.
+- Introduced: [#59](archive/migrated-tickets/59.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-114: Assert `--help` output contains "MODELS" heading.
+  - ✅ RT-115: Assert `--help` output does not contain "MODEL DETAILS" heading.
+  - ✅ RT-116: Assert each model's detailed description appears in the help output.
+
+### AC60.1 - Custom resolution dimensions are capped at 8× the longest input dimension when an image is loaded.
+- Introduced: [#60](archive/migrated-tickets/60.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-079: Load a 400×400 image, select Custom, type 99999 in width — verify value is capped at 3200 (400×8).
+
+### AC60.2 - Custom resolution dimensions are capped at 16384px when no image is loaded.
+- Introduced: [#60](archive/migrated-tickets/60.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-080: Without an image loaded, select Custom, type 99999 in width — verify value is capped at 16384.
+  - ✅ RT-138: XCUITest types large number in custom width, verifies capped value.
+
+### AC60.3 - When an image is loaded with custom dimensions already set that exceed the new 8× limit, the dimensions are reduced to the limit.
+- Introduced: [#60](archive/migrated-tickets/60.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-084: Type 16000 in custom width with no image loaded, drop a 300×300 image — verify width is reduced to 2400 (300×8).
+  - ✅ RT-154: XCUITest types 16000, loads small image, verifies cap applied.
+
+### AC60.4 - The info panel displays a warning when a custom dimension value has been capped.
+- Introduced: [#60](archive/migrated-tickets/60.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-085: Trigger a cap (type a value exceeding the limit) — verify the info panel shows a warning about the dimension limit.
+  - ✅ RT-155: XCUITest triggers cap, verifies info panel warning text.
+
+### AC61.1 - Custom, Stretch, and Face Enhance buttons display text labels alongside their glyphs.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-086: Launch app — verify all three buttons show text labels next to icons.
+  - ✅ RT-132: XCUITest verifies Custom, Stretch, Face text labels present.
+
+### AC61.2 - ~~Custom resolution entry has `checkmark.circle` and `xmark.circle` SF Symbol buttons; upscale triggers on confirm, not on debounce.~~
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ~~🚫 UT-087: Click Custom, type a width, click checkmark.circle — verify upscale starts.~~
+  - ~~🚫 UT-088: Click Custom, type a width, click xmark.circle — verify value is reverted and no upscale runs.~~
+  - ~~🚫 UT-089: Click Custom, type a width, click elsewhere — verify upscale starts (interpreted as confirm).~~
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC61.3 - The About panel has a "Models installed:" title above the models list.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-090: Open About panel — verify "Models installed:" heading is visible.
+  - ✅ RT-133: XCUITest opens About, verifies "Models installed:" text.
+
+### AC61.4 - Zoom +/− buttons are positioned at the top-right of the comparison pane.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-091: Enter comparison mode — verify zoom buttons are at the top-right, near the toolbar.
+  - ✅ RT-134: XCUITest enters comparison mode, verifies zoom buttons exist.
+
+### AC61.5 - The info panel shows face enhancement status immediately after the model name, and shows auto-detected model name and face count after upscaling.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-092: Upscale with auto-detect and face enhance on a photo with faces — verify info panel shows auto-detected model name and number of faces enhanced.
+  - ✅ UT-093: Verify face enhancement line appears directly after the model line, not at the end.
+
+### AC61.6 - The info panel resets to current settings (not stale upscale results) when the user changes model, scale, or face enhancement.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-094: Upscale an image, then change model — verify info panel shows new model info, not previous upscale summary.
+  - ✅ RT-158: XCUITest upscales, changes settings, verifies panel content updates.
+
+### AC61.7 - Text labels on buttons are controlled by a flag suitable for a future settings pane toggle.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-119: Assert a `showButtonLabels` property exists on the view model and controls label visibility.
+
+### AC61.8 - The info panel text is legible at a comfortable reading size (2pt larger than current).
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-099: Launch app — verify info panel text is readable without straining.
+  - ⏳ RT-159: XCUITest verifies info panel text elements exist and are non-empty.
+
+### AC61.9 - Trackpad scroll and mouse scroll control panning in the comparison view.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-100: Enter comparison mode, use trackpad/mouse scroll — verify image pans in the scrolled direction.
+
+### AC61.10 - Keyboard shortcuts Cmd+=, Cmd++, and Cmd+- control zoom; arrow keys control panning in the comparison view.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-101: Enter comparison mode, press Cmd+= — verify zoom in.
+  - ✅ UT-102: Press Cmd+- — verify zoom out.
+  - ✅ UT-103: Press arrow keys — verify panning.
+
+### AC61.11 - The info panel shows input dimensions separately from the scale/target line, without repeating the target dimensions.
+- Introduced: [#61](archive/migrated-tickets/61.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-61.1: Upscale an image — verify panel shows "Input: WxH" on its own line.
+  - ✅ UT-61.2: Verify scale line shows "Scale: N× → WxH" without duplicating input dims.
+  - ⏳ RT-61.1: XCUITest upscales image, verifies "Input:" text present in info panel.
+
+### AC62.1 - Toggling face enhancement on a transparent image preserves the alpha channel in both cached versions.
+- Introduced: [#62](archive/migrated-tickets/62.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-62.1: onPreFaceEnhance callback receives alpha-bearing image for transparent input.
+  - ✅ UT-095 (assumed pass[^migration-heuristic]): Upscale icon3.png with face enhance on, toggle off — verify no black background.
+  - ✅ UT-096 (assumed pass[^migration-heuristic]): Toggle face enhance back on — verify transparency still preserved.
+
+### AC63.1 - A toolbar button appears when the info panel is dismissed and restores it when clicked.
+- Introduced: [#63](archive/migrated-tickets/63.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-097: Dismiss info panel via ×, verify a restore button appears in the toolbar.
+  - ✅ UT-098: Click the restore button, verify info panel reappears.
+  - ✅ RT-135: XCUITest dismisses panel, verifies restore button, clicks it, verifies panel returns.
+
+### AC64.1 - `make release-gui SKIP_TESTS=1` completes without error on a clean working tree.
+- Introduced: [#64](archive/migrated-tickets/64.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ OT-64.1: xcodebuild with scheme SuperscaleWithTests resolves BUILD_DIR and produces Superscale.app.
+
+### AC65.1 - The original image in the comparison view renders with nearest-neighbour interpolation at all zoom levels.
+- Introduced: [#65](archive/migrated-tickets/65.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-65.1: Zoom to 4× or higher on a comparison view — verify original side shows distinct pixel blocks rather than smooth gradients.
+  - ⏳ UT-65.2: Verify upscaled side still renders smoothly at the same zoom level.
+
+### AC65.2 - The nearest-neighbour rendering is applied only to the original (before) side; the upscaled (after) side is unaffected.
+- Introduced: [#65](archive/migrated-tickets/65.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-65.3: Confirm upscaled image does not show pixel blocks at high zoom.
+
+### AC67.1 - Upscaling completion automatically displays the comparison view without any user interaction.
+- Introduced: [#67](archive/migrated-tickets/67.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-67.1: Upscale an image — verify comparison view appears immediately on completion without pressing any button.
+
+### AC67.2 - The comparison divider opens at 35% (original occupies the left 35% of the view).
+- Introduced: [#67](archive/migrated-tickets/67.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-67.2: Enter comparison view — verify divider is positioned at approximately 35% from the left.
+
+### AC67.3 - The comparison view opens at 1.5× zoom.
+- Introduced: [#67](archive/migrated-tickets/67.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ~~🚫 UT-67.3: Enter comparison view — verify zoom indicator reads 150%.~~
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC67.4 - When zoom > 1×, a minimap thumbnail is visible showing the full image with a rectangle indicating the current viewport.
+- Introduced: [#67](archive/migrated-tickets/67.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-67.4: Zoom in — verify minimap appears with a viewport indicator.
+  - ⏳ UT-67.5: Pan the image — verify the viewport rectangle in the minimap moves to reflect the new position.
+  - ⏳ UT-67.6: At zoom = 1×, verify the minimap is not shown (viewport fills the image).
+
+### AC67.5 - Zoom controls and the divider handle are visually prominent and easily discoverable.
+- Introduced: [#67](archive/migrated-tickets/67.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ UT-67.7: Show the comparison view to a first-time user — verify they can locate the zoom controls and divider handle without instruction.
+
+### AC68.1 - A circular magnifier loupe follows the mouse cursor when hovering over the image in magnifier mode; the loupe and any custom cursor are hidden when the mouse leaves the image area, reverting to the normal pointer.
+- Introduced: [#68](archive/migrated-tickets/68.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-68.1: XCUITest — loupe element exists when mouse is over image area.
+  - ⏳ RT-68.2: XCUITest — loupe element does not exist when mouse is outside image area.
+  - ✅ UT-68.1: Hover mouse over image — verify loupe tracks cursor smoothly and looks correct.
+  - ✅ UT-68.2: Move mouse off the image area — verify cursor returns to normal pointer appearance.
+
+### AC68.2 - The loupe shows the original image (nearest-neighbour) in the left half and the upscaled image in the right half, both at high magnification.
+- Introduced: [#68](archive/migrated-tickets/68.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-68.3: Hover over a detailed region — verify left half shows blocky source pixels and right half shows sharp upscaled detail.
+  - ✅ UT-68.4: Hover over a flat/uniform region — verify both halves look similar (confirming correct alignment).
+
+### AC68.3 - A toggle allows switching between magnifier mode and slider mode within the comparison view.
+- Introduced: [#68](archive/migrated-tickets/68.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-68.3: XCUITest — tap toggle, verify mode indicator changes from magnifier to slider.
+  - ⏳ RT-68.4: XCUITest — tap toggle again, verify mode indicator changes back to magnifier.
+  - ✅ UT-68.5: Click toggle — verify view visually switches from magnifier to slider.
+  - ✅ UT-68.6: Click toggle again — verify view visually switches back to magnifier.
+
+### AC68.4 - Magnifier mode is the default when entering comparison view.
+- Introduced: [#68](archive/migrated-tickets/68.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-68.5: XCUITest — after upscale completes, verify magnifier mode indicator is active (not slider).
+  - ✅ UT-68.7: Upscale an image (auto-enters comparison) — verify magnifier loupe is visible, not slider.
+
+### AC68.5 - The loupe has a visible vertical divider line separating the original and upscaled halves.
+- Introduced: [#68](archive/migrated-tickets/68.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-68.6: XCUITest — verify loupe divider element exists when loupe is visible.
+  - ✅ UT-68.8: Inspect the loupe — verify divider line is visually distinct down the centre.
+
+### AC68.6 - The loupe is only active in comparison mode; switching to Full View hides the loupe and restores normal zoom/pan interaction with the result image.
+- Introduced: [#68](archive/migrated-tickets/68.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ⏳ RT-68.7: XCUITest — switch to Full View, verify loupe element does not exist.
+  - ⏳ RT-68.8: XCUITest — switch back to Compare, verify loupe element reappears.
+  - ✅ UT-68.9: From magnifier mode, click "Full View" — verify loupe disappears and normal zoom/pan is available.
+  - ✅ UT-68.10: Click "Compare" to re-enter comparison — verify loupe reappears in magnifier mode.
+
+### AC69.1 - Given the repository, CLI, GUI, and distribution metadata after the licence change, Superscale source code is identified as Apache-2.0 while bundled Real-ESRGAN model weights remain BSD-3-Clause and optional GFPGAN weights remain non-redistributed, user-accepted, non-commercial artefacts. The GUI About modal identifies the Superscale source-code licence above the separate model licence summaries.
+- Introduced: [#69](archive/migrated-tickets/69.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-69.1: Licence metadata and documentation identify Apache-2.0 for Superscale source code and preserve separate model-weight licence statements.
+  - ✅ RT-69.2: CLI help output reports Apache-2.0 for Superscale source code and continues to report Real-ESRGAN and GFPGAN model licence terms separately.
+  - ✅ RT-69.3: Release metadata and formula generation use Apache-2.0 for the source package.
+  - ✅ RT-69.4: GUI licence surfaces identify the Superscale source-code licence in the About modal and continue to present the GFPGAN NVIDIA Source Code Licence and CC BY-NC-SA 4.0 review/acceptance flow before download.
+  - ⏳ UT-69.1: Human review confirms README logo placement and trademark wording match the intended project identity and fork policy.
+
+---
+
+## Initial v2 architecture and superseded UX lineage
+
+Tickets #70 through #78 introduced v2 as a substantial UX change and architectural extension of
+v1. Their initial four-workspace proposal was superseded by the single-workspace design in
+`IMPLEMENTATION_GUIDE_v2.md`. The criteria below preserve implemented architectural lineage and
+identify the UX clauses that the later design replaced.
+
+### AC70.1 - Given the v2 foundations, the `Superscale` CLI remains a local-upscaling executable with no dependency on GUI-only generation modules.
+- Introduced: [#70](archive/migrated-tickets/70.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-70.1: Package dependency tests prove the CLI target depends on `SuperscaleKit` and excludes `FalGenerationKit` and `SuperscaleUXCore`.
+  - ✅ RT-70.2: CLI help and a small fixture upscale path remain available after the v2 foundation lands.
+
+### AC70.2 - Given the v2 foundations, GUI-only generation and UX orchestration code has dedicated module boundaries that can be tested independently from SwiftUI views.
+- Introduced: [#70](archive/migrated-tickets/70.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-70.3: The package builds with `FalGenerationKit` and `SuperscaleUXCore` test targets available.
+  - ✅ RT-70.4: A minimal `SuperscaleUXCore` service can be exercised by tests without launching the app.
+
+### AC70.3 - Given the v2 app shell, the GUI exposes mode-level navigation for Upscale, Generate, History, and Settings while preserving the existing Upscale entry path.
+- Introduced: [#70](archive/migrated-tickets/70.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-70.5: View-model or UI-state tests cover the default Upscale mode and transitions to Generate, History, and Settings.
+  - ⏳ UT-70.1: Human review confirms the initial shell follows `docs/v2/WIREFRAMES.md` closely enough for discovery refinement.
+
+### AC71.1 - Given a local image file selected through the existing GUI path, the GUI uses the shared processing coordinator for local upscaling.
+- Introduced: [#71](archive/migrated-tickets/71.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-71.1: A fixture image selected through the existing GUI entry path reaches the shared coordinator and yields an upscaled result.
+  - ✅ RT-71.2: Existing model, scale, and face-enhancement options are preserved through the shared coordinator path.
+
+### AC71.2 - Given a generated-image file from app-managed storage, the GUI can hand the file to local Superscale processing without duplicating pipeline behaviour.
+- Introduced: [#71](archive/migrated-tickets/71.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-71.3: A fixture generated image in app-managed storage reaches the shared coordinator and yields an upscaled result.
+  - ✅ RT-71.4: Failure diagnostics from local processing are surfaced through the same error state for dropped and generated files.
+
+### AC71.3 - Given the handoff refactor, current Upscale wording and user-visible behaviour remain unchanged except for v2 mode navigation already introduced by the app shell.
+- Introduced: [#71](archive/migrated-tickets/71.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-71.5: Existing GUI state tests for the Upscale view continue to pass through the refactored path.
+  - ⏳ UT-71.1: Human review confirms the Upscale mode remains recognisably the current local workflow.
+
+### AC72.1 - Given valid FAL generation configuration, the GUI generation service represents text-to-image requests for `xai/grok-imagine-image` using the expected endpoint, authentication, payload, and response model.
+- Introduced: [#72](archive/migrated-tickets/72.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-72.1: Fixture-backed HTTP tests cover the text-to-image request URL, method, auth header, and payload.
+  - ✅ RT-72.2: Fixture-backed HTTP tests cover successful response parsing and generated image URL extraction.
+
+### AC72.2 - Given reference images are present, the GUI generation service represents image-to-image/edit requests with up to three references and model-family-specific payload handling.
+- Introduced: [#72](archive/migrated-tickets/72.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-72.3: Fixture-backed HTTP tests cover one, two, and three reference-image payloads.
+  - ✅ RT-72.4: Handler tests cover edit endpoint resolution and unsupported-option warnings.
+
+### AC72.3 - Given provider or network failure, the generation service exposes redacted diagnostics without leaking API keys or converting the failure to success.
+- Introduced: [#72](archive/migrated-tickets/72.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-72.5: Failure fixtures cover non-success responses, malformed responses, and download failures.
+  - ✅ RT-72.6: Diagnostic tests cover key redaction and preservation of actionable failure context.
+
+### AC72.4 - Given the v2 MVP scope, FAL is the only user-selectable provider while internal seams do not prevent later Google and Replicate support modelled on `../storyboard-gen`.
+- Introduced: [#72](archive/migrated-tickets/72.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-72.7: Model registry tests show only FAL models are exposed to v2 MVP selection.
+  - ⏳ UT-72.1: Human design review confirms future-provider notes are documented without adding non-MVP UI.
+
+### AC75.1 - Given the Generate mode, the GUI exposes prompt-pack selection, prompt entry, model selection, aspect selection, up to three reference image wells, and generate/cancel controls.
+- Introduced: [#75](archive/migrated-tickets/75.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-75.1: GUI state tests cover the Generate controls and default values.
+  - ✅ RT-75.2: Reference-well tests cover zero, one, two, three, and more-than-three image states.
+
+### AC75.2 - Given fixture-backed generation services, the Generate mode presents progress, success, cancellation, and failure states without paid network calls.
+- Introduced: [#75](archive/migrated-tickets/75.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-75.3: Coordinator tests cover progress-to-success and downloaded-output state.
+  - ✅ RT-75.4: Coordinator tests cover cancellation, provider failure, and download failure states.
+
+### AC75.3 - Given a generated output image, the GUI presents save, reveal, retry, and send-to-Upscale actions consistent with the v2 wireframe.
+- Introduced: [#75](archive/migrated-tickets/75.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-75.5: GUI state tests cover output actions for a fixture generated image.
+  - ✅ RT-75.6: Handoff tests cover generated output entering the shared local upscale coordinator.
+
+### AC75.4 - Given the first integrated Generate UX, the visible flow is good enough for discovery refinement without blocking core implementation on final visual polish.
+- Introduced: [#75](archive/migrated-tickets/75.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-75.7: Fixture-backed end-to-end GUI test covers prompt selection through generated-output display.
+  - ⏳ UT-75.1: Human review confirms the Generate mode follows `docs/v2/WIREFRAMES.md` closely enough to continue development.
+
+### AC77.1 - Given a completed generation session, the app stores generated assets and JSON metadata containing prompt, model, estimate, references, timestamp, and safe diagnostics.
+- Introduced: [#77](archive/migrated-tickets/77.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-77.1: Session-store tests cover successful generation metadata and generated asset paths.
+  - ✅ RT-77.2: Redaction tests cover absence of API keys and account data from persisted metadata.
+
+### AC77.2 - Given a generated image is locally upscaled, the app associates the upscaled asset with the originating generation session.
+- Introduced: [#77](archive/migrated-tickets/77.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-77.3: Session-store tests cover generated-plus-upscaled session metadata.
+  - ✅ RT-77.4: Handoff tests cover History-originated generated assets entering local upscale.
+  - ✅ RT-86.1: a recorded session identifier survives independently of any view
+  - ✅ RT-86.2: an imported input carries no generation-session identifier
+  - ✅ RT-86.3: a new generation clears the previous session identifier
+  - ✅ RT-86.4: the upscale input carries the session recorded for its output
+  - ✅ RT-86.5: the recorded identifier is cleared when the output changes
+  - ✅ RT-86.6: when recording a session fails, the input carries no identifier
+
+### AC77.3 - Given the History mode, the GUI can represent generated, upscaled, failed, and cancelled sessions with actions to reopen, send to Upscale, save, and reveal.
+- Introduced: [#77](archive/migrated-tickets/77.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-77.5: GUI state tests cover History filters and selected-session details.
+  - ✅ RT-77.6: GUI action tests cover reopen, send to Upscale, save, and reveal states for fixture sessions.
+
+### AC77.4 - Given the MVP storage scope, the app avoids database dependencies while retaining enough metadata for auditability and retry.
+- Introduced: [#77](archive/migrated-tickets/77.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-77.7: Storage tests cover plain-file and JSON metadata layout.
+  - ⏳ UT-77.1: Human review confirms the History surface is useful without becoming a full asset manager.
+
+### AC78.1 - Given a GUI release build, bundled prompt packs and required v2 GUI resources are present while secrets, account data, and session-local generated assets are absent.
+- Introduced: [#78](archive/migrated-tickets/78.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-78.1: Resource-packaging tests cover bundled prompt-pack availability in the app bundle or release artefact.
+  - ✅ OT-78.1: Release artefact inspection covers absence of secrets, account data, and session-local generated assets.
+
+### AC78.2 - Given CLI and GUI release paths, source package, CLI artefacts, GUI artefacts, and model resource handling remain distinct according to the existing release model.
+- Introduced: [#78](archive/migrated-tickets/78.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ OT-78.2: Release-script dry-run or release-candidate inspection covers CLI and GUI artefact separation.
+  - ✅ RT-78.2: Regression tests cover that the CLI remains generation-free after v2 GUI packaging changes.
+
+### AC78.3 - Given MVP v2 release validation, manual smoke checks cover one real FAL text-to-image generation, one image-to-image generation, one pricing/account display, and one generated image upscaled locally.
+- Introduced: [#78](archive/migrated-tickets/78.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ⏳ UT-78.1: Human smoke test confirms real FAL text-to-image generation succeeds.
+  - ⏳ UT-78.2: Human smoke test confirms real FAL image-to-image generation succeeds.
+  - ⏳ UT-78.3: Human smoke test confirms pricing/account display works or fails non-fatally with clear messaging.
+  - ⏳ UT-78.4: Human smoke test confirms a generated image can be locally upscaled and saved.
+
+### AC78.4 - Given the v2 MVP scope, release notes identify FAL as the only MVP provider and describe Google/Replicate as future provider directions informed by `../storyboard-gen`, not shipped features.
+- Introduced: [#78](archive/migrated-tickets/78.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-78.3: Release-note or documentation checks cover MVP provider scope and absence of Google/Replicate user-facing provider claims.
+  - ⏳ UT-78.5: Human review confirms release wording does not overpromise post-MVP providers.
+
+---
+
+## Pre-migration regression baseline
+
+## Baseline criteria recovered from maintained regression tests
+
+### AC149.1 - Requesting command help exits successfully and prints usage information.
+- Introduced: [#149](archive/migrated-tickets/149.md) (pre-migration baseline)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-002: cli help flag returns zero
+
+### AC149.2 - Listing models exits successfully and includes the default model.
+- Introduced: [#149](archive/migrated-tickets/149.md) (pre-migration baseline)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-003: cli list models returns zero
+
+### AC149.3 - Invoking the command without an input exits with a non-zero status.
+- Introduced: [#149](archive/migrated-tickets/149.md) (pre-migration baseline)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-004: cli no input returns error
+
+[^migration-heuristic]: Inferred migration status only, not a contemporaneous test result. The
+  near-complete rule supplies the status where every other recorded ticket test passed and only
+  one or two pending or unverified UTs or OTs remained. Maintained-RT evidence supplies it where a
+  ticket's RT still belongs to the operator-confirmed passing regression command. ACs with
+  independent recorded passing evidence are not marked.
 
 ---
 
 ## Test layout
+
+### AC79.1 - `make test` cannot execute a one-off test, because one-off tests are unreachable from the regression command by location rather than by exclusion.
+- Introduced: [#79](archive/migrated-tickets/79.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-79.1: the regression command run against a package containing a one-off test does not execute it --- realized by #80 as
+  - ✅ OT-80.1: and
+  - ✅ OT-80.5: under AC80.1 and AC80.3
+  - ✅ RT-79.2: the one-off command executes the one-off test --- realized by #80 as
+  - ✅ OT-80.3: and
+  - ✅ OT-80.4: under AC80.2
+
+### AC79.2 - A cloud filter never receives pixels produced by an upscale targeting the user's chosen output size.
+- Introduced: [#79](archive/migrated-tickets/79.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-79.3: a filter applied after an upscale sends the base, not the upscaled output --- realized by #81 as
+  - ✅ RT-81.1: under AC81.1
+  - ✅ RT-79.4: an upscaled asset cannot be adopted as the base --- realized by #81 as
+  - ✅ RT-81.9: under AC81.3 and
+  - ✅ RT-81.3: under AC81.1
+
+### AC79.3 - The application presents one workspace, with no peer navigation between upscaling and filtering.
+- Introduced: [#79](archive/migrated-tickets/79.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ UT-79.1: the running application shows a single workspace --- passed by the author, 2026-08-24
 
 ### AC80.1 - Tests belonging to the one-off package are outside the regression command's scope.
 - Introduced: #80 (closed 2026-08-21)
@@ -534,6 +2190,24 @@ extended AC92.1, AC92.5 and AC92.6.
   `first(where:)`, so a duplicate would make one filter permanently unreachable with no error
   and no way to notice but by counting.
 
+### AC74.3 - Given Generate mode uses prompt packs, selected prompt-pack text combines with user prompt text without mutating the bundled resource.
+- Introduced: [#74](archive/migrated-tickets/74.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-74.5: ~~, ~~🚫
+  - ✅ RT-74.6: ~~: rewritten into
+  - ✅ RT-85.17: rather than left calling a `PromptComposer` that no longer exists. Identifiers not reused.
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC74.4 - Given the MVP prompt-pack scope, user-authored prompt-pack editing is deferred while import or replacement can remain a later enhancement.
+- Introduced: [#74](archive/migrated-tickets/74.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ~~🚫 RT-74.7: asserted bundled selection *without* in-app editing controls. Removed, identifier not reused.~~
+  - ⏳ UT-74.1: transferred to #79's user-test roll-up, restated as whether the filter names read as intended names rather than as filenames.
+
 ### AC85.1 - A filter's identity, name and category come from its own frontmatter rather than from its filename.
 - Introduced: #85 (closed 2026-08-23)
 - Migrated: 2026-08-23
@@ -637,6 +2311,15 @@ extended AC92.1, AC92.5 and AC92.6.
   `GenerationSettingsState` rather than in the app's entry point so that it is the same code the
   tests drive.
 
+### AC85.10 - The filter mark is present only while the prompt box contains the chosen filter's unedited body; editing removes it and restoring the exact built-in wording restores it.
+- Introduced: [#129](archive/migrated-tickets/129.md) (backfilled onto the #85 filter-catalogue family)
+- Migrated: 2026-09-03
+- Tests:
+  - ✅ RT-129.2: text with no chosen filter carries no filter mark
+  - ✅ RT-129.3: editing the prompt clears the filter mark
+  - ✅ RT-129.4: restoring the original wording restores the filter mark
+- Note: #129 records the operator decision that the mark is derived from exact built-in wording rather than stored as a separate flag.
+
 ### AC85.7 - removed before sign-off
 - 🚫 Removed: it duplicated AC74.2. RT-85.20 and RT-85.21 extend that criterion's coverage
   instead. The identifier is not reused.
@@ -668,6 +2351,40 @@ extended AC92.1, AC92.5 and AC92.6.
 - Note: **UT-73.2 is re-offered.** He passed it on 2026-08-30, before trying a long key in the admin
   field.
 
+### AC73.1 - Given configured FAL credentials, the GUI stores generation and account/admin keys separately in Keychain-backed storage.
+- Introduced: [#73](archive/migrated-tickets/73.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-73.1: Key-storage tests cover saving, reading, replacing, and clearing the generation key.
+  - ✅ RT-73.2: Key-storage tests cover saving, reading, replacing, and clearing the account/admin key independently.
+
+### AC73.2 - Given non-secret v2 defaults, the GUI persists generation model, upscale model, output folder, prompt-pack selection, and cost threshold outside secret storage.
+- Introduced: [#73](archive/migrated-tickets/73.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-73.3: Settings persistence tests cover default values and user-changed values across service reloads.
+  - ✅ RT-73.4: Settings validation tests cover invalid output folders and invalid cost threshold values.
+
+### AC73.3 - Given readable `pix` configuration, the GUI imports supported non-shell key and default settings without executing command-based key resolvers.
+- Introduced: [#73](archive/migrated-tickets/73.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ~~🚫 RT-73.5: removed with `pix` configuration import.~~
+  - ~~🚫 RT-73.6: removed with `pix` configuration import.~~
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
+### AC73.4 - Given Settings mode is visible, users can see separate controls for generation key, account/admin key, account state, defaults, prompt packs, and `pix` import.
+- Introduced: [#73](archive/migrated-tickets/73.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ~~🚫 RT-73.7: superseded by RT-73.8.~~
+  - ~~🚫 UT-73.1: superseded by UT-73.2.~~
+- Supersession: preserved from the archived criterion; the identifier is not reused.
+
 ### AC73.5 - Users can see separate controls for generation key, account/admin key, account state, defaults, and prompt packs.
 - Introduced: #73 (closed, pre-cutover)
 - Migrated: 2026-08-24, cited by #88
@@ -692,6 +2409,39 @@ extended AC92.1, AC92.5 and AC92.6.
   carries no container identifier and whose button was always reachable. RT-88.3 states the rule
   rather than the two instances, because the same mistake elsewhere in the panel would leave RT-88.1
   and RT-88.2 passing.
+
+### AC76.1 - Given a selected FAL model and generation payload, the GUI can represent unit pricing, estimated cost, and unavailable-pricing states without blocking generation.
+- Introduced: [#76](archive/migrated-tickets/76.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-76.1: Fixture-backed pricing tests cover unit pricing and estimate responses.
+  - ✅ RT-76.2: Fixture-backed pricing tests cover unavailable pricing and malformed pricing responses.
+
+### AC76.2 - Given an account/admin key, the GUI can represent balance, recent usage, billing events, and authorization failure independently from generation-key validity.
+- Introduced: [#76](archive/migrated-tickets/76.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-76.3: Fixture-backed account tests cover balance, usage, and billing-event responses.
+  - ✅ RT-76.4: Fixture-backed account tests cover missing key, unauthorized key, and scope-error states.
+
+### AC76.3 - Given the configured cost threshold, the GUI requires explicit cost confirmation only when the estimate is above the threshold or when policy requires confirmation for unavailable estimates.
+- Introduced: [#76](archive/migrated-tickets/76.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: superseded by AC103.2 on 2026-08-25; the cost threshold and its policy were removed.
+- Tests:
+  - ~~🚫 RT-76.5: removed with `GenerationCostPolicy` by #103~~
+  - ~~🚫 RT-76.6: removed with the Settings control by #95~~
+- Supersession: the original wording and identifier are preserved and are not reused.
+
+### AC76.4 - Given account or pricing failure, the GUI preserves generation availability when the generation key is valid and communicates the pricing/account limitation separately.
+- Introduced: [#76](archive/migrated-tickets/76.md) (legacy ticket)
+- Migrated: 2026-09-03
+- Status: the ticket's four-workspace specification was superseded by `docs/IMPLEMENTATION_GUIDE_v2.md`; implemented code and criterion lineage are retained.
+- Tests:
+  - ✅ RT-76.7: Coordinator tests cover generation-enabled state with account failure.
+  - ⏳ UT-76.1: Human review confirms cost/account warnings are understandable and not alarmist.
 
 ### AC95.1 - Each credential row names its field once, and that name is identifiable rather than merely visible.
 - Introduced: #95 (closed 2026-08-25)
@@ -1141,7 +2891,10 @@ extended AC92.1, AC92.5 and AC92.6.
 - Introduced: #89 (closed 2026-08-25)
 - Migrated: 2026-08-25
 - Tests:
-  - ✅ RT-89.16 to RT-89.19: the four combinations, asserted in one test that walks all four
+  - ✅ RT-89.16: the base is reachable with the scale off
+  - ✅ RT-89.17: the base's upscale is reachable with a scale selected
+  - ✅ RT-89.18: the candidate is reachable with the scale off
+  - ✅ RT-89.19: the candidate's upscale is reachable with a scale selected
   - ~~🚫 RT-89.24~~ --- transferred to #90 as RT-90.18. Identifier retired and not reused.
 - Note: **written as one test rather than four, and that is what found the defect.** Four separate
   tests each pass against an implementation that couples the toggle to the scale, because each only
@@ -2369,6 +4122,12 @@ extended AC92.1, AC92.5 and AC92.6.
   - ✅ RT-96.10: two sides of equal aspect produce two identical frames, so the ordinary case is unchanged
   - ✅ RT-96.16: sides of differing aspect share a width and differ in height
   - ✅ RT-96.18: a portrait side is not clipped in a wide canvas
+  - ✅ RT-90.34: two equal-aspect images of different pixel sizes share one displayed frame
+  - ✅ RT-127.1: a square return beside a portrait source shares its width while both keep their proportions
+  - ✅ RT-127.2: where both sides fit, their shared width is the canvas width
+  - ✅ RT-127.3: where both sides do not fit, the taller side exactly fills the canvas height
+  - ✅ RT-127.4: a landscape pair on a tall canvas is limited by height rather than width
+  - ✅ RT-127.5: a pair taller in proportion than the canvas is limited by height
 - Note: AC90.10 required both sides at one displayed *size*, which is one displayed rectangle --- so
   the moment two shapes differ, something has to be stretched to fill it. Grok raises a short edge
   under 1024 to its working size and squares the result, so a 3:4 photograph returns 1:1 and the
@@ -2381,6 +4140,7 @@ extended AC92.1, AC92.5 and AC92.6.
 - Introduced: #96 (closed 2026-08-25)
 - Migrated: 2026-08-25
 - Tests:
+  - ✅ RT-90.35: a divider fraction maps to the same relative position in both images
   - ✅ RT-96.11: a divider at 50% is at the horizontal midpoint of each side
   - ✅ RT-96.12: the mapping holds where the two aspects differ
   - ✅ RT-96.13: the divider's own position remains the pointer's, per AC90.14

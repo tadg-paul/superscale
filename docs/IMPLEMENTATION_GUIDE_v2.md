@@ -1157,6 +1157,12 @@ this section --- four peer modes, cloud work bolted alongside, a dead
 integration API --- described the world sections 3 and 6 were written to fix,
 and is preserved in git history.*
 
+*Updated 2026-09-03 after the legacy-ticket migration. V2 remains a substantial
+UX change and architectural extension of the v1 local-upscaling product. The
+current acceptance criteria are in `ACs.md`; the lossless issue record and
+delivery dispositions are in `archive/migrated-tickets/` and
+`ticket-migration.org`.*
+
 **The v2 MVP is delivered and running.** One workspace: import a picture,
 browse 108 filters in the side panel, apply one through
 `xai/grok-imagine-image/edit`, lock the iterations worth keeping, native local
@@ -1181,10 +1187,12 @@ inference, seven models with content-based auto-selection, a compiled-model
 cache, alpha handling, cancellation, structured progress, and an SSIM gate
 against PyTorch references (`make test-ssim`).
 
-**What is not built** is exactly the section 6 exclusions --- pricing and
-account surfaces (components present in `FalGenerationKit`, unreferenced),
-text-to-image, undo/redo, release hardening --- plus the open defect tickets
-in section 5 and the human sign-offs listed in section 8.
+**Current exclusions** retain the paused pricing and account surfaces
+(components present in `FalGenerationKit`, unreferenced), undo/redo and the
+undelivered release-hardening scope recorded in `ticket-migration.org`.
+~~Text-to-image was excluded at the 2026-08-25 checkpoint.~~ It was delivered
+later by #148. The dated defect and status sections below are retained as
+delivery history rather than as the current work queue.
 
 ## 5. Defects
 
@@ -1210,6 +1218,10 @@ output; against the unfixed weighting it reports 1200 black pixels on a 400×200
 exactly its perimeter.
 
 ### Open defect tickets --- 2026-08-25
+
+*Here, "open" means open at the dated checkpoint. Current classifications and
+dispositions are in `ticket-migration.org`; GitHub issues are no longer the
+project's acceptance-criteria store.*
 
 The table above is the v2 design's original defect set, all closed. These are the defects open
 now, found by the #99 delivery's own verification and by the author's user-test rounds. **Each
@@ -1547,7 +1559,24 @@ a speed trade-off within regression, not a category boundary.
 | Secrets | Asserted absent from every diagnostic and persisted record. |
 | Human | One filter applied to a real image, one pricing check, one upscaled output saved. Charges may apply. |
 
-## 8. Status and Open Items
+## 8. Status record
+
+### Current after legacy-ticket migration --- 2026-09-03
+
+The canonical ledger is `ACs.md`, with 411 unique acceptance-criterion
+identifiers and a reverse mapping for all 549 RT identifiers in the maintained
+regression command. The issue snapshot is immutable under
+`archive/migrated-tickets/`; concise delivery, abandonment and undelivered-scope
+decisions are in `ticket-migration.org`. New or revived work now requires a new
+Spec Kit specification rather than reopening a legacy ticket.
+
+The v1 local-upscaling foundation remains part of the delivered product. V2 is
+the substantial UX and architectural extension described by this guide: one
+native Mac workspace combines the local Core ML pipeline with explicit cloud
+generation and transformation, while the command-line tool remains local
+upscaling only.
+
+### Historical handover --- 2026-08-25
 
 *Rewritten 2026-08-25 as the handover of record. A session picking this
 project up cold starts here, then follows the tickets --- every open defect
@@ -1613,6 +1642,11 @@ table on #79 carries every verdict with the author's words.
 
 ## Changelog
 
+- **3.40 (2026-09-03):** The current-status entry now points to the canonical
+  411-criterion ledger and migration index, while the 2026-08-25 issue-based
+  handover remains intact as dated delivery history. Section 4 records #148's
+  later text-to-image delivery and distinguishes v2's substantial UX and
+  architectural extension from the retained v1 local-upscaling foundation.
 - **3.39 (2026-08-31):** Section 2.2 gains **generation from a prompt alone**, brought into the MVP
   at the author's request (#148) --- the section had said there was no such entry and that it was
   "the next version", and **the prediction it made about the shape was exactly right**, so the

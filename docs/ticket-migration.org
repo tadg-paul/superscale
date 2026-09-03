@@ -1,0 +1,327 @@
+#+TITLE: Legacy ticket migration
+#+DATE: 2026-09-03
+
+* Migration evidence
+
+** Current phase
+
+- Phase: pre-closure durable commit.
+- Completed range: the immutable archive and evidence classification cover tickets #1 through #149.
+- Next unfinished ticket record: none; dispositions for #1 through #149 are now transcribed below.
+- Next action: commit the verified migration artefacts, then run the authorized closure batch once.
+
+** Archive
+
+- Snapshot: =docs/archive/migrated-tickets/= at =2026-09-03T02:04:45Z=.
+- Manifest: =docs/archive/migrated-tickets/manifest.json=.
+- Coverage: 149 issues, 566 comments and 2,001 timeline events.
+- Snapshot states: 18 open and 131 closed.
+- Baseline exception: #149, /Pre-migration baseline: orphan maintained CLI regression tests/, was created, retrieved and archived once.
+- Verification: every archived issue file contains its source title, URL, exact body and every exact comment body; pagination and file counts agree with the manifest.
+
+** Suite evidence
+
+- Result: current passing =make test= evidence supplied by the operator on 2026-09-03.
+- Execution: not rerun under the operator's explicit authority.
+- Safety boundary: no =make test=, =swift test=, =make test-gui=, XCUITest, application launch or input-capturing command is permitted in this migration.
+
+** Live RT map
+
+- Maintained harness: 596 test definitions in =make test=, containing 549 distinct RT identifiers.
+- Before reconciliation: 411 RT identifiers mapped to =docs/ACs.md=; 138 unresolved.
+- Archived provenance: 120 of the 138 unresolved identifiers map directly to archived ACs.
+- Traceability repairs: RT-86.1 through RT-86.6 map to AC77.2; RT-88.5 maps to AC1.5; RT-127.1 through RT-127.5 map to AC96.3; RT-129.2 through RT-129.4 map to the AC85 family.
+- Baseline recovery: orphan RT-002, RT-003 and RT-004 map to minimal observable AC149.1, AC149.2 and AC149.3.
+- Reconciled checksum: 549 mapped and zero unresolved after the ledger edit.
+
+** Ledger and documentation reconciliation
+
+- Canonical ledger: =docs/ACs.md= now contains 411 unique acceptance-criterion identifiers with no duplicate identifiers.
+- Legacy additions: 250 criteria were recovered from delivered tickets or the #149 regression baseline; defined but undelivered scope was excluded.
+- Heuristic markings: 11 ACs carry the migration-heuristic footnote; independently recorded passing evidence is not marked.
+- Formatting reconciliation: rereading only archived ticket #73 resolved a malformed multi-test row; AC73.3 retains removed RT-73.5 and RT-73.6, while AC73.4 retains RT-73.7 and UT-73.1 as superseded by RT-73.8 and UT-73.2.
+- Product lineage: v1 established local upscaling through the command-line tool and native Mac application. V2 is recorded as a substantial UX change and architectural extension that combines explicit cloud generation and transformation with the local Core ML pipeline in one native workspace.
+- Primary documents: =README.md=, =docs/VISION.md= and =docs/ARCHITECTURE.md= already make the v1 foundation and v2 extension clear, so they require no migration edit.
+- Stale status correction: =docs/IMPLEMENTATION_GUIDE_v2.md= now points current work to this index and the canonical ledger while preserving its 2026-08-25 issue-based handover as dated delivery history.
+- Implementation-plan archival: =docs/implementation_plan.md= does not exist. The pre-existing =docs/v1/implementation-plan.md= remains in its existing historical location; no move was required by the migration rule.
+
+** Classification checkpoint
+
+- Working totals: 136 delivered tickets, nine tickets with defined but undelivered scope, and four abandoned tickets.
+- Open defects without delivery evidence: none.
+- Heuristic tickets: #1, #19, #28, #29, #34, #37, #38, #39, #42, #50, #51 and #62.
+- Heuristic rule: inferred migration status only, not a contemporaneous test result. Each listed ticket had implementation evidence and no failed test, with no more than two unresolved UTs or OTs after the completed evidence pass.
+- Human-review classifications: none recorded.
+
+* Open defects at migration
+
+- None. Every open defect in the snapshot had delivery evidence.
+
+* Defined but undelivered features
+
+Closed no-evidence scope is abandoned; open no-evidence scope is undelivered. Any revival or delivery requires a new Spec Kit specification.
+
+** [[file:archive/migrated-tickets/11.md][#11 - feat: Phase 3 — CLI implementation (tracking issue)]]
+
+- Snapshot state: closed.
+- Evidence: no standalone AC, maintained-RT relationship or ticket-linked code commit was recorded on this tracking shell.
+- Disposition: abandoned tracking record; its child tickets are classified independently.
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/13.md][#13 - feat: Phase 6 — on-demand model download]]
+
+- Snapshot state: closed.
+- Evidence: the archive explicitly closes this proposal as redundant because models are bundled; model provisioning was folded into #12.
+- Disposition: abandoned and superseded; its criteria are not migrated.
+- Relevant legacy criteria:
+  - AC13.1 - Given \`--download-models\`, the CLI downloads all models from the manifest URLs to \`~/Library/Application Support/superscale/models/\`
+  - AC13.2 - Downloaded models are verified against their SHA256 hash in the manifest; a corrupted download is rejected
+  - AC13.3 - After a Homebrew install, all six models are present with no additional download required
+  - AC13.4 - Given a model name that is not locally installed and an interactive terminal, the CLI offers to download it before processing
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/14.md][#14 - feat: Phase 8 — macOS SwiftUI GUI]]
+
+- Snapshot state: open.
+- Evidence: AC14.1 through AC14.3 are recorded passing and are migrated; AC14.4 through AC14.6 remain pending with no delivery evidence.
+- Disposition: batch queue, persistent settings and signed/notarized distribution remain undelivered.
+- Relevant legacy criteria:
+  - AC14.4 - The app supports batch processing of multiple images with a visible queue.
+  - AC14.5 - User preferences for model, output format, and output directory persist across launches.
+  - AC14.6 - The app is distributable as a signed, notarized DMG and via Homebrew Cask.
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/15.md][#15 - feat: Phase 9 — macOS App Store distribution]]
+
+- Snapshot state: open.
+- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: macOS App Store distribution remains undelivered.
+- Relevant legacy criteria:
+  - AC15.1 - The app passes App Store review and is listed on the Mac App Store
+  - AC15.2 - The app operates correctly within App Store sandbox constraints (file access, model loading)
+  - AC15.3 - The app description, screenshots, and privacy policy meet App Store requirements
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/16.md][#16 - feat: Phase 10 — iOS app]]
+
+- Snapshot state: open.
+- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: the iOS application remains undelivered.
+- Relevant legacy criteria:
+  - AC16.1 - The app runs on iPhone and produces upscaled output identical to the Mac version for the same input
+  - AC16.2 - Memory usage stays within iOS constraints during upscaling (no OOM crashes)
+  - AC16.3 - The app integrates with the iOS Photos picker and share sheet
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/17.md][#17 - feat: Phase 11 — iOS App Store distribution]]
+
+- Snapshot state: open.
+- Evidence: both ACs are explicitly pending and depend on the undelivered iOS application; the recorded timeline reference does not establish delivery of this scope.
+- Disposition: iOS App Store distribution remains undelivered.
+- Relevant legacy criteria:
+  - AC17.1 - The iOS app passes App Store review and is listed on the iOS App Store
+  - AC17.2 - Model files are delivered via on-demand resources, keeping the initial download size reasonable
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/18.md][#18 - feat: model artefact management (local storage, sync, release)]]
+
+- Snapshot state: closed.
+- Evidence: AC18.1, AC18.3 and AC18.5 are recorded passing and are migrated; AC18.2 and AC18.4 are explicitly pending and described as not implemented.
+- Disposition: automatic model sync and the remaining release automation are abandoned legacy scope.
+- Relevant legacy criteria:
+  - AC18.2 - `make sync` does not attempt to commit or upload `.mlpackage` files, and warns if local models differ from the manifest
+  - AC18.4 - `make release` does not include model files in the version release
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/20.md][#20 - feat: interactive model download when model not found]]
+
+- Snapshot state: closed.
+- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: abandoned.
+- Relevant legacy criteria:
+  - AC20.1 - Given a missing model and an interactive terminal, the CLI prompts the user to download
+  - AC20.2 - Given a missing model and no TTY (piped/scripted), the CLI exits with code 1 and a descriptive error without prompting
+  - AC20.3 - After the user confirms download, the model is fetched, SHA256-verified, extracted, and the upscale proceeds
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/30.md][#30 - docs: add licence notice to face model release asset]]
+
+- Snapshot state: closed.
+- Evidence: no delivered AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: abandoned.
+- Relevant legacy criteria:
+  - AC30.1 - The `models-v1` release description includes a licence notice for the GFPGAN model stating: converted weights from GFPGAN/StyleGAN2, CC BY-NC-SA 4.0 + NVIDIA Source Code Licence, non-commercial use only, licence applies to weights not output images
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/46.md][#46 - feat: Phase 8d — batch processing queue]]
+
+- Snapshot state: open.
+- Evidence: no AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: the visible batch-processing queue remains undelivered.
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/47.md][#47 - feat: Phase 8e — settings panel]]
+
+- Snapshot state: open.
+- Evidence: no AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: the proposed persistent settings panel remains undelivered.
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/48.md][#48 - feat: Phase 8f — app icon and distribution]]
+
+- Snapshot state: open.
+- Evidence: no AC, maintained RT or ticket-linked code commit was recorded.
+- Disposition: the legacy app-icon and distribution scope remains undelivered.
+- Revival rule: a new Spec Kit specification is required.
+
+** [[file:archive/migrated-tickets/55.md][#55 - feat: Developer ID code signing and notarization for GUI app]]
+
+- Snapshot state: open.
+- Evidence: all three criteria are pending and no delivery evidence was recorded.
+- Disposition: Developer ID signing and notarization remain undelivered.
+- Relevant legacy criteria:
+  - AC55.1 - The released \`.app\` is signed with a Developer ID certificate, not ad-hoc.
+  - AC55.2 - The released \`.app\` is notarized and the ticket is stapled.
+  - AC55.3 - A fresh download of the DMG opens the app without Gatekeeper warnings.
+- Revival rule: a new Spec Kit specification is required.
+
+* Delivered tickets
+
+- [[file:archive/migrated-tickets/1.md][#1 - feat: optional GFPGAN face enhancement model download]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/2.md][#2 - feat: decide model storage strategy]]
+- [[file:archive/migrated-tickets/3.md][#3 - feat: Phase 1 — CoreML model conversion]]
+- [[file:archive/migrated-tickets/4.md][#4 - feat: Phase 2 — proof of concept (CoreML inference in Swift)]]
+- [[file:archive/migrated-tickets/5.md][#5 - chore: Phase 4 — licensing review]]
+- [[file:archive/migrated-tickets/6.md][#6 - feat: Phase 3a — Image I/O (ImageLoader + ImageWriter)]]
+- [[file:archive/migrated-tickets/7.md][#7 - feat: Phase 3b — tiling engine]]
+- [[file:archive/migrated-tickets/8.md][#8 - feat: Phase 3c — CoreML inference and model registry]]
+- [[file:archive/migrated-tickets/9.md][#9 - feat: Phase 3d — pipeline integration]]
+- [[file:archive/migrated-tickets/10.md][#10 - feat: Phase 3e — CLI polish (batch processing, flag wiring)]]
+- [[file:archive/migrated-tickets/12.md][#12 - feat: Phase 5 — Homebrew distribution]]
+- [[file:archive/migrated-tickets/19.md][#19 - fix: coremltools 7+ rejects scale!=1.0 on output ImageType]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/21.md][#21 - bug: make install does not make models discoverable by binary]]
+- [[file:archive/migrated-tickets/22.md][#22 - feat: auto-detect content type to select optimal model]]
+- [[file:archive/migrated-tickets/23.md][#23 - Update readme and docs]]
+- [[file:archive/migrated-tickets/24.md][#24 - model-conversion.md doesn't belong in the docs]]
+- [[file:archive/migrated-tickets/25.md][#25 - Sketches misclassified as photographs by content auto-detect]]
+- [[file:archive/migrated-tickets/26.md][#26 - CLI help text doesn't show available model names]]
+- [[file:archive/migrated-tickets/27.md][#27 - README needs a more compelling rewrite]]
+- [[file:archive/migrated-tickets/28.md][#28 - --download-face-model fails with cryptic error and doesn't unzip]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/29.md][#29 - feat: require interactive terminal for --download-face-model, drop --accept-licence]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/31.md][#31 - fix: Homebrew formula resource staging fails to find .mlpackage directories]]
+- [[file:archive/migrated-tickets/32.md][#32 - bug: face detection model replaces faces with black squares]]
+- [[file:archive/migrated-tickets/33.md][#33 - perf: cache compiled CoreML models between runs]]
+- [[file:archive/migrated-tickets/34.md][#34 - feat: SSIM comparison against PyTorch reference for quality regression testing]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/35.md][#35 - bug: --list-models omits face enhancement model]]
+- [[file:archive/migrated-tickets/36.md][#36 - fix: --version output should include product name and author]]
+- [[file:archive/migrated-tickets/37.md][#37 - feat: add realesr-general-wdn-x4v3 denoising model]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/38.md][#38 - feat: target resolution with --width/--height and floating-point --scale]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/39.md][#39 - Help text expansion]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/40.md][#40 - bug: single-tile images have faded edges (visible as cropped/zoomed content)]]
+- [[file:archive/migrated-tickets/41.md][#41 - bug: superscale --help hangs in terminal when pager is invoked]]
+- [[file:archive/migrated-tickets/42.md][#42 - Small image upscaling produces corrupted image files]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/43.md][#43 - feat: Phase 8a — SuperscaleKit library extraction]]
+- [[file:archive/migrated-tickets/44.md][#44 - feat: Phase 8b — GUI app scaffold and core upscaling]]
+- [[file:archive/migrated-tickets/45.md][#45 - feat: Phase 8c — before/after comparison view]]
+- [[file:archive/migrated-tickets/49.md][#49 - feat: Phase 8b.1 — Scale and resolution picker for GUI]]
+- [[file:archive/migrated-tickets/50.md][#50 - refactor: Phase 8 — migrate GUI to Xcode project]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/51.md][#51 - refactor: move model descriptions into ModelInfo for shared CLI/GUI use]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/52.md][#52 - feat: GUI face model download with licence acceptance flow]]
+- [[file:archive/migrated-tickets/53.md][#53 - feat: contextual info panel for GUI]]
+- [[file:archive/migrated-tickets/54.md][#54 - feat: make release-gui target for Homebrew Cask distribution of GUI app]]
+- [[file:archive/migrated-tickets/56.md][#56 - feat: add file chooser as alternative to drag-and-drop]]
+- [[file:archive/migrated-tickets/57.md][#57 - feat: XCUITest infrastructure for GUI automated testing]]
+- [[file:archive/migrated-tickets/58.md][#58 - feat: About button in toolbar with app info, version, and model/licence details]]
+- [[file:archive/migrated-tickets/59.md][#59 - Tidy model descriptors in CLI help text]]
+- [[file:archive/migrated-tickets/60.md][#60 - fix: cap custom resolution dimensions to prevent accidental extreme values]]
+- [[file:archive/migrated-tickets/61.md][#61 - UX intuitiveness improvements]]
+- [[file:archive/migrated-tickets/62.md][#62 - bug: face enhance toggle on transparent image produces black background]] [fn:migration-heuristic]
+- [[file:archive/migrated-tickets/63.md][#63 - fix: info panel cannot be reopened after dismissal]]
+- [[file:archive/migrated-tickets/64.md][#64 - bug: release-gui.sh uses wrong Xcode scheme name]]
+- [[file:archive/migrated-tickets/65.md][#65 - bug: comparison view smooths original image with Apple interpolation, hiding the upscale delta]]
+- [[file:archive/migrated-tickets/66.md][#66 - ux: comparison view divider hard to see against light or dark image regions]]
+- [[file:archive/migrated-tickets/67.md][#67 - ux: auto-enter comparison view on upscale completion, 35% divider, initial zoom, minimap]]
+- [[file:archive/migrated-tickets/68.md][#68 - feat: magnifier loupe as default comparison mode]]
+- [[file:archive/migrated-tickets/69.md][#69 - Convert source licence to Apache-2.0 and document trademark]]
+- [[file:archive/migrated-tickets/70.md][#70 - v2: establish GUI-only generation module boundaries and app shell]]
+- [[file:archive/migrated-tickets/71.md][#71 - v2: extract shared GUI upscale handoff coordinator]]
+- [[file:archive/migrated-tickets/72.md][#72 - v2: implement FAL generation core and model handlers]]
+- [[file:archive/migrated-tickets/73.md][#73 - v2: add Keychain credentials and GUI settings]]
+- [[file:archive/migrated-tickets/74.md][#74 - v2: bundle image prompt packs from prompt snippets]]
+- [[file:archive/migrated-tickets/75.md][#75 - v2: build Generate workspace and generated-image upscale handoff]]
+- [[file:archive/migrated-tickets/76.md][#76 - v2: add FAL pricing and account visibility]]
+- [[file:archive/migrated-tickets/77.md][#77 - v2: add generation history and session storage]]
+- [[file:archive/migrated-tickets/78.md][#78 - v2: harden GUI release path for MVP generation features]]
+- [[file:archive/migrated-tickets/79.md][#79 - v2 MVP delivery: filter-first single workspace with native upscaling]]
+- [[file:archive/migrated-tickets/80.md][#80 - v2 slice 0: relocate one-off tests to a separate package]]
+- [[file:archive/migrated-tickets/81.md][#81 - v2 slice 1: asset graph, lineage and lock]]
+- [[file:archive/migrated-tickets/82.md][#82 - v2 slice 2: stages, one progress and cancellation model, scale off state]]
+- [[file:archive/migrated-tickets/83.md][#83 - v2 slice 3a: black border, cancellation in the tile loop, readable kit errors, structured progress]]
+- [[file:archive/migrated-tickets/84.md][#84 - v2 slice 3b: an actor-confined, reusable pipeline]]
+- [[file:archive/migrated-tickets/85.md][#85 - v2 slice 4: filter frontmatter, validated loading, and select-then-apply]]
+- [[file:archive/migrated-tickets/86.md][#86 - Bug: a generated session loses its upscale linkage after the Generate view is rebuilt]]
+- [[file:archive/migrated-tickets/87.md][#87 - v2 slice 9a: one workspace, filter panel, Settings scene]]
+- [[file:archive/migrated-tickets/88.md][#88 - v2 slice 10: remove a source-grepping test and clear the standing GUI failures]]
+- [[file:archive/migrated-tickets/89.md][#89 - v2 slice 9b: the asset graph behind the workspace, with lock and the filter toggle]]
+- [[file:archive/migrated-tickets/90.md][#90 - v2 slice 9c: the display model — base, derivation, and the curtain]]
+- [[file:archive/migrated-tickets/91.md][#91 - Bug: a 2000px image at 4x exhausts memory; the cap is expressed in the wrong unit]]
+- [[file:archive/migrated-tickets/92.md][#92 - v2 slice 5: reference upload — the base goes to FAL storage, not into the request body]]
+- [[file:archive/migrated-tickets/93.md][#93 - v2: the controls report the state, not the request]]
+- [[file:archive/migrated-tickets/94.md][#94 - v2: the canvas ignores provider work, the curtain compares the wrong pair, and scrolling anywhere pans the picture]]
+- [[file:archive/migrated-tickets/95.md][#95 - v2: Settings says everything twice, hides what should be legible, and offers what the MVP excludes]]
+- [[file:archive/migrated-tickets/96.md][#96 - v2 slice 7: the 1024 floor is enforced, and the curtain stops stretching pictures to match each other]]
+- [[file:archive/migrated-tickets/97.md][#97 - v2 slice 6: the edit endpoint stops receiving a sizing parameter it rejects]]
+- [[file:archive/migrated-tickets/98.md][#98 - v2 slice 8: one error parser, both detail shapes, redaction everywhere, one surface]]
+- [[file:archive/migrated-tickets/99.md][#99 - Close the residual risks recorded at the v2 MVP delivery gate]]
+- [[file:archive/migrated-tickets/100.md][#100 - Image dimensions are read in pixels, through one function, and a picture that is not 72 dpi proves it]]
+- [[file:archive/migrated-tickets/101.md][#101 - The status bar's notices are verified where the user reads them]]
+- [[file:archive/migrated-tickets/102.md][#102 - The reference upload reads its file off the main actor]]
+- [[file:archive/migrated-tickets/103.md][#103 - One rule for the curtain's frames, the upscale allocation's contract pinned, and the paused cost policy removed]]
+- [[file:archive/migrated-tickets/104.md][#104 - Bug: a scale chosen while a run is in flight is silently discarded, while the readout describes a run that does not exist]]
+- [[file:archive/migrated-tickets/105.md][#105 - Bug: removing the isProcessing guard re-entered processImage through its own published state, hanging the app at import]]
+- [[file:archive/migrated-tickets/106.md][#106 - Bug: choosing a scale after a run completes can serve the previous scale's cached rendering under the new scale's label]]
+- [[file:archive/migrated-tickets/107.md][#107 - Bug: the live FAL storage initiate rejects our request — 'invalid storage type' — and no test has ever exercised the real protocol]]
+- [[file:archive/migrated-tickets/108.md][#108 - Bug: the info panel does its own scale arithmetic, reporting an output four times the ceiling while no scale is in effect]]
+- [[file:archive/migrated-tickets/109.md][#109 - Bug: the account/admin key row offers a control that visibly does nothing]]
+- [[file:archive/migrated-tickets/110.md][#110 - Bug: entering a credential makes the Settings text boxes change size and the form layout jump]]
+- [[file:archive/migrated-tickets/111.md][#111 - Bug: opening a locked iteration hides the lock chain, so the other iterations become unreachable]]
+- [[file:archive/migrated-tickets/112.md][#112 - Bug: a FAL filter result offers no curtain, so the user cannot compare it against the picture it was made from]]
+- [[file:archive/migrated-tickets/113.md][#113 - Bug: a provider error after Apply lands only in the status bar's caption, not on the application's one failure surface]]
+- [[file:archive/migrated-tickets/114.md][#114 - Delivery: discharge the owed post-MVP verification and clear the open v2 defect tickets]]
+- [[file:archive/migrated-tickets/115.md][#115 - Bug: the asset graph allocates output locations in a directory nothing creates, so every raise fails when the coordinator has not made it first]]
+- [[file:archive/migrated-tickets/116.md][#116 - Bug: UI tests write the workspace's assets into the user's real Application Support, because the asset graph ignores the test root]]
+- [[file:archive/migrated-tickets/117.md][#117 - The GUI suite's upscale-complete signal is a control whose meaning #112 is about to widen]]
+- [[file:archive/migrated-tickets/118.md][#118 - The GUI suite intermittently fails to give the prompt field keyboard focus, and three tests fail together when it does]]
+- [[file:archive/migrated-tickets/119.md][#119 - The progress indicator sits at the top of the canvas and should be centred over the picture]]
+- [[file:archive/migrated-tickets/120.md][#120 - Delivery: bring the build onto the design of record and clear the 2026-08-27 user-test round]]
+- [[file:archive/migrated-tickets/121.md][#121 - Bug: current-image state has two owners, so a filter after selecting an earlier iteration reads the wrong picture]]
+- [[file:archive/migrated-tickets/122.md][#122 - Bug: Apply accepts a second click before it disables, sending two paid requests]]
+- [[file:archive/migrated-tickets/123.md][#123 - Change: cache renderings so changing scale on an already-rendered picture is instantaneous]]
+- [[file:archive/migrated-tickets/124.md][#124 - Change: cache filter results within a session so an identical apply costs nothing]]
+- [[file:archive/migrated-tickets/125.md][#125 - Bug: an oversized picture leaves one scale depressed and disabled while the others stay live]]
+- [[file:archive/migrated-tickets/126.md][#126 - Bug: the comparison curtain cannot be dismissed, hides the information panel, and appears inconsistently]]
+- [[file:archive/migrated-tickets/127.md][#127 - Bug: a returned picture of a different shape is not rendered at the proportions the design specifies]]
+- [[file:archive/migrated-tickets/128.md][#128 - Bug: the progress indicator's background is far wider than its text and is opaque]]
+- [[file:archive/migrated-tickets/129.md][#129 - Bug: a filter mark is shown against a picture it was not applied to, and survives an edited prompt]]
+- [[file:archive/migrated-tickets/130.md][#130 - Bug: no second image can be brought in without restarting the application]]
+- [[file:archive/migrated-tickets/131.md][#131 - Change: upscaling is off on launch, so the first upscale is a deliberate act]]
+- [[file:archive/migrated-tickets/132.md][#132 - Bug: locking after selecting an earlier iteration discards every later lock]]
+- [[file:archive/migrated-tickets/133.md][#133 - Delivery: the 2026-08-29 user-test round — repeat defects, curtain ergonomics, and the prompt corpus]]
+- [[file:archive/migrated-tickets/134.md][#134 - Bug: the comparison curtain still cannot be switched off after applying a filter]]
+- [[file:archive/migrated-tickets/135.md][#135 - Bug: no route to clear the current picture and browse for another]]
+- [[file:archive/migrated-tickets/136.md][#136 - Bug: the curtain divider is hard to grab, and scrolling should move it]]
+- [[file:archive/migrated-tickets/137.md][#137 - Investigation: why grok filters feel slower than pix, and what would change it]]
+- [[file:archive/migrated-tickets/138.md][#138 - Add twenty-two prompts to the bundled corpus, introducing the Narrative and Institutional categories]]
+- [[file:archive/migrated-tickets/139.md][#139 - Delivery master: the user-test round of 2026-08-31]]
+- [[file:archive/migrated-tickets/140.md][#140 - Bug: clearing the picture empties the filter list and its categories]]
+- [[file:archive/migrated-tickets/141.md][#141 - Bug: clicking the search box does not clear the active category, so search stays trapped behind a chip]]
+- [[file:archive/migrated-tickets/142.md][#142 - Bug: the progress badge is one horizontal line and too small; it wants three stacked lines]]
+- [[file:archive/migrated-tickets/143.md][#143 - Warn before a clear loses unsaved locked iterations, and allow cancel]]
+- [[file:archive/migrated-tickets/144.md][#144 - Copy the displayed picture with Cmd+C, and paste with Cmd+V only onto a blank canvas]]
+- [[file:archive/migrated-tickets/145.md][#145 - Cmd+N clears the canvas rather than opening a second window onto the same state]]
+- [[file:archive/migrated-tickets/146.md][#146 - Bug: Settings rows rearrange themselves while a long API key is typed]]
+- [[file:archive/migrated-tickets/147.md][#147 - Keyboard shortcuts for the scale toggles and face enhancement]]
+- [[file:archive/migrated-tickets/148.md][#148 - Generate a picture from a prompt alone, on an empty canvas]]
+- [[file:archive/migrated-tickets/149.md][#149 - Pre-migration baseline: orphan maintained CLI regression tests]]
+
+[fn:migration-heuristic] Inferred migration status only, not a contemporaneous test result. Every other recorded ticket test passed and the only unresolved evidence was no more than two UTs or OTs, as defined by the near-complete migration rule.
