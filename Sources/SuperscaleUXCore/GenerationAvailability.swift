@@ -11,7 +11,7 @@ import Foundation
 // the control that configured it and the preference that stored it, leaving a type nothing
 // consulted — which is a thing a later reader has to prove is dead.
 //
-// AC76's cost-confirmation criterion is marked superseded in `docs/ACs.md`, and RT-76.5 goes with
+// AC76's cost-confirmation criterion is marked superseded in `docs/ACs.org`, and RT-76.5 goes with
 // its subject. That test's identifier is retired and not reused.
 //
 // The policy itself was correct and is preserved in the history of this file, should a second model

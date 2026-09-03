@@ -2532,7 +2532,7 @@ final class SuperscaleAppUITests: XCTestCase {
     /// `children: .contain` is what does not report.
     ///
     /// **What replaces it is the route this codebase already uses for claims a test cannot make
-    /// from outside.** `docs/ACs.md` carries four precedents: AC89.7's constructor claim, AC98.5's
+    /// from outside.** `docs/ACs.org` carries four precedents: AC89.7's constructor claim, AC98.5's
     /// "no failure path bypasses that surface", AC103.2's absent type, and AC100.2's "through one
     /// function". Each is structural, each is confirmed by `audit-code`, and each keeps a test for
     /// the observable half.

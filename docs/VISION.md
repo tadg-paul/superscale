@@ -147,7 +147,7 @@ design. It is not the full end state.
 > visibility** (a documented flat rate instead). The list is retained as the
 > record of what was planned before user contact reshaped it; the delivered
 > scope is `IMPLEMENTATION_GUIDE_v2.md` sections 2 and 6 and the criteria in
-> `ACs.md`.
+> `ACs.org`.
 
 ### MVP Capabilities
 

@@ -1159,7 +1159,7 @@ and is preserved in git history.*
 
 *Updated 2026-09-03 after the legacy-ticket migration. V2 remains a substantial
 UX change and architectural extension of the v1 local-upscaling product. The
-current acceptance criteria are in `ACs.md`; the lossless issue record and
+current acceptance criteria are in `ACs.org`; the lossless issue record and
 delivery dispositions are in `archive/migrated-tickets/` and
 `ticket-migration.org`.*
 
@@ -1345,7 +1345,7 @@ defect-closure delivery under master #99 added #100 (one pixel measurement),
 #101 (the status bar verified where the user reads it), #102 (upload reads off
 the main actor), #103 (allocation contract, curtain rule, cost policy
 removed). The authoritative slice-to-ticket table with per-ticket status is
-master #79's "Child issues" section; criteria live in `docs/ACs.md` (118
+master #79's "Child issues" section; criteria live in `docs/ACs.org` (118
 entries, per-test status marks).
 
 **Remaining, in dependency order:**
@@ -1563,7 +1563,7 @@ a speed trade-off within regression, not a category boundary.
 
 ### Current after legacy-ticket migration --- 2026-09-03
 
-The canonical ledger is `ACs.md`, with 411 unique acceptance-criterion
+The canonical ledger is `ACs.org`, with 411 unique acceptance-criterion
 identifiers and a reverse mapping for all 549 RT identifiers in the maintained
 regression command. The issue snapshot is immutable under
 `archive/migrated-tickets/`; concise delivery, abandonment and undelivered-scope
@@ -1596,7 +1596,7 @@ procedure written to be executed without conversational context.*
 > stale, search the log for the commit subject quoted in the ticket.
 
 **Delivered.** The v2 MVP under master #79: slices 0--11, children #80--#98,
-all closed with ACs migrated to `docs/ACs.md` (the canonical criteria
+all closed with ACs migrated to `docs/ACs.org` (the canonical criteria
 document, 118 entries with per-test status). The child-to-slice table with
 per-ticket closure notes is on #79. Baselines: `make test` 533 executed, 6
 skipped, 0 failures; `make test-gui` 101 executed, 0 failures at its last
