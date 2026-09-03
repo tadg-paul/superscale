@@ -5,10 +5,10 @@
 
 ** Current phase
 
-- Phase: pre-closure durable commit.
+- Phase: closure batch recorded; awaiting operator assessment of Spec Kit readiness.
 - Completed range: the immutable archive and evidence classification cover tickets #1 through #149.
 - Next unfinished ticket record: none; dispositions for #1 through #149 are now transcribed below.
-- Next action: commit the verified migration artefacts, then run the authorized closure batch once.
+- Next action: none within this migration; the operator decides whether to invoke =sdlc-project-init=.
 
 ** Archive
 
@@ -30,7 +30,8 @@
 - Maintained harness: 596 test definitions in =make test=, containing 549 distinct RT identifiers.
 - Before reconciliation: 411 RT identifiers mapped to =docs/ACs.md=; 138 unresolved.
 - Archived provenance: 120 of the 138 unresolved identifiers map directly to archived ACs.
-- Traceability repairs: RT-86.1 through RT-86.6 map to AC77.2; RT-88.5 maps to AC1.5; RT-127.1 through RT-127.5 map to AC96.3; RT-129.2 through RT-129.4 map to the AC85 family.
+- Traceability repairs: RT-86.1 through RT-86.6 map to AC77.2; RT-88.5 maps to AC1.5; RT-127.1 through RT-127.5 map to AC96.3; RT-129.2 through RT-129.4 map to AC85.10.
+- Explicit relationships added for maintained identifiers hidden by legacy grouped or superseded notation: RT-049 maps to AC25.2; RT-89.16 through RT-89.19 map individually to AC89.6; RT-90.34 maps to AC96.3; RT-90.35 maps to AC96.4.
 - Baseline recovery: orphan RT-002, RT-003 and RT-004 map to minimal observable AC149.1, AC149.2 and AC149.3.
 - Reconciled checksum: 549 mapped and zero unresolved after the ledger edit.
 
@@ -47,11 +48,23 @@
 
 ** Classification checkpoint
 
-- Working totals: 136 delivered tickets, nine tickets with defined but undelivered scope, and four abandoned tickets.
+- Recorded totals: 136 delivered tickets, nine tickets with defined but undelivered scope, and four abandoned tickets.
 - Open defects without delivery evidence: none.
 - Heuristic tickets: #1, #19, #28, #29, #34, #37, #38, #39, #42, #50, #51 and #62.
 - Heuristic rule: inferred migration status only, not a contemporaneous test result. Each listed ticket had implementation evidence and no failed test, with no more than two unresolved UTs or OTs after the completed evidence pass.
 - Human-review classifications: none recorded.
+
+** Closure record
+
+- Archive commit before closure: =2a7c372=.
+- Closure date: 2026-09-03.
+- Snapshot-open issues attempted once: 18.
+- Closed as not planned: eight --- #14, #15, #16, #17, #46, #47, #48 and #55.
+- Closed as completed: ten --- #57, #69, #79, #99, #114, #120, #133, #137, #139 and #149.
+- Total closed by the migration batch: 18.
+- Closure failures: none.
+- Ticket comments added: none.
+- Post-closure refetch: not performed.
 
 * Open defects at migration
 
