@@ -1,4 +1,4 @@
-<!-- SYNC IMPACT: 0.1.0 -> 0.2.0 | Principles: I corrected and renamed; II narrowed; III replaced | Added: NONE | Removed: macOS-only and cloud-client prohibitions | TODOs: reconcile stale docs/ACs.md migration references; confirm adopted SDLC release -->
+<!-- SYNC IMPACT: 0.2.0 -> 0.3.0 | Principles: III made provider-neutral | Added: NONE | Removed: FAL-specific constitutional references | TODOs: reconcile stale docs/ACs.md migration references; confirm adopted SDLC release -->
 
 # Superscale Constitution
 
@@ -60,8 +60,7 @@ provenance, not design authority.
 
 `docs/IMPLEMENTATION_GUIDE_v2.md` is the current approved design of record.
 `docs/ARCHITECTURE.md` is the current approved as-built architecture and MUST
-remain consistent with that design. `docs/FAL_REQUEST_REFERENCE.md` is the
-project's durable integration reference within the external provider boundary.
+remain consistent with that design.
 
 ### Regression Evidence and Traceability
 
@@ -131,9 +130,9 @@ Superscale source and application code MUST remain licensed under Apache-2.0.
 Upscaling model artefacts are separate works governed by their own licences. A
 model carrying non-commercial terms MUST NOT be bundled with Superscale and MAY
 be acquired separately only after the user is clearly presented with and
-accepts those terms. FAL's hosted services are not part of the Superscale
-distribution: users provide their own FAL API keys, and their use of FAL is
-governed by the agreement between each user and FAL. This separation is a
+accepts those terms. Hosted services are not distributed as part of Superscale.
+Users provide their own provider credentials, and their use of each hosted
+service is governed by their agreement with that provider. This separation is a
 project-wide licensing and service-ownership policy.
 
 ## Project Ownership and Architecture Boundaries
@@ -180,4 +179,4 @@ Ratification is blocked until all of the following are resolved:
   `1ac3855450cad5b8e1efce52e63c93cddec74f67` identifies the SDLC release being
   adopted at ratification.
 
-**Version**: 0.2.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
+**Version**: 0.3.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
