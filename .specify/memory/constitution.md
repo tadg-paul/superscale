@@ -1,4 +1,4 @@
-<!-- SYNC IMPACT: UNRATIFIED -> 0.1.0 | Principles: native local product; explicit external processing; distinct rights | Added: brownfield authority map; ownership boundaries; ratification blockers | Removed: generic core-template placeholders | TODOs: reconcile stale docs/ACs.md migration references; confirm adopted SDLC release -->
+<!-- SYNC IMPACT: 0.1.0 -> 0.2.0 | Principles: I corrected and renamed; II narrowed; III replaced | Added: NONE | Removed: macOS-only and cloud-client prohibitions | TODOs: reconcile stale docs/ACs.md migration references; confirm adopted SDLC release -->
 
 # Superscale Constitution
 
@@ -106,31 +106,35 @@ When the operator explicitly selects paired development under `~/.agents/sdlc/PA
 
 ## Project-Specific Principles
 
-### I. Native Local Product
+### I. Local Upscaling Is On-Device
 
-Superscale MUST remain a native Mac product whose image-upscaling capability
-executes locally. The command-line product MUST remain limited to local
-upscaling and MUST NOT become a cloud-generation client. Changing either
-boundary requires constitutional revision because both define the project's
-durable identity rather than a feature-level choice.
+Superscale's local upscaling models MUST execute on the user's device.
+Provider-hosted models MAY also offer upscaling through cloud generation or
+filter routes, but MUST NOT be represented as the local upscaling path. Platform
+support, including macOS and iOS, MAY evolve through approved specifications and
+design without constitutional revision. On-device upscaling is the durable
+product invariant; platform reach and provider capability are not.
 
-### II. Explicit External Processing
+### II. Deliberate Paid and External Work
 
-Local processing MUST NOT be represented as external processing, and external
-processing MUST NOT be represented as local. An image or credential MAY leave
-the device only through an explicitly invoked, accurately disclosed external
-operation. The application MUST preserve meaningful human control over paid
-and externally processed work by requiring deliberate user initiation. This
-principle protects the project's durable privacy and agency boundary while
-allowing providers and features to evolve.
+Paid or externally processed work MUST begin only through deliberate user
+initiation. Requirements, designs, and user-facing claims MUST accurately
+distinguish local processing from provider-executed processing. Once pricing
+visibility is implemented, cost information MUST remain clear throughout the
+paid workflow. This principle governs user agency and honest presentation; it
+does not require a separate warning whenever a provider credential accompanies
+an initiated request.
 
-### III. Distinct Rights and Provenance
+### III. Licensing by Artefact and Service
 
-The Apache-2.0 licence for Superscale source MUST NOT be represented as granting
-rights in third-party model artefacts or the Superscale name and logo. Model,
-source, and trademark rights MUST remain separately attributed and governed by
-their applicable authorities. A change to this rights boundary requires a
-constitutional decision because it changes project-wide ownership policy.
+Superscale source and application code MUST remain licensed under Apache-2.0.
+Upscaling model artefacts are separate works governed by their own licences. A
+model carrying non-commercial terms MUST NOT be bundled with Superscale and MAY
+be acquired separately only after the user is clearly presented with and
+accepts those terms. FAL's hosted services are not part of the Superscale
+distribution: users provide their own FAL API keys, and their use of FAL is
+governed by the agreement between each user and FAL. This separation is a
+project-wide licensing and service-ownership policy.
 
 ## Project Ownership and Architecture Boundaries
 
@@ -150,7 +154,10 @@ authority on implementation code, tests, or historical records.
 
 ## Governance
 
-This constitution governs project specifications, plans, tasks, implementation, and review after ratification. Before ratification, this scaffold has no authority. Amendments MUST explain compatibility and migration effects and update the version and dates below.
+This draft has no authority unless and until Taḋg O'Brien ratifies it. After
+ratification, this constitution governs project specifications, plans, tasks,
+implementation, and review. Amendments MUST explain compatibility and migration
+effects and update the version and dates below.
 
 Taḋg O'Brien, as human project owner, is the ratification and amendment
 authority. No standards deviation is approved by this draft. After ratification,
@@ -173,4 +180,4 @@ Ratification is blocked until all of the following are resolved:
   `1ac3855450cad5b8e1efce52e63c93cddec74f67` identifies the SDLC release being
   adopted at ratification.
 
-**Version**: 0.1.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
+**Version**: 0.2.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
