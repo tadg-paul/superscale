@@ -1,4 +1,4 @@
-<!-- SYNC IMPACT: 0.3.0 -> 0.4.0 | Principles: NONE | Added: API standards | Removed: resolved ratification blockers | TODOs: NONE -->
+<!-- SYNC IMPACT: 0.4.0 -> 0.4.1 | Principles: II clarified | Added: NONE | Removed: per-request credential warning decision | TODOs: NONE -->
 
 # Superscale Constitution
 
@@ -121,9 +121,8 @@ Paid or externally processed work MUST begin only through deliberate user
 initiation. Requirements, designs, and user-facing claims MUST accurately
 distinguish local processing from provider-executed processing. Once pricing
 visibility is implemented, cost information MUST remain clear throughout the
-paid workflow. This principle governs user agency and honest presentation; it
-does not require a separate warning whenever a provider credential accompanies
-an initiated request.
+paid workflow. This principle governs deliberate initiation and honest cost and
+provider presentation.
 
 ### III. Licensing by Artefact and Service
 
@@ -171,4 +170,4 @@ materially expands governance, and a PATCH version clarifies wording without
 changing meaning. Revisions before ratification are draft revisions, not
 constitutional amendments.
 
-**Version**: 0.4.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
+**Version**: 0.4.1 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
