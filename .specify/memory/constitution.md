@@ -1,4 +1,4 @@
-<!-- SYNC IMPACT: 0.2.0 -> 0.3.0 | Principles: III made provider-neutral | Added: NONE | Removed: FAL-specific constitutional references | TODOs: reconcile stale docs/ACs.md migration references; confirm adopted SDLC release -->
+<!-- SYNC IMPACT: 0.3.0 -> 0.4.0 | Principles: NONE | Added: API standards | Removed: resolved ratification blockers | TODOs: NONE -->
 
 # Superscale Constitution
 
@@ -17,13 +17,14 @@ This project MUST comply with the following canonical standards. The standards a
 - **Paired development:** `~/.agents/sdlc/PAIRING.md`.
 - **Documentation:** `~/.agents/sdlc/DOCUMENTATION.md`.
 - **Source control:** `~/.agents/sdlc/GIT.md`.
+- **API and service integrations:** `~/.agents/sdlc/technologies/API.md`.
 - **Python Standards:** `~/.agents/sdlc/technologies/PYTHON.md`.
 - **Shell Standards:** `~/.agents/sdlc/technologies/SHELL.md`.
 - **Swift Standards:** `~/.agents/sdlc/technologies/SWIFT.md`.
 
 A deviation MUST name the standard, reason, risk, and approving authority. Silence is not a deviation.
 
-The adopted SDLC revision is `1ac3855450cad5b8e1efce52e63c93cddec74f67`.
+The adopted SDLC release is `v2.0.6`.
 
 
 ## Specification and Evidence
@@ -170,13 +171,4 @@ materially expands governance, and a PATCH version clarifies wording without
 changing meaning. Revisions before ratification are draft revisions, not
 constitutional amendments.
 
-Ratification is blocked until all of the following are resolved:
-
-- `docs/ticket-migration.org` names the missing `docs/ACs.md` as the canonical
-  ledger in two places; the project authority actually present and selected by
-  this draft is `docs/ACs.org`.
-- The human ratification authority confirms that SDLC revision
-  `1ac3855450cad5b8e1efce52e63c93cddec74f67` identifies the SDLC release being
-  adopted at ratification.
-
-**Version**: 0.3.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
+**Version**: 0.4.0 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
