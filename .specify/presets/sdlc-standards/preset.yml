@@ -1,0 +1,80 @@
+schema_version: "1.0"
+
+preset:
+  id: "sdlc-standards"
+  name: "SDLC Engineering Standards"
+  version: "0.4.0"
+  description: "Adds progressive engineering standards to Spec Kit without replacing its orchestration."
+  author: "tigger-developer"
+  repository: "https://github.com/tigger-developer/sdlc"
+  license: "Apache-2.0"
+
+requires:
+  speckit_version: ">=1.0.0"
+
+provides:
+  templates:
+    - type: "command"
+      name: "speckit.constitution"
+      file: "commands/speckit.constitution.md"
+      description: "Complete the generated project constitution"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.specify"
+      file: "commands/speckit.specify.md"
+      description: "Apply specification standards"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.clarify"
+      file: "commands/speckit.clarify.md"
+      description: "Resolve material specification ambiguity"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.plan"
+      file: "commands/speckit.plan.md"
+      description: "Apply implementation and stack standards to planning"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.tasks"
+      file: "commands/speckit.tasks.md"
+      description: "Apply testing and documentation standards to tasks"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.analyze"
+      file: "commands/speckit.analyze.md"
+      description: "Check specifications, plans, and tests against the standards"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.checklist"
+      file: "commands/speckit.checklist.md"
+      description: "Apply requirement-quality standards to checklists"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.implement"
+      file: "commands/speckit.implement.md"
+      description: "Load only the project-selected standards during implementation"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.converge"
+      file: "commands/speckit.converge.md"
+      description: "Apply selected standards when assessing remaining work"
+      strategy: "prepend"
+
+    - type: "command"
+      name: "speckit.taskstoissues"
+      file: "commands/speckit.taskstoissues.md"
+      description: "Keep generated issue references human-readable"
+      strategy: "prepend"
+
+tags:
+  - "engineering-standards"
+  - "progressive-context"
+  - "spec-driven-development"
