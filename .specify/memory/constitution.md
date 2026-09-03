@@ -1,8 +1,6 @@
-<!-- SYNC IMPACT: 0.4.0 -> 0.4.1 | Principles: II clarified | Added: NONE | Removed: per-request credential warning decision | TODOs: NONE -->
+<!-- SYNC IMPACT: 0.3.0 -> 1.0.0 | Principles: NONE | Added: initial ratification | Removed: scaffold marker and draft qualifications | TODOs: NONE -->
 
 # Superscale Constitution
-
-<!-- SDLC-GENERATED-SCAFFOLD: editable until ratification. -->
 
 ## Engineering Standards
 
@@ -75,7 +73,7 @@ Tests and code provide evidence of implemented behaviour. They do not approve re
 
 ### Precedence and Supersession
 
-Authority is concern-specific. Taḋg O'Brien, as human project owner, controls
+Authority is concern-specific. Tadhg O'Brien, as human project owner, controls
 ratification, constitutional change, and deviations. After ratification, this
 constitution and its selected standards govern engineering and governance.
 `docs/VISION.md` governs durable product purpose and policy. `docs/ACs.org` and
@@ -146,28 +144,26 @@ behaviour and data-handling commitments it publishes. Provider authority does
 not extend to Superscale product policy, and Superscale authority does not
 extend to redefining provider infrastructure behaviour.
 
-Third-party model owners retain authority over their model licences. Taḋg
+Third-party model owners retain authority over their model licences. Tadhg
 O'Brien retains authority over the Superscale name and logo under
 `docs/trademark.md`. These ownership boundaries do not confer requirement
 authority on implementation code, tests, or historical records.
 
 ## Governance
 
-This draft has no authority unless and until Taḋg O'Brien ratifies it. After
-ratification, this constitution governs project specifications, plans, tasks,
-implementation, and review. Amendments MUST explain compatibility and migration
-effects and update the version and dates below.
+This constitution governs project specifications, plans, tasks, implementation,
+and review. Amendments MUST explain compatibility and migration effects and
+update the version and dates below.
 
-Taḋg O'Brien, as human project owner, is the ratification and amendment
-authority. No standards deviation is approved by this draft. After ratification,
-compliance review MUST identify the applicable constitutional principles,
-approved deviations, and every unresolved constitutional conflict. A conflict
-MUST be resolved by the competent human authority before affected work proceeds.
+Tadhg O'Brien, as human project owner, is the ratification and amendment
+authority. No standards deviation is approved. Compliance review MUST identify
+the applicable constitutional principles, approved deviations, and every
+unresolved constitutional conflict. A conflict MUST be resolved by the competent
+human authority before affected work proceeds.
 
 Initial ratification sets the version to `1.0.0`. After ratification, a MAJOR
 version removes or incompatibly redefines governance, a MINOR version adds or
 materially expands governance, and a PATCH version clarifies wording without
-changing meaning. Revisions before ratification are draft revisions, not
-constitutional amendments.
+changing meaning.
 
-**Version**: 0.4.1 | **Ratified**: UNRATIFIED | **Last Revised**: 2026-09-03
+**Version**: 1.0.0 | **Ratified**: 2026-09-03 | **Last Revised**: 2026-09-03
