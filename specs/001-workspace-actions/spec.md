@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Deliver working Cmd+C and Cmd+V image actions, make Cmd+S open Save As, add one-click Save All using a configured default directory, clear search text when a filter category is chosen, and route an empty-canvas prompt through the default Grok generation operation while every non-empty-canvas prompt remains an edit of the base image."
+**Input**: User description: "Deliver working Cmd+C and Cmd+V image actions, make Cmd+S open Save As for one displayed file, add one-click Save All for the existing images represented by locked panels using a configured default directory and no new rendering or upscaling, clear search text when a filter category is chosen, and route an empty-canvas prompt through the default Grok generation operation while every non-empty-canvas prompt remains an edit of the base image."
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -34,7 +34,7 @@ A user can copy, paste, and save the image by using the standard Mac keyboard sh
    THEN the shortcut applies to the selected text or insertion point and does not copy or replace the canvas picture.
 5. GIVEN any picture is saveable, including a picture with scaling turned off
    WHEN the user presses `Cmd+S`
-   THEN a Save As dialog opens at the configured default save directory.
+   THEN a Save As dialog opens at the configured default save directory for that one displayed picture.
 6. GIVEN a Save As dialog is open
    WHEN the user cancels it
    THEN no file is written and the workspace is unchanged.
@@ -44,38 +44,44 @@ A user can copy, paste, and save the image by using the standard Mac keyboard sh
 
 ---
 
-### User Story 2 - Save the Whole Workspace Once (Priority: P1)
+### User Story 2 - Save Every Locked Panel Once (Priority: P1)
 
-A user can export every distinct image held by the current workspace with one Save All action instead of selecting and saving each iteration separately.
+A user can save the existing image represented by every panel in the locked-image strip with one Save All action instead of selecting and saving each panel separately.
 
-**Why this priority**: The iteration chain represents work the user deliberately kept and may have paid to produce. Repeated Save As dialogs make preserving that work slow and error-prone.
+**Why this priority**: The locked panels represent work the user deliberately kept and may have paid to produce. Repeated Save As dialogs make preserving that work slow and error-prone.
 
-**Independent Test**: Build a workspace containing a source, two locked iterations, and an unlocked candidate, then choose Save All once and verify that one distinct file for each image is written to the configured directory without further prompts.
+**Independent Test**: Build a locked-image strip containing several panels, retain an existing upscale for one panel but not another, and leave an unlocked candidate on the canvas. Invoke Save All once and verify that one file per locked panel is written to the configured directory, the existing upscale is used where present, the stored filtered image is used otherwise, the unlocked candidate is excluded, and no rendering or upscaling begins.
 
 **Acceptance Scenarios**:
 
-1. GIVEN a configured, writable default save directory and a workspace containing several distinct images
-   WHEN the user invokes Save All once
-   THEN the initial source, every locked iteration, and any current unlocked candidate are each exported once without individual save dialogs.
-2. GIVEN scaling is off
+1. GIVEN a configured, writable default save directory and several panels in the locked-image strip
+   WHEN the user invokes Save All from its button or presses `Cmd+Shift+S`
+   THEN the image represented by every locked panel is saved once without individual save dialogs.
+2. GIVEN a locked panel has an already-produced upscale matching the current display configuration
    WHEN Save All runs
-   THEN each image is exported at its stored resolution.
-3. GIVEN a scale is selected
+   THEN that existing upscaled rendition is saved for the panel.
+3. GIVEN a locked panel has no already-produced upscale matching the current display configuration
    WHEN Save All runs
-   THEN each image is exported at that selected scale, subject to the existing size limit and reduction notice rules.
-4. GIVEN a proposed output name already exists
+   THEN the panel's stored filtered image is saved at its existing resolution.
+4. GIVEN one or more locked panels lack an existing upscale
+   WHEN Save All runs
+   THEN no rendering or upscaling starts and no image represented by a panel is changed.
+5. GIVEN a proposed output name already exists
    WHEN Save All runs
    THEN the existing file is not overwritten and the new output receives a distinct descriptive name.
-5. GIVEN one image cannot be encoded or written
+6. GIVEN one image cannot be encoded or written
    WHEN Save All runs
    THEN the application continues with the remaining images and reports which outputs succeeded and which failed.
-6. GIVEN the canvas is blank
+7. GIVEN there are no panels in the locked-image strip
    WHEN the user looks for Save All
    THEN the action is unavailable and writes nothing.
-7. GIVEN the configured directory has become unavailable or unwritable
+8. GIVEN the configured directory has become unavailable or unwritable
    WHEN Save All is requested
    THEN no output is silently redirected and the user receives a useful error with a route to Settings.
-8. GIVEN Save All exports some images successfully and others fail
+9. GIVEN an upscale, filter, generation, edit, or prior Save All operation is active
+   WHEN the user views the Save All button or command or presses `Cmd+Shift+S`
+   THEN the button and command are disabled and no Save All operation starts.
+10. GIVEN Save All exports some images successfully and others fail
    WHEN the final summary appears
    THEN successfully exported images count as saved and failed images remain unsaved for the existing clear-workspace warning.
 
@@ -142,9 +148,9 @@ A user can type a prompt on a blank canvas and generate a new source picture. On
 
 - Clipboard contents can advertise an image while still being unreadable. The canvas remains unchanged and a useful error is shown.
 - A clipboard shortcut received after canvas state changes is checked against the current state before any import occurs.
-- Save All de-duplicates images that are reachable through more than one workspace role.
-- Save All uses stable ordering: source first, locked iterations from oldest to newest, then an unlocked candidate when present.
-- A generated source is included in Save All in the same position as an imported source.
+- Save All follows the locked-image strip's stable panel order and writes each represented image once.
+- A current unlocked candidate is not included until the user locks it and it becomes a panel.
+- Save All may finish too quickly for progress to be visible. If saving remains visible, it uses the existing single working indicator rather than adding a second progress element.
 - Search text containing only whitespace is cleared in the same way as visible search text when a category is chosen.
 - Provider success with an unreadable result is treated as a failed generation and does not create a source.
 
@@ -156,13 +162,13 @@ A user can type a prompt on a blank canvas and generate a new source picture. On
 - **FR-002**: The application MUST preserve standard `Cmd+C`, `Cmd+V`, Cut, and Select All behaviour inside editable text controls.
 - **FR-003**: Image copy MUST use the image currently displayed on the canvas, including its current upscale when one is displayed.
 - **FR-004**: Image paste MUST be visibly unavailable while the canvas contains a picture. Paste MUST be accepted only while the canvas is blank, MUST accept the same PNG, JPEG, TIFF, and HEIC image types as drag and drop, and MUST enter the same new-source workflow as other imports. Eligibility MUST be re-checked against current canvas state immediately before import.
-- **FR-005**: `Cmd+S` MUST open Save As for any displayed image that the existing Save As control can save.
+- **FR-005**: `Cmd+S` MUST open Save As for the one image currently displayed whenever the existing Save As control can save it.
 - **FR-006**: Save As MUST start in the configured default save directory without bypassing the user's final filename and location choice.
 - **FR-007**: If the configured default save directory is no longer available or writable when Save As opens, Save As MUST start in the resolved Downloads directory.
 - **FR-008**: When Save As falls back from an invalid configured directory, the application MUST report the invalid setting with a route to Settings.
-- **FR-009**: Settings MUST expose and persist one writable default save directory. A new installation MUST default it to the user's resolved Downloads directory.
-- **FR-010**: Save All MUST export, in one invocation and without per-file dialogs, each distinct source, locked iteration, and current unlocked candidate in the active workspace.
-- **FR-011**: Save All MUST apply the current scale choice independently to each exported image and MUST retain the existing size ceiling and reduction reporting.
+- **FR-009**: The existing configured output-folder preference defined by AC73.2 and AC95.4 MUST also serve as Save As's initial directory and Save All's destination. Settings MUST continue to expose and persist that one non-secret folder choice, existing stored choices MUST carry forward unchanged, and a new installation MUST default it to the user's resolved Downloads directory.
+- **FR-010**: Save All MUST save, in one invocation and without per-file dialogs, one file for each image represented by a panel in the locked-image strip, in panel order. It MUST exclude an unlocked candidate and every other image not represented by a locked panel.
+- **FR-011**: For each locked panel, Save All MUST use an already-produced upscale matching the current display configuration when one exists and MUST otherwise use the panel's stored filtered image at its existing resolution. Save All MUST NOT start rendering, filtering, generation, editing, or upscaling.
 - **FR-012**: Save All MUST NOT overwrite an existing file. A colliding output MUST receive a distinct descriptive name derived from the image's role and chain position, without interrupting the batch for a choice.
 - **FR-013**: Save All MUST attempt every eligible image after an individual output failure and MUST report a final saved-and-failed summary.
 - **FR-014**: Each image that Save All exports successfully MUST count as saved for the existing unsaved-work warning; each image whose export fails MUST remain unsaved.
@@ -175,6 +181,9 @@ A user can type a prompt on a blank canvas and generate a new source picture. On
 - **FR-021**: Blank-canvas generation MUST require a non-empty prompt and a configured generation credential.
 - **FR-022**: Existing `Cmd+N`, `Cmd+O`, scale-toggle, face-enhancement, unsaved-work warning, progress presentation, locking, comparison, and single-image Save As behaviour MUST remain unchanged except where this specification explicitly changes Save As command eligibility.
 - **FR-023**: Provider-failure diagnostics MUST NOT contain credentials or image payloads.
+- **FR-024**: Save All MUST be available from one visible button and from `Cmd+Shift+S`. The button, command, and shortcut MUST be unavailable while an upscale, filter, generation, edit, or previous Save All operation is active.
+- **FR-025**: Save All MUST use the existing single working indicator if its file-writing activity remains visible long enough to present progress. It MUST NOT add a second simultaneous working indicator.
+- **FR-026**: When the configured default save directory is unavailable or unwritable, Save All MUST perform no writes, MUST NOT silently redirect output, and MUST report a useful error with a route to Settings.
 
 ### Validation Constraints
 
@@ -183,8 +192,8 @@ A user can type a prompt on a blank canvas and generate a new source picture. On
 
 ### Key Entities
 
-- **Default save directory**: The persistent, writable folder used as Save As's initial location and Save All's direct output destination.
-- **Savable workspace image**: A distinct source, locked iteration, or current unlocked candidate that belongs to the active workspace, together with the current scale choice used for export.
+- **Default save directory**: The existing configured output-folder preference from AC73.2 and AC95.4, used unchanged as Save As's initial location and Save All's direct output destination.
+- **Locked-panel image**: The stored source, promoted minimum-resolution raise, or filtered image represented by one panel in the locked-image strip, together with any already-produced upscale that matches the current display configuration.
 - **Base image**: The model-resolution image from which every non-empty-canvas prompt edit derives, regardless of which derivative is currently displayed.
 - **Prompt operation**: Either a reference-free generation on a blank canvas or a base-referenced edit on a non-empty canvas.
 
@@ -193,16 +202,16 @@ A user can type a prompt on a blank canvas and generate a new source picture. On
 ### Measurable Outcomes
 
 - **SC-001**: In keyboard-driven acceptance tests, `Cmd+C`, `Cmd+V`, and `Cmd+S` each complete their specified image action on the first invocation in every eligible canvas state.
-- **SC-002**: One Save All invocation exports exactly one file for every eligible distinct workspace image, with no additional dialog, and preserves every pre-existing file in the destination.
-- **SC-003**: In a workspace of 25 eligible images whose outputs can be produced successfully, Save All requires one user action and reports 25 successful files.
+- **SC-002**: One Save All invocation saves exactly one file for every locked panel, saves no unlocked candidate, opens no additional dialog, and preserves every pre-existing file in the destination.
+- **SC-003**: In a workspace with 25 locked panels, Save All requires one user action, reports 25 successful files when all writes succeed, and starts zero new image-processing operations.
 - **SC-004**: Choosing a category after entering a search query leaves the search field empty and produces the same visible result set as choosing that category from a fresh panel.
 - **SC-005**: Every controlled blank-canvas request contains zero reference images and targets the default generation operation; every controlled non-empty-canvas request contains exactly the base-image reference and targets the edit operation.
-- **SC-006**: Existing automated checks for new-workspace clearing, unsaved-work warnings, progress display, scale shortcuts, face enhancement, text editing, and image iteration behaviour continue to pass.
+- **SC-006**: Existing automated checks for new-workspace clearing, unsaved-work warnings, progress display, scale shortcuts, face enhancement, text editing, image iteration behaviour, and the unchanged filter-panel search and category rules continue to pass.
 
 ## Assumptions
 
-- "All files" means every distinct image the active workspace currently preserves: its initial source, all locked iterations, and an unlocked candidate when present. Temporary render caches and session metadata are not exported as separate user files.
-- Save All applies the current scale choice to every eligible image. With scaling off, it copies each image at its stored resolution.
+- "All files" means every image represented by the panels currently visible in the locked-image strip. This includes a source panel when the strip presents one. An unlocked candidate, temporary file, and session metadata are excluded.
+- Save All reuses a matching upscale already held for a panel. It does not produce a missing upscale; that panel is saved from its stored filtered image instead.
 - PNG is the Save All output format because it is lossless and needs no per-file format decision. Save As continues to offer PNG and JPEG.
 - Save All writes directly to the configured default save directory. Save As uses that directory only as the dialog's starting location.
 - Downloads remains the safe first-run default because the application already resolves and validates that folder without assembling a private machine path.
@@ -210,10 +219,11 @@ A user can type a prompt on a blank canvas and generate a new source picture. On
 
 ## Brownfield Authority and Scope
 
-- **Requirement authority**: `docs/ACs.org`, including the existing search, copy and paste, saveability, keyboard, and prompt-only acceptance records. Search-focus behaviour preserves the text protected by RT-141.7; clipboard import retains the image types established by Guide 2.2 and migrated ticket #144.
+- **Requirement authority**: `docs/ACs.org`, including the existing search, copy and paste, saveability, keyboard, output-folder, and prompt-only acceptance records. FR-015 adds category-choice clearing on the route formerly used to set up RT-141.7, while FR-016 retains AC141.1 and RT-141.7's focus-only protection: focus clears the category without clearing existing search text. AC73.2 and AC95.4's existing persisted output-folder preference becomes Save As's initial directory and Save All's destination without a second setting or migration. Clipboard import retains the image types established by Guide 2.2 and migrated ticket #144.
 - **Design authority**: `docs/IMPLEMENTATION_GUIDE_v2.md`, especially sections 2.2, 2.4, 2.6, 2.7, and 3.6.
 - **Generation sizing context**: Migrated ticket #148 records that the reference-free Grok operation accepts output sizing while the edit operation does not; blank-canvas routing intentionally retains that distinction.
 - **Current behaviour considered**: the application commands, filter panel, workspace state, generation request construction, settings, and their maintained tests.
-- **Superseded evidence**: Menu-item tests that do not press `Cmd+C`, `Cmd+V`, or `Cmd+S` do not establish shortcut delivery. Tests of request construction alone do not establish that the blank-canvas user journey reaches that request.
+- **Extended saved-state authority**: FR-014 adds Save All as a second route by which a locked iteration counts as saved. AC143.6's displayed-picture Save As route remains unchanged.
+- **Superseded evidence**: Menu-item tests that do not press `Cmd+C`, `Cmd+V`, or `Cmd+S` do not establish shortcut delivery. RT-141.7's focus-preserves-text protection remains authoritative, but its former category-choice setup conflicts with FR-015 and must be replaced by blur and refocus without choosing a category. Tests of request construction alone do not establish that the blank-canvas user journey reaches that request.
 - **Scope boundary**: This feature changes current-workspace interaction and export only. It does not add formats, models, history browsing, multi-window workspaces, or automatic background saving.
 - **Documentation duty**: Delivery must reconcile `docs/IMPLEMENTATION_GUIDE_v2.md`, `docs/ACs.org`, and any current architecture or release-scope statement that would otherwise contradict the delivered paste, Save All, and generation-routing behaviour.

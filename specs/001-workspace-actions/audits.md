@@ -53,6 +53,47 @@
 3. **Advisory retained for design**: Specify Save As encode and write failure behaviour consistently with Save All.
 4. **Advisory retained as a decision**: PNG is the fixed Save All output format unless the human changes that scope decision.
 
+## Specification Amendment Audit
+
+**Audit**: `audit-spec`
+**Provider**: `nous`
+**Model**: `z-ai/glm-5.3-flash`
+
+### Attempt 1
+
+**Artefact revision**: SHA-256 `60fc20e8e8796ac235d31798dff45bd19c8e173db88b17c950a8467e5646104d`
+**Verdict**: FAIL
+**Superseded by**: Attempt 2 after specification revision
+
+1. **Blocking**: The default save directory was not explicitly identified as the existing configured output-folder preference, leaving room for a second setting and undefined migration.
+2. **Advisory**: RT-141.7 was described inaccurately as a category-choice assertion rather than a focus-preserves-text assertion whose setup now conflicts with FR-015.
+3. **Advisory**: The success criteria omitted the maintained filter-panel regression pack.
+4. **Advisory**: The locked-panel entity omitted a promoted minimum-resolution raise that appears in the strip.
+
+### Attempt 2
+
+**Artefact revision**: SHA-256 `7c3ae13fa2318b9048823ecc101d527f34995ba2007c3d446a03313032226fcd`
+**Verdict**: PROVISIONAL
+
+1. **Condition**: Add a numbered functional requirement stating the existing unavailable or unwritable Save All destination scenario's no-write, no-redirect, useful-error, and Settings-route behaviour.
+2. **Advisory retained for planning**: Name AC144.1, AC144.2, and AC144.4 explicitly beside the preserved copy and paste lineage.
+3. **Advisory retained for planning**: State that text-field focus does not suppress `Cmd+S`, because text editing owns no Save command.
+4. **Advisory retained for planning**: Use one defined term for the drop-target state with no working image.
+
+CONDITION_RECEIPT:
+AUDIT: audit-spec
+AUDITED_REVISION: `7c3ae13fa2318b9048823ecc101d527f34995ba2007c3d446a03313032226fcd`
+CORRECTED_REVISION: `f9e0e606f898e9787f23158c286c7310ac4004dac690ba6c06cfffecd39a5580`
+EFFECTIVE_VERDICT: PASS
+
+1. [SATISFIED] Save All's unavailable or unwritable destination rule is a numbered functional requirement. | EVIDENCE: `rg` matched FR-026 at line 186 with the no-write, no-silent-redirect, useful-error, and Settings-route clauses, and `sanitize` plus `git diff --check` reported no defect.
+
+### Amendment Controller Notes
+
+- One auditor response was rejected as malformed because it included a Markdown fence.
+- One audit worker exceeded the controller's 15-minute timeout.
+- These tool failures carried no verdict and did not consume audit attempts.
+
 ## Controller Notes
 
 - Three auditor responses were rejected by the controller as malformed and therefore carried no verdict.
