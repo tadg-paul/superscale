@@ -78,7 +78,7 @@ classification; it is provenance, not current state.
 
 * Work items
 
-** REVIEW W150 - Reliable Workspace Actions :feature:migration:
+** ABANDONED W150 - Reliable Workspace Actions           :feature:migration:
 :PROPERTIES:
 :CUSTOM_ID: w-150
 :LEGACY_ID: 001
@@ -91,13 +91,6 @@ classification; it is provenance, not current state.
 - *Specification:* [[file:archive/sdlc-v2/specs/001-workspace-actions/spec.md][Reliable Workspace Actions]]
 - *Migration evidence:* The specification remains Draft, the final design audit is FAIL with operator decision required, and no operator-authorized delivery, approval, or abandonment record is present.
 
-* Legacy Acceptance Criteria (SDLC v1) :legacy:
-:PROPERTIES:
-:CUSTOM_ID: legacy-acceptance-criteria
-:VISIBILITY: folded
-:END:
-
-{{LEGACY_ACCEPTANCE_CRITERIA}}
 * Legacy Acceptance Criteria (SDLC v1) :legacy:
 :PROPERTIES:
 :CUSTOM_ID: legacy-acceptance-criteria
