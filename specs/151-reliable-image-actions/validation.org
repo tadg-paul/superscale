@@ -1,0 +1,17 @@
+#+TITLE: W151 - Validation Evidence
+#+STARTUP: content
+#+OPTIONS: toc:2 num:nil
+
+* User tests
+
+** UT151.1 - Validate workspace image actions
+:PROPERTIES:
+:CUSTOM_ID: ut-151-1-result
+:END:
+
+- *Criterion:* [[file:spec.org::#ac-151-4][AC151.4 - Save the one displayed image at any resolution]], [[file:spec.org::#ac-151-5][AC151.5 - Invoke Save All as one action]], and [[file:spec.org::#ac-151-8][AC151.8 - Resolve destination access once]].
+- *Category:* User test.
+- *Reviewer:* Operator.
+- *Status:* PENDING
+- *Procedure:* In the built Mac application, apply a FAL filter with scale off and save it with =Cmd+S=. Build a chain containing locks with and without cached upscales, press Save All once, and inspect the configured folder and result message. Repeat Save All with an inaccessible configured folder and cancel its chooser.
+- *Expected:* Save As writes the displayed low-resolution FAL result. Save All responds to one click, performs no visible processing, writes one operator-ranked cached image or stored fallback per lock with no per-file dialogue, reports the result, and cancellation of destination access writes nothing.

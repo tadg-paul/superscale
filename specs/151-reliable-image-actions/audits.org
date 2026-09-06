@@ -1,0 +1,123 @@
+#+TITLE: W151 - Audit Evidence
+#+STARTUP: content
+#+OPTIONS: toc:2 num:nil
+
+* Definition gate
+
+** Local review
+:PROPERTIES:
+:ROUND:    1
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =bf894090f042fadd38945938d4ed74bb3a5df8990aa288187b50c7ff90dae08a=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions=
+- *Verdict:* PASS
+- *Findings:* None. The specification audit found bounded and falsifiable image-action requirements; the design audit found ownership, failure, security, performance, and compatibility addressed against the current architecture; the test-definition audit found every criterion covered through observable application or pure component boundaries without metered automation.
+- *Remediation:* During drafting, clarified the active image while the comparison curtain is visible, assigned each pasteboard shortcut one command owner while retaining labelled image actions, and made RT151.4 prove both unlocked and locked non-upscaled FAL results.
+
+** External review
+:PROPERTIES:
+:CONTEXT:  /root/w151_definition_audit
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =bf894090f042fadd38945938d4ed74bb3a5df8990aa288187b50c7ff90dae08a=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions= in one context
+- *Verdict:* FAIL
+- *Findings:*
+  1. *AC151.6 cached-source precedence:* The stored lock was omitted from the resolution comparison, leaving a smaller custom cache entry ambiguous.
+  2. *AC151.8 unavailable stored folder:* Preference loading discarded the failed stored path in favour of Downloads, so Save All could neither distinguish first run nor request access to the intended folder.
+  3. *Save All snapshot stability:* A cache identity could be evicted or forgotten before export resolved its pixels.
+  4. *Save All lifecycle and concurrency:* Repeat activation and completion after workspace replacement were undefined.
+  5. *RT151.6 no-processing evidence:* A pure planner with unused processing spies could not prove the application action started no local or provider work.
+  6. *User-boundary coverage:* Save As selection and surfaces, the File menu Save All entry, and visible partial-failure reporting had incomplete evidence.
+  7. *UT151.1 validation record:* The required =validation.org= PENDING entry was absent.
+- *Supersedes:* None.
+
+** Local review after external remediation
+:PROPERTIES:
+:ROUND:    2
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =8505faeea6472a594b4859eeaf75e66f66a9f43abf7de76f5ea630f56fca163f=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions=
+- *Verdict:* PASS
+- *Findings:* None. All three local component reviews pass on the remediated revision.
+- *Remediation:*
+  1. Recorded the operator's cached-source precedence explicitly and tested a smaller cached custom rendering against a larger stored lock.
+  2. Preserved AC95.4 while exposing whether Downloads replaced an unavailable stored choice, with separate first-run, permission-denied, and vanished-folder cases.
+  3. Replaced later cache-identity resolution with immutable encoded bytes captured for the batch.
+  4. Added single-flight state, workspace-session identity, and stale-completion behaviour.
+  5. Added application-boundary evidence that Save All neither starts nor awaits local or provider processing.
+  6. Added coverage for active-image Save As, all Save and Save All surfaces, and user-visible partial failures.
+  7. Created =validation.org= with [[file:validation.org::#ut-151-1-result][UT151.1 - Validate workspace image actions]] marked PENDING.
+
+** External review after remediation
+:PROPERTIES:
+:CONTEXT:  /root/w151_definition_audit
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =8505faeea6472a594b4859eeaf75e66f66a9f43abf7de76f5ea630f56fca163f=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions= in the retained context
+- *Verdict:* FAIL
+- *Findings:*
+  1. *First-use access:* AC151.8 did not define the case where default Downloads itself was unwritable until selected in the chooser.
+  2. *Result ownership:* AC151.7 required every result to be reported, but AC151.10 discarded the report after workspace replacement.
+  3. *Executable application tests:* RT151.10 and RT151.11 named a nonexistent application suite under =make test= rather than an existing reachable boundary.
+- *Advisory:* Keep stored-file reads, decoding, PNG encoding, and file writes away from the main actor.
+- *Supersedes:* The preceding FAIL remains part of the audit history.
+
+** Local review after second external remediation
+:PROPERTIES:
+:ROUND:    3
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =7533de4cd9637757db80c7bcf0a176e33632b713506e1900a6a6a88a0a747925=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions=
+- *Verdict:* PASS
+- *Findings:* None. The access cases now include first-run authorization; batch state preserves reporting by refusing every workspace replacement until reconciliation; all application tests use the existing GUI suite and deterministic DEBUG-only seams; and a pure exhaustive action gate covers replacement routes unavailable to XCUITest.
+- *Remediation:*
+  1. Allowed a denied first-run Downloads directory to be selected again and persisted after the chooser grants access.
+  2. Replaced stale-session result suppression with one short single-flight interval that blocks workspace replacement until every batch result is reported and reconciled.
+  3. Assigned partial-failure and no-processing evidence to =make test-gui=, using extensions of the existing GUI test seam, and assigned exhaustive replacement-event refusal to =make test=.
+  4. Adopted the performance advisory by keeping stored-file reads, image decoding, PNG encoding, and exclusive writes away from the main actor.
+
+** External review after second remediation
+:PROPERTIES:
+:CONTEXT:  /root/w151_definition_audit
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =7533de4cd9637757db80c7bcf0a176e33632b713506e1900a6a6a88a0a747925=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions= in the retained context
+- *Verdict:* FAIL
+- *Findings:* AC151.10, RT151.11, and RT151.12 omitted the existing File > Open Recent replacement route, which bypassed the proposed exhaustive gate and application evidence.
+- *Supersedes:* The preceding FAIL findings were remediated; this newly identified route remained blocking.
+
+** Local review after third external remediation
+:PROPERTIES:
+:ROUND:    4
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =238647252cd2d056df2f2bb8b0ad236bb7fc30ca549996ad3cabc96cfe1e23a3=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions=
+- *Verdict:* PASS
+- *Findings:* None. Open Recent is now named in the acceptance criterion, GUI scenario, exhaustive action enumeration, edge case, command-routing design, and failure behaviour.
+- *Remediation:* Route =SuperscaleApp.open(_:)= through a typed =AppCommands= request to the MainView-owned gate, disable its menu while Save All is active, and verify both its application behaviour and its exhaustive pure-gate case.
+
+** External review after third remediation
+:PROPERTIES:
+:CONTEXT:  /root/w151_definition_audit
+:END:
+
+- *Artefact:* [[file:spec.org][W151 - Reliable Image Actions]]
+- *Revision:* SHA-256 =238647252cd2d056df2f2bb8b0ad236bb7fc30ca549996ad3cabc96cfe1e23a3=
+- *Audits:* =audit-spec=, =audit-design=, and =audit-test-definitions= in the retained context
+- *Verdict:* PASS
+- *Findings:* None.
+- *Effective result:* The W151 definition gate is PASS. This is independent audit evidence; operator sign-off remains PENDING.

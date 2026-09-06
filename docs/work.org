@@ -91,6 +91,16 @@ classification; it is provenance, not current state.
 - *Specification:* [[file:archive/sdlc-v2/specs/001-workspace-actions/spec.md][Reliable Workspace Actions]]
 - *Migration evidence:* The specification remains Draft, the final design audit is FAIL with operator decision required, and no operator-authorized delivery, approval, or abandonment record is present.
 
+** REVIEW W151 - Reliable Image Actions                  :feature:defect:
+:PROPERTIES:
+:CUSTOM_ID: w-151
+:PRIORITY: P1
+:SOURCE: operator
+:CREATED: 2026-09-06
+:END:
+
+- *Specification:* [[file:../specs/151-reliable-image-actions/spec.org][W151 - Reliable Image Actions]]
+
 * Legacy Acceptance Criteria (SDLC v1) :legacy:
 :PROPERTIES:
 :CUSTOM_ID: legacy-acceptance-criteria

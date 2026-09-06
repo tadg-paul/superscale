@@ -1,0 +1,506 @@
+#+TITLE: W151 - Reliable Image Actions
+#+SUBTITLE: Unified change specification
+#+STARTUP: overview
+#+OPTIONS: toc:2 num:nil
+#+DEFINITION_GATE: PASS
+#+OPERATOR_SIGNOFF: PENDING
+
+* Specification Summary
+:PROPERTIES:
+:CUSTOM_ID: summary
+:END:
+
+- *Outcome:* The Mac application provides dependable keyboard copy, paste, Save As, and Save All actions for the image workspace.
+- *Before:* Image copy and paste exist as menu actions but their keyboard shortcuts are not behaviourally tested. =Cmd+S= is disabled unless an upscale exists, despite a displayed FAL result being independently saveable. There is no Save All action.
+- *After:* =Cmd+C= copies the displayed image, =Cmd+V= imports an image only onto a blank canvas, =Cmd+S= opens Save As for the one displayed image at any resolution, and =Cmd+Shift+S= saves every locked image from existing files and cached renderings.
+- *Changes:*
+  - Route each keyboard shortcut through the same workspace action as its visible menu command.
+  - Preserve native text copy and paste when an editable control has focus.
+  - Make Save As depend on a displayed image rather than on a completed upscale.
+  - Add a visible Save All button and a =Cmd+Shift+S= File menu action.
+  - Export each locked image from the highest resolution rendering already cached for that lock, falling back to its stored image.
+  - Use the configured output folder, with one directory chooser only when write access is unavailable.
+  - Hold immutable source bytes per batch and refuse overlapping Save All or workspace-replacement actions until the short local export finishes and reports.
+- *Unchanged:* Lock membership and ordering remain owned by the asset graph. Save All never runs an upscale, calls FAL, changes the displayed image, changes a lock, or expands the rendering cache. AC95.4 continues to provide Downloads as the effective first-run and invalid-folder fallback.
+- *Edge cases:* Empty canvases, editable text focus, loaded-canvas paste, non-upscaled FAL results, lower-resolution and equal-resolution cache entries, evicted renderings, first-use permission, vanished configured folders, filename collisions, repeated activation, Open Recent and other attempted workspace replacement, cancelled directory selection, and partial write failures are covered.
+- *Decisions:* Save All is a fast cache-only batch, produces PNG files, never overwrites an existing file, continues after per-file failures, and reports the result.
+- *Next step:* Definition gate, then operator sign-off.
+
+The summary above accurately represents the detailed specification below.
+
+-----
+
+* Context
+:PROPERTIES:
+:CUSTOM_ID: context
+:END:
+
+** Problem
+
+The workspace exposes image copy and paste menu items, but the retained GUI tests invoke those menu items and do not prove that =Cmd+C= or =Cmd+V= reaches them. The File menu's =Cmd+S= command is enabled only when =UpscaleViewModel.result= exists, while the canvas Save As control is available for any =savableImage=. A FAL filter result displayed with no upscale is therefore a primary image-save case that the keyboard command does not serve. The application has no one-action export for all locked iterations.
+
+** Outcome
+
+A user can use standard Mac keyboard actions to copy or import an image without risking the current workspace, save the one image currently displayed regardless of whether it was upscaled, and export all locked work quickly from material already held by the application.
+
+** Scope
+
+*** In scope
+
+- Image =Cmd+C= and =Cmd+V= dispatch, with paste restricted to a blank canvas.
+- Native text copy and paste precedence while an editable control has focus.
+- Save As for exactly the displayed image through =Cmd+S= and the existing visible control.
+- Save All for the current lock-chain snapshot through one visible button, one File menu item, and =Cmd+Shift+S=.
+- Cache-only selection of the highest resolution held rendering for each lock, with stored-image fallback.
+- PNG naming, collision avoidance, directory access fallback, per-file result tracking, and user-visible batch reporting.
+- Stable per-invocation image bytes and single-flight action state for a running batch.
+- Regression tests and one operator user test for the changed interaction.
+- Reconciliation of the current solution design after implementation.
+
+*** Out of scope
+
+- Producing, re-producing, awaiting, or retaining an upscale for Save All.
+- Sending any Save or clipboard action to FAL or another network service.
+- Saving an unlocked candidate as part of Save All.
+- Changing lock-chain membership, ordering, selection, or asset lineage.
+- Increasing the four-entry rendering-cache bound or restoring evicted entries.
+- General batch import, general asset management, undo or redo, and distribution sandboxing.
+- Reviving W150's filter-search or other unrelated workspace scope.
+
+*** Unchanged
+
+- Save As continues to offer PNG and JPEG and lets the user choose one destination filename.
+- A pasted image enters through the existing import path and starts a new chain.
+- Clearing continues to warn for each locked iteration not successfully written during the session.
+- The configured output folder remains a non-secret application preference and defaults to the resolved Downloads directory.
+- AC95.4 remains current: with no stored preference the effective folder is Downloads, and an invalid stored folder still yields Downloads as the effective fallback. Save All additionally retains whether that fallback replaced an operator-selected path, so it can ask rather than silently export there.
+- The current application target remains non-sandboxed. This change does not introduce or claim persistent security-scoped bookmarks.
+
+** Authority and starting point
+
+- *Project profile:* [[file:../../.sdlc/project.yaml][=.sdlc/project.yaml=]]
+- *Requirements authority:* [[file:../../docs/work.org::#w-151][=docs/work.org=, W151]]
+- *Product authority:* [[file:../../docs/VISION.md][=docs/VISION.md=]] and [[file:../../docs/IMPLEMENTATION_GUIDE_v2.md::*2.2 Bringing in an image][=docs/IMPLEMENTATION_GUIDE_v2.md=, sections 2.2, 2.4, 2.6, and 3.9]]
+- *Architecture authority:* [[file:../../docs/ARCHITECTURE.md][=docs/ARCHITECTURE.md=]]
+- *Historical requirement and evidence:* [[file:../../docs/archive/sdlc-v2/specs/001-workspace-actions/spec.md][archived workspace-actions specification]] and [[file:../../docs/archive/sdlc-v2/specs/001-workspace-actions/audits.md][its audit history]]. These are provenance, not current authority.
+- *Current implementation facts:* [[file:../../SuperscaleApp/SuperscaleApp/SuperscaleApp.swift][=SuperscaleApp.swift=]], [[file:../../SuperscaleApp/SuperscaleApp/MainView.swift][=MainView.swift=]], [[file:../../SuperscaleApp/SuperscaleApp/UpscaleViewModel.swift][=UpscaleViewModel.swift=]], [[file:../../Sources/SuperscaleUXCore/RenderingStore.swift][=RenderingStore.swift=]], and [[file:../../Sources/SuperscaleUXCore/GenerationPreferences.swift][=GenerationPreferences.swift=]].
+
+** Constraints and dependencies
+
+- The current lock-chain snapshot from =WorkspaceState.lockedIterations= is the only Save All membership source.
+- Every selected Save All source must be retained as immutable bytes for the lifetime of that batch, independently of cache eviction or later mutation of the source collections.
+- True pixel dimensions, not AppKit point sizes, determine which cached rendering has the highest resolution.
+- Clipboard and save controls must remain keyboard-accessible and discoverable in the native menu structure.
+- Automated tests must use local fixtures and injected file or panel boundaries. They must not make metered calls.
+- The GUI suite requires an undisturbed, awake, unlocked display as documented by the solution design.
+
+** Decisions
+
+- Save As writes the active image selected by the Filtered or Original control, including an un-upscaled FAL filter result or a selected base. When the comparison curtain shows both images, the same selection still identifies the one Save As and Copy use.
+- Save All snapshots locks and eligible cached renderings when invoked. A rendering that completes after that snapshot is not considered by that run.
+- Per the operator's 2026-09-06 direction, any cached rendering for a lock outranks the stored lock image, even when that cached rendering has fewer pixels. Among cached renderings, Save All chooses the greatest pixel area and then the most recently cached when areas tie. It uses the stored lock image only when no rendering for that lock is cached.
+- Save All does not wait for, start, or request processing. Work in flight does not block it.
+- Save All preserves the selected source file's existing stem, including =generated-= or another existing prefix. A cached upscale adds its sizing suffix. All batch outputs are PNG.
+- A collision receives an incrementing numeric suffix. Existing files are never replaced.
+- Save All continues after individual encoding or write failures. It reports successes and failures and marks only successful lock exports as saved.
+- A first run with no stored output-folder preference uses Downloads directly when writable. If Downloads cannot be written, one chooser opens preselected to Downloads; selecting Downloads itself after the panel grants access is valid and persists it as an explicit choice. A valid stored selection is attempted directly. An invalid or inaccessible stored selection triggers one chooser rather than silently exporting to the Downloads fallback. A selected replacement is persisted in Settings; cancellation writes nothing and cancels the batch.
+- A second Save All activation and every route that would replace the workspace are unavailable while a batch is active. The short local batch finishes from its stable snapshot, updates saved state, and reports before those actions become available again.
+
+** Unresolved blockers
+
+- None.
+
+* Acceptance Criteria
+:PROPERTIES:
+:CUSTOM_ID: acceptance-criteria
+:END:
+
+** AC151.1 - Copy the displayed image by keyboard
+:PROPERTIES:
+:CUSTOM_ID: ac-151-1
+:END:
+
+- *Criterion:* Given an image is displayed and no editable control owns the command, =Cmd+C= and the visible Copy Image command place that displayed image on the system pasteboard. Given an empty canvas, image copy is unavailable.
+- *Proven by:* [[#rt-151-1][RT151.1 - Keyboard copy uses the displayed image]].
+
+** AC151.2 - Paste an image only onto a blank canvas
+:PROPERTIES:
+:CUSTOM_ID: ac-151-2
+:END:
+
+- *Criterion:* Given the canvas is blank and the pasteboard contains a supported image, =Cmd+V= and the visible Paste Image command import it through the normal image-import path. Given any image is loaded, image paste is unavailable and a =Cmd+V= image action leaves the image, candidate, and lock chain unchanged.
+- *Proven by:* [[#rt-151-2][RT151.2 - Keyboard paste respects the blank-canvas guard]].
+
+** AC151.3 - Preserve text clipboard actions
+:PROPERTIES:
+:CUSTOM_ID: ac-151-3
+:END:
+
+- *Criterion:* Given an editable text control has focus, =Cmd+C= and =Cmd+V= perform the native text operations and do not invoke workspace image copy or paste.
+- *Proven by:* [[#rt-151-3][RT151.3 - Editable text retains native copy and paste]].
+
+** AC151.4 - Save the one displayed image at any resolution
+:PROPERTIES:
+:CUSTOM_ID: ac-151-4
+:END:
+
+- *Criterion:* Given any image is displayed, including a FAL result with no upscale, =Cmd+S= and Save As open one Save As dialogue for the active image selected by the Filtered or Original control, and the written file contains those pixels. The same selection applies while the comparison curtain shows both images. Cancelling writes nothing. Given an empty canvas, Save As is unavailable.
+- *Proven by:* [[#rt-151-4][RT151.4 - Cmd+S saves a non-upscaled displayed FAL result]], [[#rt-151-9][RT151.9 - Save As follows the active image and every availability surface]], and [[#ut-151-1][UT151.1 - Validate workspace image actions]].
+
+** AC151.5 - Invoke Save All as one action
+:PROPERTIES:
+:CUSTOM_ID: ac-151-5
+:END:
+
+- *Criterion:* Given at least one locked iteration, a visible Save All button, the File menu Save All item, and =Cmd+Shift+S= each start one export of every lock in the invocation snapshot. Given no locks, Save All is unavailable. A writable configured folder causes no per-file dialogue and the action does not change the canvas or lock-chain selection.
+- *Proven by:* [[#rt-151-5][RT151.5 - Save All entry points dispatch one batch]] and [[#ut-151-1][UT151.1 - Validate workspace image actions]].
+
+** AC151.6 - Use only the best material already held
+:PROPERTIES:
+:CUSTOM_ID: ac-151-6
+:END:
+
+- *Criterion:* For every lock in a Save All snapshot, any cached rendering outranks the stored lock image, even when the cached rendering has fewer pixels. Among cached renderings for that lock, the exported source is the one with the greatest true pixel area, using the most recently cached when areas tie. The stored lock image is used only when no rendering is cached. The batch retains the selected pixels independently of later cache eviction or source-collection changes, makes no upscale, generation, filter, upload, or network request, and does not await work in flight.
+- *Proven by:* [[#rt-151-6][RT151.6 - Batch planning selects and retains the operator-ranked cached image]] and [[#rt-151-11][RT151.11 - Save All blocks overlapping work and starts no processing]].
+
+** AC151.7 - Write unique PNG files and retain failure evidence
+:PROPERTIES:
+:CUSTOM_ID: ac-151-7
+:END:
+
+- *Criterion:* Save All writes PNG files whose names retain each selected source stem and identify a cached rendering's sizing. It never replaces an existing destination, adds a numeric suffix on collision, continues after an individual encode or write failure, and reports success and failure counts with the failed outputs identified.
+- *Proven by:* [[#rt-151-7][RT151.7 - Batch export handles naming, collisions, and partial failure]] and [[#rt-151-10][RT151.10 - Partial Save All failure reaches the user]].
+
+** AC151.8 - Resolve destination access once
+:PROPERTIES:
+:CUSTOM_ID: ac-151-8
+:END:
+
+- *Criterion:* Save All uses a writable folder persisted by Settings. A genuine first run with no stored preference uses writable Downloads without a chooser. If first-run Downloads cannot be written, one chooser opens preselected there and may grant access by selecting that same directory. An invalid or inaccessible stored selection presents one chooser before writing rather than silently using the effective Downloads fallback; the chooser starts at the selected directory when it still exists, otherwise at its nearest existing parent. Accepting a writable directory persists it and runs the batch there, while cancelling writes no files and cancels the batch.
+- *Proven by:* [[#rt-151-8][RT151.8 - Destination fallback is single, persistent, and cancellable]] and [[#ut-151-1][UT151.1 - Validate workspace image actions]].
+
+** AC151.9 - Successful exports satisfy the unsaved-work guard
+:PROPERTIES:
+:CUSTOM_ID: ac-151-9
+:END:
+
+- *Criterion:* After Save As or Save All successfully writes a locked iteration, that lock is recorded as saved for the current session. A lock whose export failed remains unsaved, so the existing clear warning still counts it.
+- *Proven by:* [[#rt-151-10][RT151.10 - Partial Save All failure reaches the user]] and [[#rt-151-4][RT151.4 - Cmd+S saves a non-upscaled displayed FAL result]].
+
+** AC151.10 - Keep Save All and workspace replacement single-flight
+:PROPERTIES:
+:CUSTOM_ID: ac-151-10
+:END:
+
+- *Criterion:* While Save All is active, another Save All activation and every Clear, Open Image, Open Recent, paste, drop, or other import route that would replace the workspace are unavailable and defensively refused. No concurrent batch or replacement starts. When export finishes, its success or failure is reported and successful locks are reconciled before those actions become available again.
+- *Proven by:* [[#rt-151-11][RT151.11 - Save All blocks overlapping work and starts no processing]] and [[#rt-151-12][RT151.12 - The action gate rejects every replacement route during Save All]].
+
+* Test Definitions
+:PROPERTIES:
+:CUSTOM_ID: test-definitions
+:END:
+
+** RT151.1 - Keyboard copy uses the displayed image
+:PROPERTIES:
+:CUSTOM_ID: rt-151-1
+:END:
+
+- *Covers:* [[#ac-151-1][AC151.1 - Copy the displayed image by keyboard]].
+- *Boundary:* Running macOS application's keyboard event, canvas display state, and system pasteboard.
+- *Setup:* Launch with local GUI fixtures, load a source whose pixels differ measurably from the fixture FAL result, apply the stubbed filter with scale off, and clear the pasteboard.
+- *Action:* Send =Cmd+C= to the application without selecting the menu item.
+- *Expected:* The pasteboard contains an image matching the displayed FAL fixture rather than the source; after clearing the canvas, Copy Image is unavailable.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.2 - Keyboard paste respects the blank-canvas guard
+:PROPERTIES:
+:CUSTOM_ID: rt-151-2
+:END:
+
+- *Covers:* [[#ac-151-2][AC151.2 - Paste an image only onto a blank canvas]].
+- *Boundary:* Running macOS application's keyboard event, system pasteboard, import seam, and workspace state.
+- *Setup:* Seed the pasteboard with a local image fixture and launch on a blank canvas.
+- *Action:* Send =Cmd+V= directly, establish a lock chain, then send =Cmd+V= again with a different pasteboard image while the canvas is loaded.
+- *Expected:* The first shortcut imports the fixture as a source with no prior chain. The second is unavailable and leaves the displayed image and complete lock chain unchanged.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.3 - Editable text retains native copy and paste
+:PROPERTIES:
+:CUSTOM_ID: rt-151-3
+:END:
+
+- *Covers:* [[#ac-151-3][AC151.3 - Preserve text clipboard actions]].
+- *Boundary:* Running macOS application's first-responder command dispatch and an editable prompt field.
+- *Setup:* Load an image, focus the prompt field, enter and select distinctive text, and seed the pasteboard with different text.
+- *Action:* Use =Cmd+C= and =Cmd+V= while the prompt field retains focus.
+- *Expected:* Copy places selected text on the pasteboard, Paste edits the field, the pasteboard is not replaced by image data, and the workspace image and chain are unchanged.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.4 - Cmd+S saves a non-upscaled displayed FAL result
+:PROPERTIES:
+:CUSTOM_ID: rt-151-4
+:END:
+
+- *Covers:* [[#ac-151-4][AC151.4 - Save the one displayed image at any resolution]] and [[#ac-151-9][AC151.9 - Successful exports satisfy the unsaved-work guard]].
+- *Boundary:* Running macOS application, =Cmd+S=, native Save As dialogue, and filesystem output.
+- *Setup:* Apply the stubbed FAL filter with scale off so its distinctive result is displayed, and prepare a unique temporary destination. Repeat the setup with that FAL result locked.
+- *Action:* Send =Cmd+S= without selecting the menu item and accept the Save As dialogue in the unlocked and locked cases. Invoke it once more and cancel.
+- *Expected:* The command is enabled in both cases, one dialogue opens per invocation, each accepted output decodes to the FAL fixture's pixels and dimensions, the locked case records that lock saved, and cancellation adds no file.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.5 - Save All entry points dispatch one batch
+:PROPERTIES:
+:CUSTOM_ID: rt-151-5
+:END:
+
+- *Covers:* [[#ac-151-5][AC151.5 - Invoke Save All as one action]].
+- *Boundary:* Running application controls and an injected batch-export boundary.
+- *Setup:* Create at least two locked iterations, configure a writable temporary output folder, and record the selected iteration and canvas identity.
+- *Action:* Invoke the visible Save All button, the File menu Save All item, and =Cmd+Shift+S= in separate runs.
+- *Expected:* Each entry point dispatches one batch containing every lock exactly once, presents no save dialogue, leaves the canvas and selection unchanged, and every Save All entry point is unavailable in an empty chain.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.6 - Batch planning selects and retains the operator-ranked cached image
+:PROPERTIES:
+:CUSTOM_ID: rt-151-6
+:END:
+
+- *Covers:* [[#ac-151-6][AC151.6 - Use only the best material already held]].
+- *Boundary:* Save All snapshot builder over lock descriptors, stored files, and a rendering-cache snapshot.
+- *Setup:* Supply several locks: one whose only cached custom rendering has fewer pixels than its stored image, one with lower and higher area cached renderings, one with equal-area entries of different recency, one whose rendering was evicted, and one with an upscale still represented only as in flight.
+- *Action:* Build the immutable export snapshot once, then evict its selected cache entries, replace the supplied lock and cache collections, and complete the formerly in-flight rendering.
+- *Expected:* The snapshot selects the smaller cached custom rendering over its stored lock, selects the greatest-area cache entry where several exist, breaks the equal-area tie by cache recency, and selects the stored lock for the evicted and in-flight cases. Every selected source remains available as stable bytes after eviction and collection replacement, no cache entry is added, and the late completion does not alter the snapshot.
+- *Retention:* Persistent package regression suite under =make test=.
+
+** RT151.7 - Batch export handles naming, collisions, and partial failure
+:PROPERTIES:
+:CUSTOM_ID: rt-151-7
+:END:
+
+- *Covers:* [[#ac-151-7][AC151.7 - Write unique PNG files and retain failure evidence]] and [[#ac-151-9][AC151.9 - Successful exports satisfy the unsaved-work guard]].
+- *Boundary:* Batch-export coordinator with injected image encoder, exclusive file writer, and saved-lock recorder.
+- *Setup:* Plan three outputs with =generated-= source stems, including a cached 4x rendering. Pre-create one intended destination and configure the writer to fail one other output.
+- *Action:* Execute the plan against a unique temporary directory.
+- *Expected:* PNG outputs retain their stems, the cached rendering carries its sizing suffix, the collision receives a numeric suffix without changing the existing file, the third export is attempted after the injected failure, only successful lock identifiers are returned for saved-state reconciliation, and the structured result gives accurate counts and identifies the failed output.
+- *Retention:* Persistent package regression suite under =make test=.
+
+** RT151.8 - Destination fallback is single, persistent, and cancellable
+:PROPERTIES:
+:CUSTOM_ID: rt-151-8
+:END:
+
+- *Covers:* [[#ac-151-8][AC151.8 - Resolve destination access once]].
+- *Boundary:* Output-folder resolver with injected write-access check, directory chooser, preferences store, and batch exporter.
+- *Setup:* Provide four independent preference states: no stored choice with writable Downloads, no stored choice with Downloads initially denied until selected, a stored but permission-denied directory, and a stored path whose directory has vanished. Provide a writable replacement and fakes for chooser, settings persistence, access, and writes.
+- *Action:* Resolve writable first-run Downloads; resolve denied first-run Downloads by accepting that same preselected directory; resolve the permission-denied stored choice with a replacement accepted; then resolve the vanished-path state with the chooser cancelled.
+- *Expected:* Writable first-run Downloads is used without a chooser. Denied first-run Downloads shows one chooser there, accepts the same directory after access is granted, persists it as an explicit choice, and starts one batch. Permission denial on a stored choice shows one chooser at that directory, persists the replacement, and starts one batch there. A vanished selection shows one chooser at its nearest existing parent rather than writing to Downloads; cancellation persists nothing, starts no batch, and writes no files.
+- *Retention:* Persistent package regression suite under =make test=.
+
+** RT151.9 - Save As follows the active image and every availability surface
+:PROPERTIES:
+:CUSTOM_ID: rt-151-9
+:END:
+
+- *Covers:* [[#ac-151-4][AC151.4 - Save the one displayed image at any resolution]].
+- *Boundary:* Running macOS application's Filtered or Original selection, comparison curtain, File menu, canvas Save As control, native dialogue, and output file.
+- *Setup:* Load fixtures whose base, non-upscaled FAL result, and cached upscale have distinct pixels and dimensions.
+- *Action:* Save through the visible canvas control and the File menu while selecting Filtered and Original in turn, repeat with the comparison curtain visible, then clear the canvas.
+- *Expected:* Each written file matches the active selection, not merely the last upscale. The curtain does not change that selection. File menu and canvas control share availability, and both are unavailable on the empty canvas.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.10 - Partial Save All failure reaches the user
+:PROPERTIES:
+:CUSTOM_ID: rt-151-10
+:END:
+
+- *Covers:* [[#ac-151-7][AC151.7 - Write unique PNG files and retain failure evidence]] and [[#ac-151-9][AC151.9 - Successful exports satisfy the unsaved-work guard]].
+- *Boundary:* Running macOS application and XCUITest, using the existing DEBUG-only =SUPERSCALE_UI_TEST_FAIL= seam extended with a one-file Save All failure mode and the existing notice and error presentation state.
+- *Setup:* Launch with a two-lock chain and a writable temporary output folder. Select the Save All failure mode that succeeds for one named output and fails for the other; a control run has no failure mode.
+- *Action:* Invoke Save All through the visible application control in the failure and control runs.
+- *Expected:* The visible error state reports one success and one failure and identifies the failed filename. The successful lock is recorded saved, the failed lock remains unsaved and counted by the clear warning, and an all-success control run uses the notice state instead. No result is left only inside the exporter.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.11 - Save All blocks overlapping work and starts no processing
+:PROPERTIES:
+:CUSTOM_ID: rt-151-11
+:END:
+
+- *Covers:* [[#ac-151-6][AC151.6 - Use only the best material already held]] and [[#ac-151-10][AC151.10 - Keep Save All and workspace replacement single-flight]].
+- *Boundary:* Running macOS application and XCUITest, composed with the existing DEBUG-only local-upscale and generation-service stubs, their accessibility request ledger, and a Save All exporter suspension mode added to the same test seam.
+- *Setup:* Create a lock chain, seed an Open Recent session, start an ordinary stubbed upscale of one locked iteration so its rendering is in flight, record the local and provider request counts exposed to XCUITest, and invoke Save All with its exporter suspended before completion.
+- *Action:* Attempt Save All again; send the Clear and Open Image commands; select the seeded Open Recent entry; send =Cmd+V= with image data on the pasteboard; then release the original export result without completing the in-flight upscale.
+- *Expected:* The second activation starts no batch. The workspace-replacement controls are disabled, defensive command dispatch leaves the chain unchanged, and Save All does not change the recorded local or provider invocation counts or wait for the in-flight upscale. Releasing the exporter presents the aggregate result and reconciles successful locks before Save All and the replacement controls become available again.
+- *Retention:* Persistent GUI regression suite under =make test-gui=.
+
+** RT151.12 - The action gate rejects every replacement route during Save All
+:PROPERTIES:
+:CUSTOM_ID: rt-151-12
+:END:
+
+- *Covers:* [[#ac-151-10][AC151.10 - Keep Save All and workspace replacement single-flight]].
+- *Boundary:* Pure workspace-action gate over Save All, Clear, Open Image, Open Recent, Paste Image, file chooser import, and file-drop events.
+- *Setup:* Put the gate in its saving-all state with a recorder for accepted workspace actions.
+- *Action:* Dispatch a second Save All and every enumerated workspace-replacement event, then finish the batch and dispatch one replacement event again.
+- *Expected:* Every action attempted during the batch is refused and the recorder remains empty. After the batch result has been reconciled and reported, the replacement event is accepted. The enumeration is exhaustive, so adding a replacement action requires this test and the gate switch to be updated.
+- *Retention:* Persistent package regression suite under =make test=.
+
+** UT151.1 - Validate workspace image actions
+:PROPERTIES:
+:CUSTOM_ID: ut-151-1
+:END:
+
+- *Covers:* [[#ac-151-4][AC151.4 - Save the one displayed image at any resolution]], [[#ac-151-5][AC151.5 - Invoke Save All as one action]], and [[#ac-151-8][AC151.8 - Resolve destination access once]].
+- *Reviewer:* Operator.
+- *Procedure:* In the built Mac application, apply a FAL filter with scale off and save it with =Cmd+S=. Build a chain containing locks with and without cached upscales, press Save All once, and inspect the configured folder and result message. Repeat Save All with an inaccessible configured folder and cancel its chooser.
+- *Expected:* Save As writes the displayed low-resolution FAL result. Save All responds to one click, performs no visible processing, writes one operator-ranked cached image or stored fallback per lock with no per-file dialogue, reports the result, and cancellation of destination access writes nothing.
+- *Record:* Write the dated result to =validation.org=.
+
+* Edge Cases
+:PROPERTIES:
+:CUSTOM_ID: edge-cases
+:END:
+
+** A text field owns the standard shortcut
+
+- *Condition:* An editable control has first-responder focus when =Cmd+C= or =Cmd+V= is pressed.
+- *Required behaviour:* Native text editing wins and no image action runs.
+- *Covered by:* [[#ac-151-3][AC151.3 - Preserve text clipboard actions]] and [[#rt-151-3][RT151.3 - Editable text retains native copy and paste]].
+
+** Paste is attempted over existing work
+
+- *Condition:* Any source, candidate, or locked image is loaded when an image paste is requested.
+- *Required behaviour:* Paste is unavailable and the entire workspace remains unchanged, without a warning dialogue.
+- *Covered by:* [[#ac-151-2][AC151.2 - Paste an image only onto a blank canvas]] and [[#rt-151-2][RT151.2 - Keyboard paste respects the blank-canvas guard]].
+
+** The displayed image has no upscale
+
+- *Condition:* A FAL filter result or selected lock is displayed while scale is off or before any upscale completes.
+- *Required behaviour:* Save As remains available and writes that displayed image.
+- *Covered by:* [[#ac-151-4][AC151.4 - Save the one displayed image at any resolution]] and [[#rt-151-4][RT151.4 - Cmd+S saves a non-upscaled displayed FAL result]].
+
+** A lock has no cached rendering
+
+- *Condition:* No rendering for a lock was produced, its rendering was evicted, or its upscale is still in flight at invocation.
+- *Required behaviour:* Save All immediately uses the stored lock image and starts no processing.
+- *Covered by:* [[#ac-151-6][AC151.6 - Use only the best material already held]] and [[#rt-151-6][RT151.6 - Batch planning selects and retains the operator-ranked cached image]].
+
+** Several cached renderings qualify
+
+- *Condition:* More than one cached rendering belongs to the same locked asset.
+- *Required behaviour:* Greatest true pixel area wins. Equal-area entries are resolved by most recent cache admission or access before the snapshot.
+- *Covered by:* [[#ac-151-6][AC151.6 - Use only the best material already held]] and [[#rt-151-6][RT151.6 - Batch planning selects and retains the operator-ranked cached image]].
+
+** A cached rendering is smaller than its stored lock
+
+- *Condition:* A custom cached rendering has fewer pixels than the stored lock image.
+- *Required behaviour:* The cached rendering is exported because the operator ranked any cached rendering above the stored fallback; no replacement rendering is produced.
+- *Covered by:* [[#ac-151-6][AC151.6 - Use only the best material already held]] and [[#rt-151-6][RT151.6 - Batch planning selects and retains the operator-ranked cached image]].
+
+** The configured folder cannot be written
+
+- *Condition:* The persisted output directory is missing or unavailable, or first-run Downloads cannot initially be written.
+- *Required behaviour:* One directory chooser is shown before the batch. Denied first-run Downloads is preselected and may become the explicit persisted choice when selected again after access is granted. A vanished stored path starts at its nearest existing parent and is not silently replaced by Downloads for Save All. Cancellation writes nothing; acceptance persists and uses the chosen folder. A genuine first run still uses Downloads directly when it is writable.
+- *Covered by:* [[#ac-151-8][AC151.8 - Resolve destination access once]] and [[#rt-151-8][RT151.8 - Destination fallback is single, persistent, and cancellable]].
+
+** Some files fail after destination resolution
+
+- *Condition:* Encoding or exclusive creation fails for one planned output after a writable folder was resolved.
+- *Required behaviour:* Other planned exports continue, successful locks become saved, failed locks remain unsaved, and the report identifies both counts and failures. No second directory chooser appears.
+- *Covered by:* [[#ac-151-7][AC151.7 - Write unique PNG files and retain failure evidence]], [[#ac-151-9][AC151.9 - Successful exports satisfy the unsaved-work guard]], [[#rt-151-7][RT151.7 - Batch export handles naming, collisions, and partial failure]], and [[#rt-151-10][RT151.10 - Partial Save All failure reaches the user]].
+
+** The cache changes or workspace replacement is attempted during export
+
+- *Condition:* A cache entry is evicted, a rendering completes, or Clear, Open Image, Open Recent, paste, drop, or import is attempted after a Save All invocation.
+- *Required behaviour:* The active batch finishes from immutable source bytes selected at invocation and does not adopt a late rendering. Every workspace-replacement route is unavailable and defensively refused until the batch reports and reconciles saved state.
+- *Covered by:* [[#ac-151-6][AC151.6 - Use only the best material already held]], [[#ac-151-10][AC151.10 - Keep Save All and workspace replacement single-flight]], [[#rt-151-6][RT151.6 - Batch planning selects and retains the operator-ranked cached image]], [[#rt-151-11][RT151.11 - Save All blocks overlapping work and starts no processing]], and [[#rt-151-12][RT151.12 - The action gate rejects every replacement route during Save All]].
+
+** Save All is invoked again while active
+
+- *Condition:* The button, menu item, or shortcut is activated while a Save All batch is running.
+- *Required behaviour:* Every entry point is unavailable and no second batch starts.
+- *Covered by:* [[#ac-151-10][AC151.10 - Keep Save All and workspace replacement single-flight]], [[#rt-151-11][RT151.11 - Save All blocks overlapping work and starts no processing]], and [[#rt-151-12][RT151.12 - The action gate rejects every replacement route during Save All]].
+
+* Solution Design
+:PROPERTIES:
+:CUSTOM_ID: solution-design
+:END:
+
+** Architecture context
+
+- *Relevant components:* =SuperscaleApp.swift= declares scene commands; =MainView= owns the displayed-image decision and =WorkspaceState=; =WorkspaceState= exposes the ordered lock chain; =UpscaleViewModel= owns AppKit image renderings; =RenderingStore= owns bounded cache identity and recency; =GenerationPreferencesStore= persists the output-folder path.
+- *Ownership boundary:* =SuperscaleUXCore= owns pure export planning, naming, result models, and cache-selection policy. =SuperscaleApp= owns AppKit command routing, pasteboard access, native panels, image encoding, and user-visible reporting. No provider or CLI boundary changes.
+- *Existing pattern:* Scene commands send monotonic requests to =MainView= because the view owns workspace state. Save As and Save All extend that request pattern. The asset graph remains the sole source of lock membership and lineage.
+
+** High-level design
+
+*** Flow
+
+1. A single standard pasteboard command dispatcher owns each =Cmd+C= and =Cmd+V= key equivalent. It gives the focused editable responder first opportunity to handle native Copy or Paste. Without an editable responder, it routes Copy Image or blank-canvas Paste Image to =MainView=. The separately labelled image menu actions remain discoverable but carry no competing key equivalents and invoke the same workspace handlers.
+2. =Cmd+S= and both visible Save As surfaces send one request to =MainView=. The view captures its =displayedImage= and displayed asset URL, then invokes the existing Save As encoder and panel with those explicit values. Availability is based on =displayedImage=.
+3. Save All sets =isSavingAll= before capturing the ordered =lockedIterations= and a read-only rendering-cache snapshot. A pure selector ranks only cache entries belonging to each lock, then uses the stored lock when none exists. Cached encoded bytes are copied into the plan immediately; stored-file reads and any required decoding occur on a non-main executor. Every selected source is immutable batch data before export proceeds, so cache eviction and later source changes cannot remove the selected pixels.
+4. The destination resolver distinguishes no stored preference, an available stored preference, and an unavailable stored preference. It uses Downloads directly for the first case only when writable. Denied first-run Downloads or an unavailable operator selection presents one directory chooser before export, preselected at that directory or its nearest existing parent. Selecting the same Downloads directory after access is granted is valid. Cancellation returns a cancelled result with no writes. Acceptance persists the selected folder and continues.
+5. On a non-main executor, the exporter decodes and writes each immutable source, allocates a unique PNG name by exclusive creation, continues after individual failures, and returns successful lock identifiers plus structured failures. The main actor owns panels, action availability, saved-state reconciliation, and reporting. It rejects overlapping Save All and workspace-replacement dispatch, applies every batch result, then clears =isSavingAll= and re-enables those actions.
+
+*** Interfaces and configuration
+
+- *Command interface:* Extend =AppCommands= with monotonic Save As and Save All requests, a typed Open Recent request, and shared saving-all availability. =SuperscaleApp.open(_:)= submits Open Recent to =MainView= instead of calling =viewModel.upscale(_:)= directly, so the same gate owns every replacement route. Define exactly one key-equivalent owner for =Cmd+C=, =Cmd+V=, =Cmd+S=, and =Cmd+Shift+S=. Keep Copy Image, Paste Image, Save As, and Save All discoverable in menus, but do not assign duplicate key equivalents. Place the visible Save All button beside Save As on the canvas toolbar.
+- *Displayed save input:* Save As accepts an explicit image and source URL captured from =MainView= rather than recomputing what is displayed from =UpscaleViewModel.result=.
+- *Cache snapshot:* Expose immutable cached-rendering descriptors containing asset identity, true pixel size, sizing label, recency, and encoded image bytes. Preserve the bytes supplied by the existing upscale result at cache admission. Reading a snapshot neither touches cache recency nor invokes the asynchronous producer.
+- *Batch plan:* A value type contains, for each lock, immutable source bytes, pixel size, source stem, optional sizing suffix, and fixed PNG format. Cached bytes are copied from the main-actor cache snapshot. Stored lock files are read into the same immutable form on a non-main executor while replacement actions remain blocked.
+- *Batch result:* A value type returns successful lock identifiers, output URLs, and failures carrying lock identity, intended filename, and sanitized local error text.
+- *Destination interface:* A resolver accepts output-folder intent with three states, =defaultDownloads=, =storedAvailable(URL)=, and =storedUnavailable(URL)=, plus injected access and chooser boundaries. It returns a writable URL or cancellation before export begins.
+- *Configuration:* Keep the existing persisted path key. Extend preference loading to expose both AC95.4's effective fallback and whether a raw stored selection became unavailable, rather than discarding that distinction. An accepted fallback directory replaces the existing output-folder preference and clears the unavailable state.
+- *Execution interface:* Main-actor code captures UI-owned metadata and cached =Data=, presents any native panel, and consumes the structured result. An injected worker executes stored-file reads, image decoding, PNG encoding, and exclusive file writes away from the main actor.
+- *Action-gate interface:* =SuperscaleUXCore= exposes an exhaustive workspace-action enumeration, including Open Recent, and a pure saving-all gate. Every Save All and workspace-replacement handler consults it before changing state; the same result drives control availability where a visible control exists. Scene-owned Open Recent routes through =AppCommands= to the =MainView= handler rather than bypassing the gate.
+- *GUI test interface:* Extend the existing DEBUG-only =SUPERSCALE_UI_TEST_FAIL= and test-root support with deterministic one-file failure and suspended-export modes plus accessibility-visible action and request state. Release builds cannot activate these modes.
+- *Compatibility:* Existing menu and canvas actions remain. Save As retains PNG and JPEG choices. Existing =savedSourceURLs= semantics are extended to successful batch outputs.
+
+*** Data and state
+
+- Associate cached renderings with the lock asset's stable identity. Do not infer association from whichever image is currently displayed.
+- Store true pixel width and height and immutable encoded bytes with each cached rendering descriptor at admission. Within the eligible cache set, use pixel area for selection and preserve recency as the deterministic tie-breaker. The stored lock participates only as fallback, not in the area comparison.
+- Keep the rendering-cache bound at four. Snapshotting copies selected value data and does not pin, recreate, admit, or later resolve an entry.
+- Retain the existing output-folder path key and AC95.4 effective fallback. Preserve the transient distinction between no selection and an unavailable stored selection. No credential, bookmark, image content, or export history is added to preferences.
+- Record successful Save As and Save All sources in the session's saved-lock set. Do not mark planned or failed outputs saved.
+- Hold an =isSavingAll= state from before snapshot capture through saved-state reconciliation and visible reporting. All Save All and workspace-replacement entry points derive their enabled state from that condition and repeat the guard at dispatch.
+
+*** Failure behaviour
+
+- Empty-canvas Copy and Save commands and loaded-canvas image Paste are unavailable. The action layer repeats state guards so a delayed request cannot bypass them.
+- A directory-access failure is resolved once before writing. Cancellation is a non-error cancelled result and produces no files.
+- A filename is allocated with an exclusive create operation. If the candidate exists, retry with the next numeric suffix. Never use overwrite semantics.
+- An individual read, decode, encode, or write failure is attached to that lock and does not abort later locks.
+- A stored-lock read that fails during snapshot construction is retained as that lock's failure while other sources continue. If no source can be captured, report the failures without presenting a destination chooser.
+- An all-success result uses the existing notice surface. A partial or total failure uses the existing single error surface with counts and failed filenames, without paths outside the selected folder or image data.
+- Save All does not retry failed processing because it invokes no processing. It does not switch to a lower-resolution source after a selected cached rendering fails to encode; that lock is reported failed rather than silently exporting different pixels.
+- A repeated Save All request while =isSavingAll= is true is ignored defensively as well as disabled in the interface.
+- Clear, Open Image, Open Recent, paste, drop, and import controls are disabled while =isSavingAll=, and their action handlers refuse delayed dispatch. The batch always reports its result and reconciles successful locks before those routes are re-enabled.
+
+** Architecture impact
+
+*** Security impact
+
+- *Threat boundary:* No network or provider boundary changes. The only changed trust boundary is writing multiple user-requested image files to one configured local directory.
+- *Data and secrets:* Image pixels are copied only to the system pasteboard or the selected local destination. Reports contain output names and sanitized local errors, never credentials or image bytes.
+- *Access:* Use only the configured or interactively selected directory. Do not widen filesystem access. The present non-sandboxed target needs no security-scoped bookmark; sandbox enablement remains separate distribution work.
+- *Conclusion:* Resolve directory access once, honour cancellation before writes, allocate files exclusively, and never overwrite user data.
+
+*** Other relevant qualities
+
+- *Reliability:* Immutable source bytes prevent cache eviction or late completion from altering a running batch. Blocking every workspace-replacement route preserves the batch's saved-state and reporting target. Single-flight dispatch prevents overlapping batches. Per-file isolation preserves successful exports when another fails.
+- *Performance:* Save All performs bounded cache lookup plus local decoding, PNG encoding, and writes. Stored-file reads, decoding, encoding, and writes execute away from the main actor. It starts no Core ML or provider work and presents no per-file panels.
+- *Operability:* Existing notice and error surfaces report aggregate results. No deployment, migration, service, or monitoring change is required.
+- *Accessibility:* Save All is a labelled button and menu item with an accessibility identifier, enabled state, and visible result. Keyboard shortcuts are named in menus. Text first-responder behaviour is preserved.
+- *Portability:* The changed application behaviour is macOS-specific. Pure planner and exporter policy remain platform-neutral within =SuperscaleUXCore=.
+- *Maintainability:* One command route per shortcut and a pure planner keep UI dispatch, cache choice, and file writing independently testable.
+
+* Delivery Handoff
+:PROPERTIES:
+:CUSTOM_ID: delivery-handoff
+:END:
+
+- *Required reading:* [[file:../../docs/IMPLEMENTATION_GUIDE_v2.md::*2.2 Bringing in an image][=docs/IMPLEMENTATION_GUIDE_v2.md=, sections 2.2, 2.4, 2.6, 3.2, 3.9, and 7]], [[file:../../docs/ARCHITECTURE.md][=docs/ARCHITECTURE.md=]], [[file:../../SuperscaleApp/SuperscaleApp/SuperscaleApp.swift][=SuperscaleApp.swift=]], [[file:../../SuperscaleApp/SuperscaleApp/MainView.swift][=MainView.swift=]], [[file:../../SuperscaleApp/SuperscaleApp/UpscaleViewModel.swift][=UpscaleViewModel.swift=]], [[file:../../Sources/SuperscaleUXCore/RenderingStore.swift][=RenderingStore.swift=]], and [[file:../../Sources/SuperscaleUXCore/GenerationPreferences.swift][=GenerationPreferences.swift=]].
+- *First implementation step:* Write [[#rt-151-3][RT151.3 - Editable text retains native copy and paste]] and [[#rt-151-1][RT151.1 - Keyboard copy uses the displayed image]], then observe the expected RED results before changing command dispatch.
+- *Definition evidence:* [[file:audits.org][=audits.org=]]
+- *Validation evidence:* =validation.org= when [[#ut-151-1][UT151.1 - Validate workspace image actions]] is executed.
+- *Documentation impact:* During delivery, update =docs/IMPLEMENTATION_GUIDE_v2.md= sections 2.2, 2.4, 2.6, 3.9, and 7 for the delivered command routing, displayed-image Save As, cache-only Save All policy, and regression boundaries. Update =docs/ARCHITECTURE.md= only if implementation changes the documented module or state ownership. README has no current image-action contract and needs no change unless delivery adds one.
