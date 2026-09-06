@@ -4,8 +4,6 @@
 
 **Created**: 2026-09-04
 
-**Status**: Draft
-
 **Input**: User description: "Deliver working Cmd+C and Cmd+V image actions, make Cmd+S open Save As for one displayed file, add one-click Save All for the existing images represented by locked panels using a configured default directory and no new rendering or upscaling, clear search text when a filter category is chosen, and route an empty-canvas prompt through the default Grok generation operation while every non-empty-canvas prompt remains an edit of the base image."
 
 ## User Scenarios & Testing *(mandatory)*

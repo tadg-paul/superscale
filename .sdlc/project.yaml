@@ -1,0 +1,35 @@
+authorities:
+    architecture:
+        - docs/ARCHITECTURE.md
+    product:
+        - README.md
+        - docs/VISION.md
+    requirements:
+        - docs/work.org
+delivery:
+    audit:
+        harness: codex
+    build:
+        harness: codex
+        model: gpt-5.6-terra
+        provider: openai
+    definition:
+        harness: codex
+        model: gpt-5.6-sol
+        provider: openai
+infrastructure:
+    role: none
+migration:
+    archive_branch: sdlc_v2_state_2026-09-06
+    branch: sdlc-v3-migration-2026-09-06
+    date: "2026-09-06"
+project:
+    kind: application
+    migration_source: v2
+    primary_branch: master
+standards:
+    technologies:
+        - PYTHON
+        - SWIFT
+        - SHELL
+version: 3
